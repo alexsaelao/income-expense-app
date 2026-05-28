@@ -1,0 +1,68 @@
+<script setup lang="ts">
+import type { TransactionInput } from '~/composables/useMoneyNote'
+import { useMoneyNote } from '~/composables/useMoneyNote'
+
+const route = useRoute()
+const router = useRouter()
+const { getTransaction, updateTransaction, removeTransaction } = useMoneyNote()
+
+const transaction = computed(() => getTransaction(String(route.params.id)))
+
+function handleSubmit(payload: TransactionInput) {
+  if (!transaction.value) return
+  updateTransaction(transaction.value.id, payload)
+  router.push('/transactions')
+}
+
+function handleDelete() {
+  if (!transaction.value) return
+  removeTransaction(transaction.value.id)
+  router.push('/transactions')
+}
+</script>
+
+<template>
+  <div class="space-y-5 pb-4">
+    <section class="flex items-start justify-between gap-3">
+      <div>
+        <p class="text-sm font-medium text-muted">Edit mode</p>
+        <h1 class="mt-1 text-3xl font-black tracking-tight text-default">Transaction details</h1>
+        <p class="mt-2 text-sm leading-6 text-muted">Update the amount, wallet, note, or type in one place.</p>
+      </div>
+
+      <UButton
+        icon="i-lucide-arrow-left"
+        variant="ghost"
+        color="neutral"
+        size="lg"
+        class="rounded-2xl"
+        to="/transactions"
+      />
+    </section>
+
+    <UCard v-if="transaction" class="overflow-hidden border border-white/60 bg-white/85 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-slate-950/80">
+      <div class="mb-5 flex items-center justify-between rounded-[1.5rem] bg-slate-100 p-4 dark:bg-slate-900">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted">Transaction ID</p>
+          <p class="mt-1 font-mono text-sm text-default">{{ transaction.id }}</p>
+        </div>
+        <UBadge color="primary" variant="soft" class="rounded-full">{{ transaction.currency }}</UBadge>
+      </div>
+
+      <TransactionForm
+        mode="edit"
+        :initial-transaction="transaction"
+        submit-label="Save changes"
+        @submit="handleSubmit"
+        @delete="handleDelete"
+      />
+    </UCard>
+
+    <UCard v-else class="border border-dashed border-slate-300 bg-white/70 p-8 text-center dark:border-slate-700 dark:bg-slate-950/70">
+      <UIcon name="i-lucide-file-question" class="mx-auto size-10 text-muted" />
+      <h2 class="mt-4 text-lg font-black text-default">Transaction not found</h2>
+      <p class="mt-2 text-sm text-muted">The item may have been deleted already.</p>
+      <UButton class="mt-5 rounded-2xl" to="/transactions">Back to history</UButton>
+    </UCard>
+  </div>
+</template>

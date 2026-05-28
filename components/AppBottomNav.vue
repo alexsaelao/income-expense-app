@@ -1,0 +1,88 @@
+<script setup lang="ts">
+const route = useRoute()
+
+const items = [
+  { label: 'Home', to: '/', icon: 'i-lucide-home' },
+  { label: 'Transactions', to: '/transactions', icon: 'i-lucide-receipt-text' },
+  { label: 'Add', to: '/add', icon: 'i-lucide-plus' },
+  { label: 'Wallets', to: '/wallets', icon: 'i-lucide-wallet' },
+  { label: 'Settings', to: '/settings', icon: 'i-lucide-settings' }
+]
+
+const leftItems = items.slice(0, 2)
+const addItem = items[2]
+const rightItems = items.slice(3)
+
+function isActive(path: string) {
+  if (path === '/') return route.path === '/'
+  return route.path === path || route.path.startsWith(`${path}/`)
+}
+</script>
+
+<template>
+  <nav class="fixed inset-x-0 bottom-0 z-30 transform-gpu">
+    <div class="relative border-t border-white/50 bg-white/85 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] shadow-[0_-16px_52px_-42px_rgba(15,23,42,0.55)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90">
+      <div class="grid w-full grid-cols-5 items-end gap-1 px-3 pt-1.5 md:mx-auto md:max-w-md">
+        <NuxtLink
+          v-for="item in leftItems"
+          :key="item.to"
+          :to="item.to"
+          class="group relative flex flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-center transition active:scale-95"
+          :class="isActive(item.to) ? 'text-primary' : 'text-muted'"
+        >
+          <div
+            class="flex size-8 items-center justify-center rounded-2xl transition"
+            :class="isActive(item.to) ? 'bg-primary/10 text-primary' : 'bg-transparent text-muted group-active:bg-slate-200/60 dark:group-active:bg-slate-800/80'"
+          >
+            <UIcon :name="item.icon" class="size-[18px]" />
+          </div>
+          <span class="text-[10.5px] font-semibold leading-none">{{ item.label }}</span>
+
+          <span
+            v-if="isActive(item.to)"
+            class="absolute inset-x-3 -bottom-0.5 h-1 rounded-full bg-primary/75"
+          />
+        </NuxtLink>
+
+        <NuxtLink
+          :to="addItem.to"
+          class="group relative flex flex-col items-center justify-center gap-0 rounded-2xl px-1 py-1 text-center transition active:scale-95"
+          :class="isActive(addItem.to) ? 'text-primary' : 'text-muted'"
+        >
+          <div
+            class="flex size-13 items-center justify-center rounded-full border-4 border-white/90 bg-gradient-to-br text-white shadow-[0_16px_44px_-18px_rgba(14,165,233,0.85)] transition"
+            :class="isActive(addItem.to) ? 'from-sky-500 to-cyan-400' : 'from-sky-500 to-cyan-400 group-active:scale-95'"
+          >
+            <UIcon :name="addItem.icon" class="size-6.5" />
+          </div>
+
+          <span
+            v-if="isActive(addItem.to)"
+            class="absolute inset-x-3 -bottom-0.5 h-1 rounded-full bg-primary/75"
+          />
+        </NuxtLink>
+
+        <NuxtLink
+          v-for="item in rightItems"
+          :key="item.to"
+          :to="item.to"
+          class="group relative flex flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-center transition active:scale-95"
+          :class="isActive(item.to) ? 'text-primary' : 'text-muted'"
+        >
+          <div
+            class="flex size-8 items-center justify-center rounded-2xl transition"
+            :class="isActive(item.to) ? 'bg-primary/10 text-primary' : 'bg-transparent text-muted group-active:bg-slate-200/60 dark:group-active:bg-slate-800/80'"
+          >
+            <UIcon :name="item.icon" class="size-[18px]" />
+          </div>
+          <span class="text-[10.5px] font-semibold leading-none">{{ item.label }}</span>
+
+          <span
+            v-if="isActive(item.to)"
+            class="absolute inset-x-3 -bottom-0.5 h-1 rounded-full bg-primary/75"
+          />
+        </NuxtLink>
+      </div>
+    </div>
+  </nav>
+</template>
