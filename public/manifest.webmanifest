@@ -1,0 +1,41 @@
+{
+  "id": "/",
+  "name": "Income Expense Note",
+  "short_name": "Money Note",
+  "description": "A mobile-first personal finance PWA for recording income, expenses, transfers, loans, wallets, and reports.",
+  "theme_color": "#0ea5e9",
+  "background_color": "#0f172a",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "start_url": "/",
+  "scope": "/",
+  "lang": "th",
+  "dir": "ltr",
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

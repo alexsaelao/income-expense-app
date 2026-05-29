@@ -12,12 +12,10 @@ function handleSubmit(payload: TransactionInput) {
 </script>
 
 <template>
-  <div class="space-y-5 pb-4">
-    <section class="flex items-center justify-between gap-3">
-      <div>
-        <p class="text-sm font-medium text-muted">Quick capture</p>
+  <div class="space-y-4 pb-8">
+    <section class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
         <h1 class="mt-1 text-3xl font-black tracking-tight text-default">Add transaction</h1>
-        <p class="mt-2 text-sm leading-6 text-muted">Create income, expense, move, or loan records with large mobile-friendly inputs.</p>
       </div>
 
       <UButton

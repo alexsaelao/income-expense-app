@@ -3,6 +3,9 @@ const route = useRoute()
 const router = useRouter()
 const { selectedLanguage } = useAppLanguage()
 const { isStandalone } = usePwaDisplayMode()
+const { authReady, isAuthenticated, hydrateAuth } = useDeviceAuth()
+
+const isAuthPage = computed(() => route.path === '/login' || route.path === '/register')
 
 useHead(() => ({
   htmlAttrs: {
@@ -13,7 +16,23 @@ useHead(() => ({
 onMounted(() => {
   if (import.meta.server) return
 
-  if (isStandalone.value && route.path !== '/') {
+  hydrateAuth()
+})
+
+watchEffect(() => {
+  if (!authReady.value) return
+
+  if (!isAuthenticated.value && !isAuthPage.value) {
+    router.replace('/login')
+    return
+  }
+
+  if (isAuthenticated.value && isAuthPage.value) {
+    router.replace('/')
+    return
+  }
+
+  if (isAuthenticated.value && isStandalone.value && route.path !== '/' && route.path !== '/login') {
     router.replace('/')
   }
 })
@@ -21,12 +40,17 @@ onMounted(() => {
 
 <template>
   <div class="app-shell relative overflow-x-hidden">
-    <main class="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-[calc(env(safe-area-inset-bottom)+6.75rem)] pt-[calc(env(safe-area-inset-top)+0.75rem)]">
-      <AppInstallBanner />
+    <main
+      class="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-4"
+      :class="isAuthPage
+        ? 'justify-center pb-8 pt-6'
+        : 'pb-[calc(env(safe-area-inset-bottom)+6.75rem)] pt-[calc(env(safe-area-inset-top)+0.75rem)]'"
+    >
+      <AppInstallBanner v-if="!isAuthPage" />
       <slot />
     </main>
 
-    <AppBottomNav />
-    <AppFloatingAction />
+    <AppBottomNav v-if="!isAuthPage" />
+    <AppFloatingAction v-if="!isAuthPage" />
   </div>
 </template>

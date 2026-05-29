@@ -1,8 +1,32 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+@font-face {
+  font-family: 'Google Sans Local';
+  src: url('/fonts/GoogleSans-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Local';
+  src: url('/fonts/GoogleSans-Medium.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Google Sans Local';
+  src: url('/fonts/GoogleSans-Bold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 @theme static {
-  --font-sans: 'Avenir Next', 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  --font-sans: 'Google Sans Local', 'Avenir Next', 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
 
   --color-brand-50: #eff6ff;
   --color-brand-100: #dbeafe;
@@ -47,6 +71,17 @@ body {
   touch-action: manipulation;
 }
 
+html[lang="lo"] body {
+  font-family:
+    'Google Sans Local',
+    'Noto Sans Lao',
+    'Phetsarath OT',
+    'Lao UI',
+    'Saysettha OT',
+    system-ui,
+    sans-serif;
+}
+
 html.dark body {
   background-color: #020617;
   color: rgb(226 232 240);
@@ -86,4 +121,19 @@ html.dark body {
 
 .app-shell {
   min-height: 100vh;
+}
+
+@keyframes mascot-bob {
+  0%, 100% {
+    transform: translateX(-50%) translateY(-50%) rotate(0deg);
+  }
+
+  50% {
+    transform: translateX(-50%) translateY(calc(-50% - 6px)) rotate(-2deg);
+  }
+}
+
+.mascot-bob {
+  animation: mascot-bob 3.8s ease-in-out infinite;
+  transform-origin: center top;
 }

@@ -2,6 +2,7 @@
 import { typeOptions, useMoneyNote } from '~/composables/useMoneyNote'
 import type { CurrencyCode, Transaction } from '~/composables/useMoneyNote'
 
+const { selectedLanguage } = useAppLanguage()
 const { wallets, filterTransactions, groupTransactions, removeTransaction, enabledCurrencyOptions, formatCurrency } = useMoneyNote()
 
 const searchDraft = ref('')
@@ -13,14 +14,116 @@ const fromDate = ref('')
 const toDate = ref('')
 const deleteConfirmOpen = ref(false)
 const deleteTarget = ref<Transaction | null>(null)
-const datePresets = [
-  { label: 'Today', value: 'today' },
-  { label: 'Yesterday', value: 'yesterday' },
-  { label: 'This week', value: 'this-week' },
-  { label: 'Last week', value: 'last-week' },
-  { label: 'This month', value: 'this-month' },
-  { label: 'Last month', value: 'last-month' }
-] as const
+const filtersOpen = ref(false)
+const transactionsCopy = computed(() => {
+  if (selectedLanguage.value === 'lo') {
+    return {
+      title: 'ທຸລະກຳ',
+      searchFilters: 'ຊອກຫາ ແລະ ຕົວກອງ',
+      quickDatesAndFilters: 'ຕົວກອງໄວ ແລະ ລາຍການ',
+      hide: 'ຊ່ອນ',
+      show: 'ແສດງ',
+      search: 'ຊອກຫາ',
+      searchPlaceholder: 'ຊອກຫາຫມາຍເຫດ, ປະເພດ, ຫຼື ບຸກຄົນ',
+      type: 'ປະເພດ',
+      wallet: 'ກະເປົ໋າ',
+      currency: 'ເງິນຕາ',
+      from: 'ຈາກ',
+      to: 'ຮອດ',
+      allTypes: 'ທຸກປະເພດ',
+      allWallets: 'ກະເປົ໋າທັງໝົດ',
+      allCurrencies: 'ທຸກເງິນຕາ',
+      selectDate: 'ເລືອກວັນທີ',
+      customDate: 'ວັນທີກຳນົດເອງ',
+      allTime: 'ທຸກຊ່ວງເວລາ',
+      today: 'ມື້ນີ້',
+      yesterday: 'ວານນີ້',
+      thisWeek: 'ອາທິດນີ້',
+      lastWeek: 'ອາທິດກ່ອນ',
+      thisMonth: 'ເດືອນນີ້',
+      lastMonth: 'ເດືອນກ່ອນ',
+      clearFilter: 'ລ້າງຕົວກອງ',
+      items: 'ລາຍການ',
+      noTransactions: 'ບໍ່ພົບທຸລະກຳ',
+      addTransaction: 'ເພີ່ມທຸລະກຳ',
+      deleteTitle: 'ລຶບທຸລະກຳ',
+      deleteConfirmTitle: 'ຢືນຢັນການລຶບ',
+      deleteConfirmDesc: 'ການລຶບນີ້ຈະລົບລາຍການທັນທີ ແລະ ປັບຍອດກະເປົ໋າໃຫ້ໃໝ່.',
+      emptyStateDesc: 'ລອງປ່ຽນຕົວກອງ ຫຼື ເພີ່ມລາຍການໃໝ່.',
+      deleteImpact: 'ການລຶບນີ້ຈະອັບເດດຍອດກະເປົ໋າທີ່ກ່ຽວຂ້ອງທັນທີ.',
+      transactionEntry: 'ລາຍການທຸລະກຳ',
+      cancel: 'ຍົກເລີກ',
+      delete: 'ລຶບ',
+      edit: 'ແກ້ໄຂ',
+      addIcon: 'ເພີ່ມ',
+    quickDates: 'ວັນທີໄວ'
+    }
+  }
+
+  return {
+    title: 'Transactions',
+    searchFilters: 'Search & filters',
+    quickDatesAndFilters: 'Quick dates & list filters',
+    hide: 'Hide',
+    show: 'Show',
+    search: 'Search',
+    searchPlaceholder: 'Search note, category, or person',
+    type: 'Type',
+    wallet: 'Wallet',
+    currency: 'Currency',
+    from: 'From',
+    to: 'To',
+    allTypes: 'All types',
+    allWallets: 'All wallets',
+    allCurrencies: 'All currencies',
+    selectDate: 'Select date',
+    customDate: 'Custom date',
+    allTime: 'All time',
+    today: 'Today',
+    yesterday: 'Yesterday',
+    thisWeek: 'This week',
+    lastWeek: 'Last week',
+    thisMonth: 'This month',
+    lastMonth: 'Last month',
+    clearFilter: 'Clear filter',
+    items: 'items',
+    noTransactions: 'No transactions found',
+    addTransaction: 'Add transaction',
+    deleteTitle: 'Delete transaction',
+    deleteConfirmTitle: 'Delete transaction',
+    deleteConfirmDesc: 'This will remove the record immediately and recalculate wallet balances.',
+    emptyStateDesc: 'Try changing the filters or create a new entry.',
+    deleteImpact: 'Deleting this transaction will update the linked wallet balances immediately.',
+    transactionEntry: 'Transaction entry',
+    cancel: 'Cancel',
+    delete: 'Delete',
+    edit: 'Edit',
+    addIcon: 'Add',
+    quickDates: 'Quick dates'
+  }
+})
+
+const datePresets = computed(() => [
+  { label: transactionsCopy.value.today, value: 'today' },
+  { label: transactionsCopy.value.yesterday, value: 'yesterday' },
+  { label: transactionsCopy.value.thisWeek, value: 'this-week' },
+  { label: transactionsCopy.value.lastWeek, value: 'last-week' },
+  { label: transactionsCopy.value.thisMonth, value: 'this-month' },
+  { label: transactionsCopy.value.lastMonth, value: 'last-month' }
+] as const)
+
+const localizedTypeOptions = computed(() => {
+  if (selectedLanguage.value === 'lo') {
+    return [
+      { label: 'ລາຍຮັບ', value: 'income' as const },
+      { label: 'ລາຍຈ່າຍ', value: 'expense' as const },
+      { label: 'ໂອນ', value: 'move' as const },
+      { label: 'ກູ້ຢືມ', value: 'loan' as const }
+    ]
+  }
+
+  return typeOptions
+})
 
 const filterCards = computed(() => groupTransactions(filterTransactions({
   search: appliedSearch.value,
@@ -42,14 +145,34 @@ const hasActiveFilters = computed(() => Boolean(
 ))
 
 const walletItems = computed(() => [
-  { label: 'All wallets', value: 'all' },
+  { label: transactionsCopy.value.allWallets, value: 'all' },
   ...wallets.value.map(wallet => ({ label: `${wallet.emoji} ${wallet.name}`, value: wallet.id }))
 ])
 
-function formatDateLabel(value: string) {
-  if (!value) return 'Select date'
+const filterSummary = computed(() => {
+  const typeLabel = selectedType.value === 'all'
+    ? transactionsCopy.value.allTypes
+    : (localizedTypeOptions.value.find(item => item.value === selectedType.value)?.label ?? transactionsCopy.value.type)
 
-  return new Intl.DateTimeFormat('en-US', {
+  const walletLabel = selectedWallet.value === 'all'
+    ? transactionsCopy.value.allWallets
+    : (wallets.value.find(wallet => wallet.id === selectedWallet.value)?.name ?? transactionsCopy.value.wallet)
+
+  const currencyLabel = selectedCurrency.value === 'all'
+    ? transactionsCopy.value.allCurrencies
+    : selectedCurrency.value
+
+  const dateLabel = fromDate.value && toDate.value
+    ? `${formatDateLabel(fromDate.value)} - ${formatDateLabel(toDate.value)}`
+    : (fromDate.value || toDate.value ? transactionsCopy.value.customDate : transactionsCopy.value.allTime)
+
+  return `${typeLabel} · ${walletLabel} · ${currencyLabel} · ${dateLabel}`
+})
+
+function formatDateLabel(value: string) {
+  if (!value) return transactionsCopy.value.selectDate
+
+  return new Intl.DateTimeFormat(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', {
     day: '2-digit',
     month: 'short'
   }).format(new Date(`${value}T00:00:00`))
@@ -99,7 +222,7 @@ function endOfMonth(date = new Date()) {
   return value
 }
 
-function applyDatePreset(preset: typeof datePresets[number]['value']) {
+function getDatePresetRange(preset: typeof datePresets[number]['value']) {
   const today = new Date()
   const todayKey = formatDateKey(today)
   const yesterday = new Date(today)
@@ -107,18 +230,12 @@ function applyDatePreset(preset: typeof datePresets[number]['value']) {
 
   switch (preset) {
     case 'today':
-      fromDate.value = todayKey
-      toDate.value = todayKey
-      break
+      return { from: todayKey, to: todayKey }
     case 'yesterday':
-      fromDate.value = formatDateKey(yesterday)
-      toDate.value = formatDateKey(yesterday)
-      break
+      return { from: formatDateKey(yesterday), to: formatDateKey(yesterday) }
     case 'this-week': {
       const weekStart = startOfWeek(today)
-      fromDate.value = formatDateKey(weekStart)
-      toDate.value = todayKey
-      break
+      return { from: formatDateKey(weekStart), to: todayKey }
     }
     case 'last-week': {
       const weekStart = startOfWeek(today)
@@ -126,22 +243,30 @@ function applyDatePreset(preset: typeof datePresets[number]['value']) {
       lastWeekStart.setDate(weekStart.getDate() - 7)
       const lastWeekEnd = new Date(lastWeekStart)
       lastWeekEnd.setDate(lastWeekStart.getDate() + 6)
-      fromDate.value = formatDateKey(lastWeekStart)
-      toDate.value = formatDateKey(lastWeekEnd)
-      break
+      return { from: formatDateKey(lastWeekStart), to: formatDateKey(lastWeekEnd) }
     }
     case 'this-month':
-      fromDate.value = formatDateKey(startOfMonth(today))
-      toDate.value = todayKey
-      break
+      return { from: formatDateKey(startOfMonth(today)), to: todayKey }
     case 'last-month': {
       const lastMonthBase = new Date(today)
       lastMonthBase.setMonth(lastMonthBase.getMonth() - 1)
-      fromDate.value = formatDateKey(startOfMonth(lastMonthBase))
-      toDate.value = formatDateKey(endOfMonth(lastMonthBase))
-      break
+      return {
+        from: formatDateKey(startOfMonth(lastMonthBase)),
+        to: formatDateKey(endOfMonth(lastMonthBase))
+      }
     }
   }
+}
+
+function applyDatePreset(preset: typeof datePresets[number]['value']) {
+  const range = getDatePresetRange(preset)
+  fromDate.value = range?.from ?? ''
+  toDate.value = range?.to ?? ''
+}
+
+function isDatePresetActive(preset: typeof datePresets[number]['value']) {
+  const range = getDatePresetRange(preset)
+  return fromDate.value === range?.from && toDate.value === range?.to
 }
 
 function openDeleteConfirm(transaction: Transaction) {
@@ -167,28 +292,56 @@ function closeDeleteConfirm() {
   <div class="space-y-4 pb-4">
     <section class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="mt-1 text-3xl font-black tracking-tight text-default">Transactions</h1>
+        <h1 class="mt-1 text-3xl font-black tracking-tight text-default">{{ transactionsCopy.title }}</h1>
       </div>
     </section>
 
-    <UCard class="overflow-hidden rounded-[1.4rem] border border-white/50 bg-white/85 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.25)] dark:border-white/10 dark:bg-slate-950/80">
-      <div class="space-y-4">
-        <div>
-          <h2 class="text-sm font-black tracking-tight text-default">Search & filters</h2>
-          <p class="text-[11px] text-muted">Refine the transaction list</p>
-        </div>
+    <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+      <template #header>
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-3 text-left"
+          @click="filtersOpen = !filtersOpen"
+        >
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-muted">{{ transactionsCopy.searchFilters }}</p>
+            <h2 class="mt-1 truncate font-black tracking-tight text-default" :class="filtersOpen ? 'text-lg sm:text-xl' : 'text-base sm:text-lg'">
+              {{ transactionsCopy.quickDatesAndFilters }}
+            </h2>
+            <div v-if="!filtersOpen" class="mt-2">
+              <span
+                class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-bold text-sky-700 shadow-sm dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-200"
+              >
+                <UIcon name="i-lucide-calendar-range" class="size-3.5 shrink-0" />
+                <span class="truncate">{{ filterSummary }}</span>
+              </span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span
+              class="hidden rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-muted dark:border-slate-800 dark:bg-slate-900 sm:inline-flex"
+            >
+              {{ filtersOpen ? transactionsCopy.hide : transactionsCopy.show }}
+            </span>
+            <div class="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+              <UIcon name="i-lucide-filter" class="size-4.5 transition-transform duration-200" :class="filtersOpen ? 'rotate-180' : ''" />
+            </div>
+          </div>
+        </button>
+      </template>
 
+      <div v-show="filtersOpen" class="space-y-4 pt-1">
         <label class="block">
           <div class="mb-2 flex items-center gap-2">
             <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
               <UIcon name="i-lucide-search" class="size-3.5" />
             </div>
-            <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Search</span>
+            <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ transactionsCopy.search }}</span>
           </div>
           <UInput
             v-model="searchDraft"
             size="lg"
-            placeholder="Search note, category, or person"
+            :placeholder="transactionsCopy.searchPlaceholder"
             class="w-full rounded-2xl [&>input]:h-12 [&>input]:w-full [&>input]:rounded-2xl [&>input]:border-0 [&>input]:bg-slate-50 [&>input]:px-4 [&>input]:text-[16px] [&>input]:font-semibold [&>input]:shadow-none dark:[&>input]:bg-slate-950"
             @keyup.enter="applySearch"
           />
@@ -200,14 +353,14 @@ function closeDeleteConfirm() {
               <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                 <UIcon name="i-lucide-sliders-horizontal" class="size-3.5" />
               </div>
-              <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Type</span>
+              <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ transactionsCopy.type }}</span>
             </div>
             <select
               v-model="selectedType"
               class="h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950"
             >
-              <option value="all">All types</option>
-              <option v-for="item in typeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+              <option value="all">{{ transactionsCopy.allTypes }}</option>
+              <option v-for="item in localizedTypeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
             </select>
           </label>
 
@@ -216,7 +369,7 @@ function closeDeleteConfirm() {
               <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                 <UIcon name="i-lucide-wallet" class="size-3.5" />
               </div>
-              <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Wallet</span>
+              <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ transactionsCopy.wallet }}</span>
             </div>
             <select
               v-model="selectedWallet"
@@ -231,13 +384,13 @@ function closeDeleteConfirm() {
               <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                 <UIcon name="i-lucide-coins" class="size-3.5" />
               </div>
-              <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Currency</span>
+              <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ transactionsCopy.currency }}</span>
             </div>
             <select
               v-model="selectedCurrency"
               class="h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950"
             >
-              <option value="all">All currencies</option>
+              <option value="all">{{ transactionsCopy.allCurrencies }}</option>
               <option v-for="item in enabledCurrencyOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
             </select>
           </label>
@@ -248,12 +401,12 @@ function closeDeleteConfirm() {
                 <div class="flex size-7 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                   <UIcon name="i-lucide-calendar-range" class="size-3" />
                 </div>
-                <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">From</span>
+                <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ transactionsCopy.from }}</span>
               </div>
               <div class="relative h-11 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 px-3 shadow-none transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 dark:border-slate-800 dark:bg-slate-950">
                 <div class="pointer-events-none flex h-full items-center justify-between gap-2">
                   <span :class="['truncate text-[15px] font-semibold', fromDate ? 'text-default' : 'text-muted']">
-                    {{ fromDate ? formatDateLabel(fromDate) : 'Select date' }}
+                    {{ fromDate ? formatDateLabel(fromDate) : transactionsCopy.selectDate }}
                   </span>
                   <UIcon name="i-lucide-calendar-range" class="size-4 shrink-0 text-muted" />
                 </div>
@@ -270,12 +423,12 @@ function closeDeleteConfirm() {
                 <div class="flex size-7 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                   <UIcon name="i-lucide-calendar-range" class="size-3" />
                 </div>
-                <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">To</span>
+                <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ transactionsCopy.to }}</span>
               </div>
               <div class="relative h-11 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 px-3 shadow-none transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 dark:border-slate-800 dark:bg-slate-950">
                 <div class="pointer-events-none flex h-full items-center justify-between gap-2">
                   <span :class="['truncate text-[15px] font-semibold', toDate ? 'text-default' : 'text-muted']">
-                    {{ toDate ? formatDateLabel(toDate) : 'Select date' }}
+                    {{ toDate ? formatDateLabel(toDate) : transactionsCopy.selectDate }}
                   </span>
                   <UIcon name="i-lucide-calendar-range" class="size-4 shrink-0 text-muted" />
                 </div>
@@ -287,8 +440,23 @@ function closeDeleteConfirm() {
               </div>
             </label>
           </div>
-        </div>
 
+          <div class="space-y-2">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ transactionsCopy.quickDates }}</p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="preset in datePresets"
+                :key="preset.value"
+                type="button"
+                class="rounded-full border px-3 py-2 text-[11px] font-bold transition active:scale-95"
+                :class="isDatePresetActive(preset.value) ? 'border-primary bg-primary text-white shadow-sm' : 'border-slate-200 bg-white text-default shadow-none dark:border-slate-800 dark:bg-slate-950'"
+                @click="applyDatePreset(preset.value)"
+              >
+                {{ preset.label }}
+              </button>
+            </div>
+          </div>
+        </div>
         <div class="pt-1">
           <UButton
             size="sm"
@@ -299,40 +467,17 @@ function closeDeleteConfirm() {
             :disabled="!hasActiveFilters"
             @click="clearFilters"
           >
-            Clear filter
+            {{ transactionsCopy.clearFilter }}
           </UButton>
         </div>
       </div>
     </UCard>
 
-    <section class="space-y-2">
-      <div class="flex items-center justify-between gap-3">
-        <h2 class="text-sm font-black tracking-tight text-default">Quick dates</h2>
-        <p class="text-[11px] text-muted">Tap to fill the date range</p>
-      </div>
-
-      <div class="w-full max-w-full min-w-0 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style="touch-action: pan-x; -webkit-overflow-scrolling: touch;">
-        <div class="flex min-w-max flex-nowrap gap-2 pr-1">
-          <UButton
-            v-for="preset in datePresets"
-            :key="preset.value"
-            size="sm"
-            color="neutral"
-            variant="soft"
-            class="shrink-0 whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-default shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
-            @click="applyDatePreset(preset.value)"
-          >
-            {{ preset.label }}
-          </UButton>
-        </div>
-      </div>
-    </section>
-
     <div v-if="filterCards.length" class="space-y-4.5">
       <section v-for="group in filterCards" :key="group.date" class="space-y-2.5">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-black tracking-tight text-default">{{ group.label }}</h2>
-          <span class="text-sm text-muted">{{ group.items.length }} items</span>
+          <span class="text-sm text-muted">{{ group.items.length }} {{ transactionsCopy.items }}</span>
         </div>
 
         <div class="space-y-2.5">
@@ -345,7 +490,7 @@ function closeDeleteConfirm() {
                 icon="i-lucide-pencil"
                 :to="`/transactions/${transaction.id}`"
               >
-                Edit
+                {{ transactionsCopy.edit }}
               </UButton>
               <UButton
                 size="sm"
@@ -354,7 +499,7 @@ function closeDeleteConfirm() {
                 icon="i-lucide-trash-2"
                 @click="openDeleteConfirm(transaction)"
               >
-                Delete
+                {{ transactionsCopy.delete }}
               </UButton>
             </template>
           </TransactionCard>
@@ -364,21 +509,21 @@ function closeDeleteConfirm() {
 
     <UCard v-else class="overflow-hidden rounded-[1.4rem] border border-white/50 bg-white/85 p-8 text-center shadow-[0_18px_50px_-24px_rgba(15,23,42,0.25)] dark:border-white/10 dark:bg-slate-950/80">
       <UIcon name="i-lucide-search-x" class="mx-auto size-10 text-muted" />
-      <h2 class="mt-4 text-lg font-black text-default">No transactions found</h2>
-      <p class="mt-2 text-sm text-muted">Try changing the filters or create a new entry.</p>
+      <h2 class="mt-4 text-lg font-black text-default">{{ transactionsCopy.noTransactions }}</h2>
+      <p class="mt-2 text-sm text-muted">{{ transactionsCopy.emptyStateDesc }}</p>
       <UButton
         to="/add"
         icon="i-lucide-plus"
         class="mt-5 rounded-[1.4rem] bg-gradient-to-r from-sky-500 to-cyan-400 px-5 py-3 font-bold text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.65)] transition hover:from-sky-600 hover:to-cyan-500 active:scale-95"
       >
-        Add transaction
+        {{ transactionsCopy.addTransaction }}
       </UButton>
     </UCard>
 
     <UModal
       v-model:open="deleteConfirmOpen"
-      title="Delete transaction"
-      description="This action cannot be undone."
+      :title="transactionsCopy.deleteTitle"
+      :description="selectedLanguage === 'lo' ? 'ການກະທຳນີ້ບໍ່ສາມາດຍົກເລີກໄດ້.' : 'This action cannot be undone.'"
     >
       <template #body>
         <div v-if="deleteTarget" class="space-y-4">
@@ -389,7 +534,7 @@ function closeDeleteConfirm() {
 
             <div class="min-w-0">
               <p class="text-sm font-black text-default">{{ deleteTarget.category }}</p>
-              <p class="mt-0.5 text-sm text-muted">{{ deleteTarget.note || 'Transaction entry' }}</p>
+              <p class="mt-0.5 text-sm text-muted">{{ deleteTarget.note || transactionsCopy.transactionEntry }}</p>
               <p class="mt-2 text-[0.95rem] font-extrabold tracking-[-0.03em] text-default">
                 {{ formatCurrency(deleteTarget.amount, deleteTarget.currency, true) }}
               </p>
@@ -397,7 +542,7 @@ function closeDeleteConfirm() {
           </div>
 
           <div class="rounded-[1.2rem] border border-rose-200 bg-rose-50/80 p-4 text-sm leading-6 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
-            Deleting this transaction will update the linked wallet balances immediately.
+                {{ transactionsCopy.deleteImpact }}
           </div>
         </div>
       </template>
@@ -412,7 +557,7 @@ function closeDeleteConfirm() {
             class="h-12 rounded-2xl text-base font-bold justify-center text-center"
             @click="closeDeleteConfirm"
           >
-            Cancel
+            {{ selectedLanguage === 'lo' ? 'ຍົກເລີກ' : 'Cancel' }}
           </UButton>
           <UButton
             type="button"
@@ -422,7 +567,7 @@ function closeDeleteConfirm() {
             class="h-12 rounded-2xl bg-rose-500 text-base font-extrabold text-white shadow-[0_16px_30px_-18px_rgba(244,63,94,0.65)] hover:bg-rose-600 justify-center text-center"
             @click="confirmDelete"
           >
-            Delete
+                {{ transactionsCopy.delete }}
           </UButton>
         </div>
       </template>

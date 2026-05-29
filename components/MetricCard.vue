@@ -1,19 +1,21 @@
 <script setup lang="ts">
-defineProps<{
+withDefaults(defineProps<{
   title: string
   value: string
   detail?: string
-  icon: string
+  icon?: string
   iconText?: string
   accent?: string
   valueClass?: string
-}>()
+}>(), {
+  icon: ''
+})
 </script>
 
 <template>
   <UCard class="overflow-hidden rounded-[1.4rem] border border-white/50 bg-white/85 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.25)] dark:border-white/10 dark:bg-slate-950/80">
     <div class="flex items-start gap-3">
-      <div :class="['flex size-11 items-center justify-center rounded-[1.4rem] bg-gradient-to-br text-white shadow-lg', accent ?? 'from-sky-500 to-cyan-400']">
+      <div :class="['flex size-11 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', accent ?? 'from-sky-500 to-cyan-400']">
         <template v-if="iconText">
           <span class="text-lg font-black leading-none tracking-tight">{{ iconText }}</span>
         </template>

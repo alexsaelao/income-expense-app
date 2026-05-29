@@ -2,7 +2,19 @@
 import { useMoneyNote } from '~/composables/useMoneyNote'
 import type { CurrencyCode, WalletColor } from '~/composables/useMoneyNote'
 
-const { wallets, currencyBalances, formatCurrency, addWallet, enabledCurrencyOptions, walletColorOptions } = useMoneyNote()
+const { selectedLanguage } = useAppLanguage()
+const {
+  wallets,
+  walletEntries,
+  currencyBalances,
+  walletMonthTotals,
+  formatCurrency,
+  addWallet,
+  enabledCurrencyOptions,
+  walletColorOptions,
+  setWalletPinned,
+  moveWallet
+} = useMoneyNote()
 const currencySymbols: Record<CurrencyCode, string> = {
   LAK: '₭',
   THB: '฿',
@@ -15,7 +27,69 @@ const currencyAccents: Record<CurrencyCode, string> = {
   USD: 'from-amber-500 to-orange-400'
 }
 
+const walletCopy = computed(() => {
+  if (selectedLanguage.value === 'lo') {
+    return {
+      title: 'ກະເປົ໋າເງິນ',
+      addWallet: 'ເພີ່ມກະເປົ໋າ',
+      summary: 'ສະຫຼຸບ',
+      summaryDesc: 'ຍອດລວມຕາມເງິນຕາ',
+      totalAmount: 'ຍອດລວມ',
+      allWallets: 'ກະເປົ໋າທັງໝົດ',
+      walletCount: (count: number) => `${count} ກະເປົ໋າ`,
+      addWalletSheet: 'ເພີ່ມກະເປົ໋າ',
+      newWallet: 'ກະເປົ໋າໃໝ່',
+      walletName: 'ຊື່ກະເປົ໋າ',
+      currency: 'ເງິນຕາ',
+      openingBalance: 'ຍອດເລີ່ມຕົ້ນ',
+      color: 'ສີ',
+      emoji: 'ອີໂມຈິ',
+      note: 'ຫມາຍເຫດ',
+      pin: 'ປັກໝຸດ',
+      unpin: 'ຖອນປັກໝຸດ',
+      drag: 'ລາກຈັດລຳດັບ',
+      total: 'ຍອດລວມ',
+      net: 'ສຸດທິ',
+      saveWallet: 'ບັນທຶກກະເປົ໋າ',
+      cancel: 'ຍົກເລີກ',
+      everydayCash: 'ເງິນສົດປະຈໍາວັນ',
+      optionalNote: 'ຫມາຍເຫດເພີ່ມເຕີມ'
+    }
+  }
+
+  return {
+    title: 'Wallets',
+    addWallet: 'Add wallet',
+    summary: 'Summary',
+    summaryDesc: 'Total amount by currency',
+    totalAmount: 'Total amount',
+    allWallets: 'All wallets',
+    walletCount: (count: number) => `${count} wallets`,
+    addWalletSheet: 'Add wallet',
+    newWallet: 'New wallet',
+    walletName: 'Wallet name',
+    currency: 'Currency',
+    openingBalance: 'Opening balance',
+    color: 'Color',
+    emoji: 'Emoji',
+    note: 'Note',
+    pin: 'Pin',
+    unpin: 'Unpin',
+    drag: 'Drag to sort',
+    total: 'Total',
+    net: 'Net',
+    saveWallet: 'Save wallet',
+    cancel: 'Cancel',
+    everydayCash: 'Everyday cash',
+    optionalNote: 'Optional note'
+  }
+})
+
+const walletList = computed(() => walletEntries())
 const walletModalOpen = ref(false)
+const dragState = reactive({
+  key: ''
+})
 const sheetDragY = ref(0)
 const sheetDragging = ref(false)
 const sheetDragStartY = ref(0)
@@ -62,6 +136,41 @@ function submitWallet() {
   walletModalOpen.value = false
 }
 
+function walletKeyForItem(item: any) {
+  return item.key ?? `wallet:${item.id}`
+}
+
+function walletSummary(walletId: string) {
+  return walletMonthTotals(walletId)
+}
+
+function togglePinned(item: any) {
+  setWalletPinned(item.id, !item.pinned)
+}
+
+function onWalletDragStart(item: any, event: DragEvent) {
+  if (!event.dataTransfer) return
+
+  dragState.key = walletKeyForItem(item)
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', dragState.key)
+}
+
+function onWalletDrop(item: any) {
+  const fromKey = dragState.key
+  const toKey = walletKeyForItem(item)
+
+  if (fromKey && fromKey !== toKey) {
+    moveWallet(fromKey, toKey)
+  }
+
+  dragState.key = ''
+}
+
+function onWalletDragEnd() {
+  dragState.key = ''
+}
+
 function resetSheetDrag() {
   sheetDragY.value = 0
   sheetDragging.value = false
@@ -106,24 +215,24 @@ function onSheetPointerCancel() {
   <div class="space-y-5 pb-4">
     <section class="flex items-start justify-between gap-3">
       <div>
-        <h1 class="text-3xl font-black tracking-tight text-default">Wallets</h1>
+        <h1 class="text-3xl font-black tracking-tight text-default">{{ walletCopy.title }}</h1>
       </div>
 
       <UButton
         icon="i-lucide-plus"
         size="lg"
-        class="rounded-[1.25rem] border-0 bg-gradient-to-r from-sky-500 to-cyan-400 px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.65)] transition hover:from-sky-600 hover:to-cyan-500 active:scale-95"
+        class="rounded-[1.25rem] border-0 bg-primary px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95"
         @click="walletModalOpen = true"
       >
-        Add wallet
+        {{ walletCopy.addWallet }}
       </UButton>
     </section>
 
     <section class="space-y-2">
       <div class="flex items-center justify-between">
         <div class="min-w-0">
-          <h2 class="text-base font-black tracking-tight text-default">Summary</h2>
-          <p class="mt-1 text-[11px] text-muted">Total amount by currency</p>
+          <h2 class="text-base font-black tracking-tight text-default">{{ walletCopy.summary }}</h2>
+          <p class="mt-1 text-[11px] text-muted">{{ walletCopy.summaryDesc }}</p>
         </div>
       </div>
 
@@ -133,7 +242,7 @@ function onSheetPointerCancel() {
         :key="item.currency"
         :title="item.currency"
         :value="formatCurrency(item.balance, item.currency)"
-        detail="Total amount"
+        :detail="walletCopy.totalAmount"
         :icon-text="currencySymbols[item.currency]"
         :accent="currencyAccents[item.currency]"
         value-class="text-[clamp(1rem,4vw,1.38rem)]"
@@ -144,22 +253,79 @@ function onSheetPointerCancel() {
     <section class="space-y-2">
       <div class="flex items-center justify-between">
         <div class="min-w-0">
-          <h2 class="text-base font-black tracking-tight text-default">All wallets</h2>
-          <p class="mt-1 text-[11px] text-muted">{{ wallets.length }} wallets</p>
+          <h2 class="text-base font-black tracking-tight text-default">{{ walletCopy.allWallets }}</h2>
+          <p class="mt-1 text-[11px] text-muted">{{ walletCopy.walletCount(wallets.length) }}</p>
         </div>
-        <NuxtLink to="/reports" class="text-sm font-semibold text-primary">Reports</NuxtLink>
       </div>
 
       <div class="space-y-2">
-        <WalletCard
-          v-for="wallet in wallets"
+        <article
+          v-for="wallet in walletList"
           :key="wallet.id"
-          :wallet="wallet"
-          :amount-label="formatCurrency(wallet.balance, wallet.currency)"
-          :detail="wallet.note"
-          compact
-          :href="`/wallets/${wallet.id}`"
-        />
+          class="flex cursor-pointer items-start justify-between gap-3 rounded-[1.35rem] border border-slate-200/80 bg-white/80 px-4 py-4 shadow-[0_12px_34px_-24px_rgba(15,23,42,0.2)] transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70"
+          draggable="true"
+          @click="navigateTo(`/wallets/${wallet.id}`)"
+          @dragstart="onWalletDragStart(wallet, $event)"
+          @dragover.prevent
+          @drop.prevent="onWalletDrop(wallet)"
+          @dragend="onWalletDragEnd"
+        >
+          <div class="flex min-w-0 items-center gap-3">
+            <div
+              class="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-sm sm:size-12"
+              :class="wallet.accent"
+            >
+              <span class="block translate-y-px text-lg leading-none sm:text-xl">{{ wallet.emoji }}</span>
+            </div>
+
+            <div class="min-w-0">
+              <p class="truncate text-[15px] font-black text-default">{{ wallet.name }}</p>
+              <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                <UBadge color="neutral" variant="soft" class="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] leading-none">
+                  {{ wallet.currency }}
+                </UBadge>
+                <p class="truncate text-[10px] text-muted leading-none">{{ wallet.note ?? walletCopy.optionalNote }}</p>
+                <UBadge
+                  v-if="wallet.pinned"
+                  color="primary"
+                  variant="soft"
+                  class="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] leading-none"
+                >
+                  {{ walletCopy.pin }}
+                </UBadge>
+              </div>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                  <span class="uppercase tracking-[0.14em]">{{ walletCopy.total }}</span>
+                  <span class="font-black text-[12px] text-default">{{ formatCurrency(wallet.balance, wallet.currency) }}</span>
+                </span>
+                <span class="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 dark:bg-sky-950/40 dark:text-sky-200">
+                  <span class="uppercase tracking-[0.14em]">{{ walletCopy.net }}</span>
+                  <span class="font-black text-[12px]">{{ formatCurrency(walletSummary(wallet.id).net, wallet.currency, true) }}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1.5 self-center">
+            <button
+              type="button"
+              class="inline-flex size-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition active:scale-95 dark:bg-slate-900 dark:text-slate-300 sm:size-9"
+              :aria-label="wallet.pinned ? walletCopy.unpin : walletCopy.pin"
+              @click.stop="togglePinned(wallet)"
+            >
+              <UIcon :name="wallet.pinned ? 'i-lucide-pin-off' : 'i-lucide-pin'" class="size-3.5 sm:size-4" />
+            </button>
+
+            <div
+              class="inline-flex size-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-300 sm:size-9"
+              :title="walletCopy.drag"
+              @click.stop
+            >
+              <UIcon name="i-lucide-grip-vertical" class="size-3.5 sm:size-4" />
+            </div>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -194,8 +360,8 @@ function onSheetPointerCancel() {
 
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Add wallet</p>
-                <h2 class="mt-1 text-lg font-black tracking-tight text-default">New wallet</h2>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ walletCopy.addWalletSheet }}</p>
+                <h2 class="mt-1 text-lg font-black tracking-tight text-default">{{ walletCopy.newWallet }}</h2>
               </div>
 
               <button
@@ -216,13 +382,13 @@ function onSheetPointerCancel() {
                   <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                     <UIcon name="i-lucide-wallet" class="size-3.5" />
                   </div>
-                  <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Wallet name</span>
+                  <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ walletCopy.walletName }}</span>
                 </div>
                 <div class="flex items-center gap-3">
                   <UInput
                     v-model="form.name"
                     class="w-full rounded-2xl [&>input]:h-12 [&>input]:w-full [&>input]:rounded-2xl [&>input]:border-0 [&>input]:bg-slate-50 [&>input]:px-4 [&>input]:text-[16px] [&>input]:font-semibold [&>input]:shadow-none dark:[&>input]:bg-slate-950"
-                    placeholder="Everyday cash"
+                    :placeholder="walletCopy.everydayCash"
                   />
                 </div>
               </label>
@@ -232,7 +398,7 @@ function onSheetPointerCancel() {
                   <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                     <UIcon name="i-lucide-coins" class="size-3.5" />
                   </div>
-                  <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Currency</span>
+                  <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ walletCopy.currency }}</span>
                 </div>
                 <div class="flex items-center gap-3">
                   <div class="relative min-w-0 flex-1">
@@ -255,7 +421,7 @@ function onSheetPointerCancel() {
                   <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                     <UIcon name="i-lucide-banknote" class="size-3.5" />
                   </div>
-                  <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Opening balance</span>
+                  <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ walletCopy.openingBalance }}</span>
                 </div>
                 <div class="flex items-center gap-3">
                   <UInput
@@ -274,7 +440,7 @@ function onSheetPointerCancel() {
                   <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                     <UIcon name="i-lucide-palette" class="size-3.5" />
                   </div>
-                  <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Color</span>
+                  <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ walletCopy.color }}</span>
                 </div>
                 <div class="grid grid-cols-4 gap-2 sm:grid-cols-6">
                   <button
@@ -304,7 +470,7 @@ function onSheetPointerCancel() {
                     <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                       <UIcon name="i-lucide-sparkles" class="size-3.5" />
                     </div>
-                    <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Emoji</span>
+                    <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ walletCopy.emoji }}</span>
                   </div>
                   <div class="flex items-center gap-3">
                   <UInput
@@ -327,7 +493,7 @@ function onSheetPointerCancel() {
                     <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
                       <UIcon name="i-lucide-sticky-note" class="size-3.5" />
                     </div>
-                    <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Note</span>
+                    <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ walletCopy.note }}</span>
                   </div>
                   <div class="flex items-start gap-3">
                   <UTextarea
@@ -335,7 +501,7 @@ function onSheetPointerCancel() {
                       class="w-full rounded-2xl [&>textarea]:min-h-[96px] [&>textarea]:w-full [&>textarea]:rounded-2xl [&>textarea]:border-0 [&>textarea]:bg-slate-50 [&>textarea]:px-4 [&>textarea]:py-3 [&>textarea]:text-[16px] [&>textarea]:font-medium [&>textarea]:leading-6 [&>textarea]:shadow-none dark:[&>textarea]:bg-slate-950"
                       :rows="3"
                       autoresize
-                      placeholder="Optional note"
+                      :placeholder="walletCopy.optionalNote"
                     />
                   </div>
                 </label>
@@ -354,14 +520,14 @@ function onSheetPointerCancel() {
                 icon="i-lucide-x"
                 @click="close()"
               >
-                Cancel
+                {{ walletCopy.cancel }}
               </UButton>
               <UButton
-                class="h-12 flex-1 justify-center rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.55)] transition hover:from-sky-600 hover:to-cyan-500 active:scale-95"
+                class="h-12 flex-1 justify-center rounded-full bg-primary text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95"
                 icon="i-lucide-check"
                 @click="submitWallet"
               >
-                Save wallet
+                {{ walletCopy.saveWallet }}
               </UButton>
             </div>
           </div>

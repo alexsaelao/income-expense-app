@@ -1,13 +1,17 @@
 export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@vite-pwa/nuxt'],
   css: ['~/assets/css/main.css'],
+  runtimeConfig: {
+    tursoDatabaseUrl: process.env.TURSO_DATABASE_URL ?? '',
+    tursoAuthToken: process.env.TURSO_AUTH_TOKEN ?? ''
+  },
   app: {
     head: {
       title: 'Income Expense Note',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content' },
         { name: 'description', content: 'Income Expense Note is a mobile-first PWA for tracking wallets, transactions, and financial reports.' },
-        { name: 'theme-color', content: '#2563eb' },
+        { name: 'theme-color', content: '#0ea5e9' },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
@@ -38,7 +42,7 @@ export default defineNuxtConfig({
       name: 'Income Expense Note',
       short_name: 'Money Note',
       description: 'A mobile-first personal finance PWA for recording income, expenses, transfers, loans, wallets, and reports.',
-      theme_color: '#2563eb',
+      theme_color: '#0ea5e9',
       background_color: '#0f172a',
       display_override: ['fullscreen', 'standalone'],
       display: 'standalone',

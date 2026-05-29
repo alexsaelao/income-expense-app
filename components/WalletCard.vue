@@ -9,6 +9,22 @@ const props = defineProps<{
   compact?: boolean
 }>()
 
+const { selectedLanguage } = useAppLanguage()
+
+const walletCopy = computed(() => {
+  if (selectedLanguage.value === 'lo') {
+    return {
+      defaultNote: 'ກະເປົ໋າ',
+      currentBalance: 'ຍອດໃນປັດຈຸບັນ'
+    }
+  }
+
+  return {
+    defaultNote: 'Wallet',
+    currentBalance: 'Current balance'
+  }
+})
+
 const accentClass = computed(() => props.wallet.accent)
 </script>
 
@@ -38,7 +54,7 @@ const accentClass = computed(() => props.wallet.accent)
                 <UBadge color="neutral" variant="soft" class="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em]">
                   {{ wallet.currency }}
                 </UBadge>
-                <p :class="['truncate text-muted', props.compact ? 'text-[11px]' : 'text-xs']">{{ wallet.note ?? 'Wallet' }}</p>
+                <p :class="['truncate text-muted', props.compact ? 'text-[11px]' : 'text-xs']">{{ wallet.note ?? walletCopy.defaultNote }}</p>
               </div>
             </div>
 
@@ -48,7 +64,7 @@ const accentClass = computed(() => props.wallet.accent)
           <div :class="['flex items-end justify-between gap-3', props.compact ? 'mt-1.5' : 'mt-3']">
             <div class="min-w-0">
               <p v-if="!props.compact" class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
-                Current balance
+                {{ walletCopy.currentBalance }}
               </p>
               <p :class="[
                 'whitespace-nowrap font-black leading-none tracking-[-0.04em] tabular-nums text-default',
@@ -87,7 +103,7 @@ const accentClass = computed(() => props.wallet.accent)
                 <UBadge color="neutral" variant="soft" class="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em]">
                   {{ wallet.currency }}
                 </UBadge>
-                <p :class="['truncate text-muted', props.compact ? 'text-[11px]' : 'text-xs']">{{ wallet.note ?? 'Wallet' }}</p>
+                <p :class="['truncate text-muted', props.compact ? 'text-[11px]' : 'text-xs']">{{ wallet.note ?? walletCopy.defaultNote }}</p>
               </div>
             </div>
 
@@ -97,7 +113,7 @@ const accentClass = computed(() => props.wallet.accent)
           <div :class="['flex items-end justify-between gap-3', props.compact ? 'mt-1.5' : 'mt-3']">
             <div class="min-w-0">
               <p v-if="!props.compact" class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">
-                Current balance
+                {{ walletCopy.currentBalance }}
               </p>
               <p :class="[
                 'whitespace-nowrap font-black leading-none tracking-[-0.04em] tabular-nums text-default',

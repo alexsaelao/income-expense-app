@@ -1,35 +1,189 @@
 <script setup lang="ts">
 import { useMoneyNote } from '~/composables/useMoneyNote'
+import type { CurrencyCode } from '~/composables/useMoneyNote'
 
-const { selectedCurrency, totalBalance, totalIncome, totalExpense, totalNet, recentTransactions, wallets, formatCurrency, walletSeries, currencyBalances, enabledCurrencyOptions } = useMoneyNote()
+const { selectedLanguage } = useAppLanguage()
+const {
+  selectedCurrency,
+  totalBalance,
+  totalIncome,
+  totalExpense,
+  totalNet,
+  recentTransactions,
+  wallets,
+  formatCurrency,
+  walletSeries,
+  currencyBalances,
+  enabledCurrencyOptions,
+  syncStatus,
+  lastSyncedAt,
+  isOnline
+} = useMoneyNote()
 
 const activeCurrency = computed(() => selectedCurrency.value)
 const walletCards = computed(() => walletSeries(activeCurrency.value))
 const currencySummary = computed(() => currencyBalances.value)
 
-const quickActions = [
-  { label: 'Add', icon: 'i-lucide-plus', to: '/add', color: 'primary' },
-  { label: 'History', icon: 'i-lucide-list-restart', to: '/transactions', color: 'sky' },
-  { label: 'Wallets', icon: 'i-lucide-wallet', to: '/wallets', color: 'emerald' },
-  { label: 'Reports', icon: 'i-lucide-chart-column', to: '/reports', color: 'amber' }
-]
+const currencySymbols: Record<CurrencyCode, string> = {
+  LAK: '₭',
+  THB: '฿',
+  USD: '$'
+}
+
+const currencyAccents: Record<CurrencyCode, string> = {
+  LAK: 'from-sky-500 to-cyan-400',
+  THB: 'from-emerald-500 to-teal-400',
+  USD: 'from-amber-500 to-orange-400'
+}
+
+const homeCopy = computed(() => {
+  if (selectedLanguage.value === 'lo') {
+    return {
+      displayCurrency: 'ເງິນຕາທີ່ແສດງ',
+      syncStatus: 'ສະຖານະຊິງຄລາວ',
+      offlineMode: 'ໂໝດອອຟລາຍ',
+      syncingNow: 'ກຳລັງຊິງຄລາວ',
+      cloudSyncReady: 'ພ້ອມຊິງຄລາວ',
+      waitingToSync: 'ລໍຖ້າຊິງຄລາວ',
+      offlineBadge: 'ອອຟລາຍ',
+      syncingBadge: 'ຊິງຄລາວ',
+      syncedBadge: 'ຊິງແລ້ວ',
+      waitingBadge: 'ລໍຖ້າ',
+      offlineMessage: 'ສາມາດໃຊ້ແອັບຕໍ່ໄດ້. ການປ່ຽນແປງຈະບັນທຶກໄວ້ໃນເຄື່ອງນີ້ແລະຈະຊິງຄືນເມື່ອມີສັນຍານ.',
+      syncingMessage: 'ກຳລັງບັນທຶກການປ່ຽນແປງລ່າສຸດຂຶ້ນຄລາວ.',
+      syncedMessage: 'ຂໍ້ມູນຂອງທ່ານຊິງກັບຄລາວແລ້ວ.',
+      waitingMessage: 'ການປ່ຽນແປງຖືກບັນທຶກໄວ້ຢ່າງປອດໄພ ແອັບຈະຊິງອີກຄັ້ງເມື່ອເນັດກັບມາ.',
+      lastSyncedPrefix: 'ຊິງຄັ້ງລ່າສຸດ',
+      totalBalance: 'ຍອດລວມ',
+      acrossWallets: (count: number) => `ທັງໝົດ ${count} ກະເປົ໋າ`,
+      net: 'ສຸດທິ',
+      thisMonth: 'ເດືອນນີ້',
+      income: 'ລາຍຮັບ',
+      expense: 'ລາຍຈ່າຍ',
+      quickActions: 'ຄຳສັ່ງດ່ວນ',
+      openReports: 'ເປີດລາຍງານ',
+      add: 'ເພີ່ມ',
+      history: 'ປະຫວັດ',
+      wallets: 'ກະເປົ໋າ',
+      reports: 'ລາຍງານ',
+      newTransaction: 'ລາຍການໃໝ່',
+      browseEntries: 'ເບິ່ງລາຍການ',
+      balancesAndWallets: 'ຍອດ ແລະ ກະເປົ໋າ',
+      chartsAndSummaries: 'ກຣາຟ ແລະ ສະຫຼຸບ',
+      walletBalances: 'ຍອດກະເປົ໋າ',
+      seeAll: 'ເບິ່ງທັງໝົດ',
+      currencyOverview: 'ພາບລວມເງິນຕາ',
+      allWallets: 'ທຸກກະເປົ໋າ',
+      recentTransactions: 'ທຸລະກຳລ່າສຸດ',
+      viewHistory: 'ເບິ່ງປະຫວັດ'
+    }
+  }
+
+  return {
+    displayCurrency: 'Display currency',
+    syncStatus: 'Sync status',
+    offlineMode: 'Offline mode',
+    syncingNow: 'Syncing now',
+    cloudSyncReady: 'Cloud sync ready',
+    waitingToSync: 'Waiting to sync',
+    offlineBadge: 'Offline',
+    syncingBadge: 'Syncing',
+    syncedBadge: 'Synced',
+    waitingBadge: 'Waiting',
+    offlineMessage: 'You can keep using the app. Changes save on this device and sync when the connection returns.',
+    syncingMessage: 'Saving your latest changes to the cloud.',
+    syncedMessage: 'Your data is synced with the cloud.',
+    waitingMessage: 'Local changes are safe. The app will sync again once the network is available.',
+    lastSyncedPrefix: 'Last synced',
+    totalBalance: 'Total balance',
+    acrossWallets: (count: number) => `Across ${count} wallets`,
+    net: 'Net',
+    thisMonth: 'This month',
+    income: 'Income',
+    expense: 'Expense',
+    quickActions: 'Quick actions',
+    openReports: 'Open reports',
+    add: 'Add',
+    history: 'History',
+    wallets: 'Wallets',
+    reports: 'Reports',
+    newTransaction: 'New transaction',
+    browseEntries: 'Browse entries',
+    balancesAndWallets: 'Balances and wallets',
+    chartsAndSummaries: 'Charts and summaries',
+    walletBalances: 'Wallet balances',
+    seeAll: 'See all',
+    currencyOverview: 'Currency overview',
+    allWallets: 'All wallets',
+    recentTransactions: 'Recent transactions',
+    viewHistory: 'View history'
+  }
+})
+
+const quickActions = computed(() => [
+  { label: homeCopy.value.add, icon: 'i-lucide-plus', to: '/add', color: 'primary', subtitle: homeCopy.value.newTransaction },
+  { label: homeCopy.value.history, icon: 'i-lucide-list-restart', to: '/transactions', color: 'sky', subtitle: homeCopy.value.browseEntries },
+  { label: homeCopy.value.wallets, icon: 'i-lucide-wallet', to: '/wallets', color: 'emerald', subtitle: homeCopy.value.balancesAndWallets },
+  { label: homeCopy.value.reports, icon: 'i-lucide-chart-column', to: '/reports', color: 'amber', subtitle: homeCopy.value.chartsAndSummaries }
+])
+
+const syncStateCopy = computed(() => {
+  switch (syncStatus.value) {
+    case 'offline':
+      return {
+        label: homeCopy.value.offlineMode,
+        badge: homeCopy.value.offlineBadge,
+        icon: 'i-lucide-wifi-off',
+        tone: 'rose',
+        message: homeCopy.value.offlineMessage
+      }
+    case 'syncing':
+      return {
+        label: homeCopy.value.syncingNow,
+        badge: homeCopy.value.syncingBadge,
+        icon: 'i-lucide-refresh-cw',
+        tone: 'sky',
+        message: homeCopy.value.syncingMessage
+      }
+    case 'synced':
+      return {
+        label: homeCopy.value.cloudSyncReady,
+        badge: homeCopy.value.syncedBadge,
+        icon: 'i-lucide-cloud-check',
+        tone: 'emerald',
+        message: lastSyncedAt.value
+          ? `${homeCopy.value.lastSyncedPrefix} ${new Intl.DateTimeFormat(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(lastSyncedAt.value))}.`
+          : homeCopy.value.syncedMessage
+      }
+    default:
+      return {
+        label: homeCopy.value.waitingToSync,
+        badge: isOnline.value ? homeCopy.value.waitingBadge : homeCopy.value.offlineBadge,
+        icon: isOnline.value ? 'i-lucide-cloud-upload' : 'i-lucide-wifi-off',
+        tone: isOnline.value ? 'amber' : 'rose',
+        message: homeCopy.value.waitingMessage
+      }
+  }
+})
 
 </script>
 
 <template>
   <div class="space-y-5 pb-8">
     <section class="space-y-3">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted">Display currency</p>
-          <p class="text-sm font-bold text-default">{{ activeCurrency }}</p>
+      <div class="flex items-end justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ homeCopy.displayCurrency }}</p>
+          <div class="mt-1 inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-primary shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            {{ activeCurrency }}
+          </div>
         </div>
-        <div class="grid grid-cols-3 gap-2 rounded-[1.1rem] bg-slate-100 p-1.5 dark:bg-slate-900">
+        <div class="grid grid-cols-3 gap-1.5 rounded-full bg-slate-100 p-1 dark:bg-slate-900">
           <button
             v-for="option in enabledCurrencyOptions"
             :key="option.value"
             type="button"
-            class="rounded-[0.95rem] px-2 py-2 text-xs font-bold transition active:scale-95"
+            class="rounded-full px-3 py-2.5 text-[12px] font-bold transition active:scale-95 sm:px-3 sm:py-2 sm:text-xs"
             :class="selectedCurrency === option.value ? 'bg-white text-primary shadow-sm dark:bg-slate-800' : 'text-muted'"
             @click="selectedCurrency = option.value"
           >
@@ -38,52 +192,91 @@ const quickActions = [
         </div>
       </div>
 
-      <div class="overflow-hidden rounded-[1.4rem] bg-gradient-to-br from-sky-500 via-blue-500 to-cyan-400 text-white shadow-[0_30px_70px_-28px_rgba(37,99,235,0.55)]">
-        <div class="px-4 py-3">
+      <div class="rounded-[1.4rem] border border-slate-200/80 bg-white px-4 py-3 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/80">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex min-w-0 items-center gap-3">
+            <div :class="['flex size-10 shrink-0 items-center justify-center rounded-full text-white shadow-lg', syncStateCopy.tone === 'emerald' ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : syncStateCopy.tone === 'sky' ? 'bg-gradient-to-br from-sky-500 to-cyan-400' : syncStateCopy.tone === 'amber' ? 'bg-gradient-to-br from-amber-500 to-orange-400' : 'bg-gradient-to-br from-rose-500 to-pink-400']">
+              <UIcon :name="syncStateCopy.icon" class="size-4" />
+            </div>
+            <div class="min-w-0">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{{ homeCopy.syncStatus }}</p>
+              <p class="truncate text-sm font-black text-default">{{ syncStateCopy.label }}</p>
+            </div>
+          </div>
+          <UBadge color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
+            {{ syncStateCopy.badge }}
+          </UBadge>
+        </div>
+        <p class="mt-2 text-[11px] leading-5 text-muted">
+          {{ syncStateCopy.message }}
+        </p>
+      </div>
+
+      <div class="relative overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white shadow-[0_22px_55px_-30px_rgba(15,23,42,0.22)] dark:border-slate-800 dark:bg-slate-950/80">
+        <div class="mascot-bob absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2">
+          <div class="flex size-12 items-center justify-center rounded-full border border-white/80 bg-white shadow-[0_16px_30px_-14px_rgba(15,23,42,0.35)] dark:border-slate-700 dark:bg-slate-900">
+            <svg viewBox="0 0 64 64" class="size-10" aria-hidden="true">
+              <defs>
+                <linearGradient id="mascot-face" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#7dd3fc" />
+                  <stop offset="100%" stop-color="#3b82f6" />
+                </linearGradient>
+              </defs>
+              <path d="M18 25L12 14L24 20Z" fill="#93c5fd" />
+              <path d="M46 25L52 14L40 20Z" fill="#60a5fa" />
+              <circle cx="32" cy="34" r="20" fill="url(#mascot-face)" />
+              <circle cx="24" cy="31" r="2.3" fill="#eff6ff" />
+              <circle cx="40" cy="31" r="2.3" fill="#eff6ff" />
+              <path d="M27.5 40C29.5 42 34.5 42 36.5 40" fill="none" stroke="#eff6ff" stroke-linecap="round" stroke-width="2.4" />
+              <circle cx="24" cy="38" r="1.8" fill="#bfdbfe" opacity="0.9" />
+              <circle cx="40" cy="38" r="1.8" fill="#bfdbfe" opacity="0.9" />
+              <path d="M20 48C21.8 45.5 24.5 44 27.5 44H36.5C39.5 44 42.2 45.5 44 48" fill="none" stroke="#eff6ff" stroke-linecap="round" stroke-width="2.4" />
+            </svg>
+          </div>
+        </div>
+        <div class="px-4 py-4">
           <div class="min-w-0">
-            <p class="text-[8px] font-semibold uppercase tracking-[0.14em] text-white/70">Total balance</p>
-            <p class="mt-1 whitespace-nowrap text-[clamp(0.92rem,4.25vw,2.1rem)] font-black leading-none tracking-[-0.055em] tabular-nums">
-              {{ formatCurrency(totalBalance, activeCurrency) }}
-            </p>
-            <p class="mt-1 text-[9px] text-white/80 sm:text-[10px]">Across {{ wallets.filter(wallet => wallet.currency === activeCurrency).length }} wallets</p>
+            <p class="text-[8px] font-semibold uppercase tracking-[0.14em] text-muted">{{ homeCopy.totalBalance }}</p>
+            <div class="mt-1 flex items-center gap-3">
+              <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+                <UIcon name="i-lucide-wallet" class="size-5" />
+              </div>
+              <p class="whitespace-nowrap text-[clamp(1.12rem,6.2vw,2.45rem)] font-black leading-none tracking-[-0.06em] tabular-nums text-default">
+                {{ formatCurrency(totalBalance, activeCurrency) }}
+              </p>
+            </div>
+            <p class="mt-1 text-[9px] text-muted sm:text-[10px]">{{ homeCopy.acrossWallets(wallets.filter(wallet => wallet.currency === activeCurrency).length) }}</p>
           </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-1 px-4 pb-4">
-          <div class="rounded-[1.4rem] bg-white/12 px-2 py-1.5">
-            <p class="text-[8px] font-semibold uppercase tracking-[0.12em] text-white/70">Income</p>
-            <p class="mt-1 whitespace-nowrap text-[clamp(0.64rem,2.55vw,0.9rem)] font-extrabold leading-none tracking-[-0.04em] tabular-nums">
-              {{ formatCurrency(totalIncome, activeCurrency) }}
-            </p>
-          </div>
-          <div class="rounded-[1.4rem] bg-white/12 px-2 py-1.5">
-            <p class="text-[8px] font-semibold uppercase tracking-[0.12em] text-white/70">Expense</p>
-            <p class="mt-1 whitespace-nowrap text-[clamp(0.64rem,2.55vw,0.9rem)] font-extrabold leading-none tracking-[-0.04em] tabular-nums">
-              {{ formatCurrency(totalExpense, activeCurrency) }}
-            </p>
-          </div>
-          <div class="rounded-[1.4rem] bg-white/12 px-2 py-1.5">
-            <p class="text-[8px] font-semibold uppercase tracking-[0.12em] text-white/70">Net</p>
-            <p class="mt-1 whitespace-nowrap text-[clamp(0.64rem,2.55vw,0.9rem)] font-extrabold leading-none tracking-[-0.04em] tabular-nums">
-              {{ formatCurrency(totalNet, activeCurrency, true) }}
-            </p>
+        <div class="px-4 pb-4">
+          <div class="rounded-[1.4rem] border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted sm:text-[11px]">{{ homeCopy.net }}</p>
+                <p class="text-[11px] text-muted sm:text-xs">{{ homeCopy.thisMonth }}</p>
+              </div>
+              <p class="whitespace-nowrap text-[clamp(0.98rem,4.5vw,1.28rem)] font-extrabold leading-none tracking-[-0.04em] tabular-nums text-default">
+                {{ formatCurrency(totalNet, activeCurrency, true) }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
     <section class="grid grid-cols-2 gap-3">
-      <MetricCard
-        title="Income"
+        <MetricCard
+        :title="homeCopy.income"
         :value="formatCurrency(totalIncome, activeCurrency)"
-        detail="This month"
+        :detail="homeCopy.thisMonth"
         icon="i-lucide-trending-up"
         accent="from-emerald-500 to-teal-400"
       />
       <MetricCard
-        title="Expense"
+        :title="homeCopy.expense"
         :value="formatCurrency(totalExpense, activeCurrency)"
-        detail="This month"
+        :detail="homeCopy.thisMonth"
         icon="i-lucide-trending-down"
         accent="from-rose-500 to-pink-400"
       />
@@ -91,8 +284,8 @@ const quickActions = [
 
     <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-black tracking-tight text-default">Quick actions</h2>
-        <NuxtLink to="/reports" class="text-sm font-semibold text-primary">Open reports</NuxtLink>
+        <h2 class="text-lg font-black tracking-tight text-default">{{ homeCopy.quickActions }}</h2>
+        <NuxtLink to="/reports" class="text-sm font-semibold text-primary">{{ homeCopy.openReports }}</NuxtLink>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
@@ -100,15 +293,15 @@ const quickActions = [
           v-for="action in quickActions"
           :key="action.label"
           :to="action.to"
-          class="rounded-[1.4rem] border border-white/60 bg-white/80 p-4 shadow-[0_18px_50px_-25px_rgba(15,23,42,0.28)] transition active:scale-[0.98] dark:border-white/10 dark:bg-slate-950/70"
+          class="h-full rounded-[1.4rem] border border-white/60 bg-white/80 p-4 shadow-[0_18px_50px_-25px_rgba(15,23,42,0.28)] transition active:scale-[0.98] dark:border-white/10 dark:bg-slate-950/70"
         >
           <div class="flex items-center gap-3">
-            <div :class="['flex size-11 items-center justify-center rounded-[1.4rem] bg-gradient-to-br text-white shadow-lg', action.color === 'primary' ? 'from-sky-500 to-cyan-400' : action.color === 'emerald' ? 'from-emerald-500 to-teal-400' : action.color === 'amber' ? 'from-amber-500 to-orange-400' : 'from-violet-500 to-fuchsia-400']">
+            <div :class="['flex size-12 shrink-0 aspect-square items-center justify-center rounded-full text-white shadow-lg', action.color === 'primary' ? 'bg-primary' : action.color === 'emerald' ? 'bg-emerald-500' : action.color === 'amber' ? 'bg-amber-500' : 'bg-violet-500']">
               <UIcon :name="action.icon" class="size-5" />
             </div>
             <div>
               <p class="font-bold text-default">{{ action.label }}</p>
-              <p class="text-sm text-muted">{{ action.label === 'Add' ? 'New transaction' : action.label === 'History' ? 'Browse entries' : action.label === 'Wallets' ? 'Balances and wallets' : 'Charts and summaries' }}</p>
+              <p class="text-sm text-muted">{{ action.subtitle }}</p>
             </div>
           </div>
         </NuxtLink>
@@ -117,8 +310,8 @@ const quickActions = [
 
     <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-black tracking-tight text-default">Wallet balances</h2>
-        <NuxtLink to="/wallets" class="text-sm font-semibold text-primary">See all</NuxtLink>
+        <h2 class="text-lg font-black tracking-tight text-default">{{ homeCopy.walletBalances }}</h2>
+        <NuxtLink to="/wallets" class="text-sm font-semibold text-primary">{{ homeCopy.seeAll }}</NuxtLink>
       </div>
 
       <div class="space-y-3">
@@ -136,7 +329,7 @@ const quickActions = [
 
     <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-black tracking-tight text-default">Currency overview</h2>
+        <h2 class="text-lg font-black tracking-tight text-default">{{ homeCopy.currencyOverview }}</h2>
       </div>
 
       <div class="grid grid-cols-1 gap-3">
@@ -145,17 +338,18 @@ const quickActions = [
           :key="item.currency"
           :title="item.currency"
           :value="formatCurrency(item.balance, item.currency)"
-          detail="All wallets"
-          icon="i-lucide-coins"
-          accent="from-sky-500 to-cyan-400"
+          :detail="homeCopy.allWallets"
+          :icon-text="currencySymbols[item.currency]"
+          :accent="currencyAccents[item.currency]"
+          value-class="text-[clamp(1rem,4vw,1.38rem)]"
         />
       </div>
     </section>
 
     <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-black tracking-tight text-default">Recent transactions</h2>
-        <NuxtLink to="/transactions" class="text-sm font-semibold text-primary">View history</NuxtLink>
+        <h2 class="text-lg font-black tracking-tight text-default">{{ homeCopy.recentTransactions }}</h2>
+        <NuxtLink to="/transactions" class="text-sm font-semibold text-primary">{{ homeCopy.viewHistory }}</NuxtLink>
       </div>
 
       <div class="space-y-3">
