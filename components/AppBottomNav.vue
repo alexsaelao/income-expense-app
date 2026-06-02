@@ -32,7 +32,7 @@ function isActive(path: string) {
 <template>
   <nav class="fixed inset-x-0 bottom-0 z-30 transform-gpu">
     <div class="relative border-t border-white/60 bg-white/95 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] shadow-[0_-16px_52px_-42px_rgba(15,23,42,0.6)] backdrop-blur-none dark:border-white/10 dark:bg-slate-950/95">
-      <div class="grid w-full grid-cols-5 items-end gap-1 px-3 pt-1.5 md:mx-auto md:max-w-md">
+      <div class="grid w-full grid-cols-5 items-end gap-1 px-3 pt-1.5 md:px-6 md:pt-2 lg:mx-auto lg:max-w-[1024px] lg:px-8">
         <NuxtLink
           v-for="item in items.slice(0, 2)"
           :key="item.to"
