@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { activeTheme } = useAppThemeColor()
+
 const props = defineProps<{
   items: Array<{ label: string; value: number; helper?: string }>
   total?: number
@@ -22,8 +24,8 @@ const maxValue = computed(() => props.total ?? Math.max(...props.items.map(item 
       </div>
       <div class="h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800">
         <div
-          class="h-full rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 transition-all duration-500"
-          :class="colorClass"
+          class="h-full rounded-full bg-gradient-to-r transition-all duration-500"
+          :class="[colorClass ?? activeTheme.accent]"
           :style="{ width: `${Math.max((item.value / maxValue) * 100, item.value > 0 ? 8 : 0)}%` }"
         />
       </div>

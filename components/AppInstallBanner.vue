@@ -3,6 +3,15 @@ const route = useRoute()
 const router = useRouter()
 const { $pwa } = useNuxtApp()
 const { isStandalone } = usePwaDisplayMode()
+const { activeTheme } = useAppThemeColor()
+
+const bannerStyle = computed(() => ({
+  backgroundImage: `linear-gradient(135deg, ${activeTheme.value.hex} 0%, ${activeTheme.value.hex}E6 100%)`
+}))
+
+const installButtonStyle = computed(() => ({
+  color: activeTheme.value.hex
+}))
 
 const installAvailable = computed(() => Boolean($pwa?.showInstallPrompt?.value))
 const installHelpOpen = ref(false)
@@ -47,7 +56,12 @@ onMounted(() => {
 
 <template>
   <template v-if="bannerVisible">
-    <section class="fixed inset-x-0 top-0 z-40 overflow-hidden border-y border-sky-200/80 bg-gradient-to-r from-sky-500 to-cyan-400 text-white shadow-[0_18px_50px_-24px_rgba(14,165,233,0.5)] dark:border-sky-900/50 lg:hidden">
+    <section
+      :class="[
+        'fixed inset-x-0 top-0 z-40 overflow-hidden border-y border-white/20 text-white shadow-[0_18px_50px_-24px_rgba(14,165,233,0.5)] lg:hidden'
+      ]"
+      :style="bannerStyle"
+    >
       <div class="flex flex-nowrap items-center gap-2 px-4 py-[0.55rem] pt-[calc(env(safe-area-inset-top)+0.55rem)]">
         <div class="flex size-10 shrink-0 items-center justify-center rounded-[1.15rem] bg-white/15 text-white shadow-[0_10px_20px_-14px_rgba(15,23,42,0.35)]">
           <UIcon name="i-lucide-smartphone" class="size-5" />
@@ -61,7 +75,8 @@ onMounted(() => {
 
         <div class="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <UButton
-            class="h-8 shrink-0 whitespace-nowrap rounded-2xl border-0 bg-white px-2.5 text-[10px] font-bold text-sky-700 shadow-sm hover:bg-slate-50 sm:px-3 sm:text-[11px]"
+            class="h-8 shrink-0 whitespace-nowrap rounded-2xl border-0 bg-white px-2.5 text-[10px] font-bold shadow-sm hover:bg-slate-50 sm:px-3 sm:text-[11px]"
+            :style="installButtonStyle"
             color="neutral"
             variant="solid"
             :icon="installAvailable ? 'i-lucide-square-arrow-out-up-right' : 'i-lucide-smartphone'"

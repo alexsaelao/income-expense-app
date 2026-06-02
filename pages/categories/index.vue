@@ -3,6 +3,7 @@ import type { CategoryType, WalletColor } from '~/composables/useMoneyNote'
 import { useMoneyNote, walletColorOptions } from '~/composables/useMoneyNote'
 
 const { selectedLanguage } = useAppLanguage()
+const { activeTheme } = useAppThemeColor()
 const {
   categoryEntriesFor,
   addCategory,
@@ -394,7 +395,7 @@ function onSheetPointerCancel() {
       <UButton
         icon="i-lucide-plus"
         size="lg"
-        class="rounded-[1.25rem] border-0 bg-primary px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95"
+        :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
         @click="categoryModalOpen = true"
       >
         {{ categoriesCopy.add }}
@@ -492,7 +493,7 @@ function onSheetPointerCancel() {
     <USlideover
       v-model:open="manageCategoryOpen"
       side="bottom"
-      :close="false"
+      :close="true"
       :ui="{
         content: 'w-full data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] data-[state=open]:rounded-t-[1.5rem] data-[state=closed]:rounded-t-[1.5rem] overflow-hidden border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 md:mx-auto md:mb-4 md:w-[min(30rem,calc(100%-2rem))] md:rounded-[1.5rem]',
         body: 'p-0',
@@ -561,7 +562,7 @@ function onSheetPointerCancel() {
 
             <div v-else-if="activeCategory" class="mt-4 grid grid-cols-2 gap-3">
               <UButton
-                class="h-12 justify-center rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 font-bold text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.55)] transition hover:from-sky-600 hover:to-cyan-500 active:scale-95"
+                :class="['h-12 justify-center rounded-full font-bold text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.55)] transition active:scale-95', activeTheme.accent]"
                 icon="i-lucide-pencil-line"
                 @click="openCategoryEditor(activeCategory)"
               >
@@ -651,7 +652,7 @@ function onSheetPointerCancel() {
     <USlideover
       v-model:open="categoryModalOpen"
       side="bottom"
-      :close="false"
+      :close="true"
       :ui="{
         content: 'w-full data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] data-[state=open]:rounded-t-[1.5rem] data-[state=closed]:rounded-t-[1.5rem] overflow-hidden border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 md:mx-auto md:mb-4 md:w-[min(30rem,calc(100%-2rem))] md:rounded-[1.5rem]',
         body: 'p-0',
@@ -810,7 +811,7 @@ function onSheetPointerCancel() {
                 {{ categoriesCopy.cancel }}
               </UButton>
               <UButton
-                class="h-12 flex-1 justify-center rounded-full bg-primary text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95"
+                :class="['h-12 flex-1 justify-center rounded-full bg-gradient-to-r text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
                 icon="i-lucide-check"
                 @click="submitCategory"
               >

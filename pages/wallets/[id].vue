@@ -6,6 +6,7 @@ import { useMoneyNote, walletColorOptions } from '~/composables/useMoneyNote'
 const route = useRoute()
 const router = useRouter()
 const { selectedLanguage } = useAppLanguage()
+const { activeTheme } = useAppThemeColor()
 const {
   wallets,
   getWallet,
@@ -182,7 +183,7 @@ function confirmDeleteWallet() {
             <UButton
               icon="i-lucide-pencil-line"
               size="sm"
-              class="h-9 shrink-0 rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 px-3 text-xs font-bold text-white shadow-[0_14px_28px_-18px_rgba(14,165,233,0.65)] transition active:scale-95"
+              :class="['h-9 shrink-0 rounded-full bg-gradient-to-r px-3 text-xs font-bold text-white shadow-[0_14px_28px_-18px_rgba(14,165,233,0.65)] transition active:scale-95', activeTheme.accent]"
               @click="openWalletManager"
             >
               {{ walletCopy.manageWallet }}
@@ -196,7 +197,7 @@ function confirmDeleteWallet() {
       <div class="mt-5 grid grid-cols-1 gap-3">
         <MetricCard :title="walletCopy.income" :value="formatCurrency(summary?.income ?? 0, wallet.currency)" icon="i-lucide-trending-up" accent="from-emerald-500 to-teal-400" />
         <MetricCard :title="walletCopy.expense" :value="formatCurrency(summary?.expense ?? 0, wallet.currency)" icon="i-lucide-trending-down" accent="from-rose-500 to-pink-400" />
-        <MetricCard :title="walletCopy.net" :value="formatCurrency(summary?.net ?? 0, wallet.currency, true)" icon="i-lucide-badge-dollar-sign" accent="from-sky-500 to-cyan-400" />
+        <MetricCard :title="walletCopy.net" :value="formatCurrency(summary?.net ?? 0, wallet.currency, true)" icon="i-lucide-badge-dollar-sign" />
       </div>
     </UCard>
 
@@ -231,7 +232,7 @@ function confirmDeleteWallet() {
     <USlideover
       v-model:open="walletManageOpen"
       side="bottom"
-      :close="false"
+      :close="true"
       :ui="{
         content: 'w-full data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] data-[state=open]:rounded-t-[1.5rem] data-[state=closed]:rounded-t-[1.5rem] overflow-hidden border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 md:mx-auto md:mb-4 md:w-[min(30rem,calc(100%-2rem))] md:rounded-[1.5rem]',
         body: 'p-0',
@@ -344,7 +345,7 @@ function confirmDeleteWallet() {
           <div class="border-t border-slate-200/80 bg-white/92 px-4 py-3 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
             <div class="grid gap-2">
               <UButton
-                class="h-12 justify-center rounded-full bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-400 text-center text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98]"
+                :class="['h-12 justify-center rounded-full bg-gradient-to-r text-center text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98]', activeTheme.accent]"
                 icon="i-lucide-check"
                 @click="submitWalletUpdate"
               >

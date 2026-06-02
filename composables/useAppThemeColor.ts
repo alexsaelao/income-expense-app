@@ -9,11 +9,11 @@ export const appThemeColorOptions: Array<{
   accent: string
 }> = [
   { label: 'Blue', value: 'blue', hex: '#0ea5e9', accent: 'from-sky-500 to-cyan-400' },
-  { label: 'Red', value: 'red', hex: '#fb7185', accent: 'from-rose-400 to-pink-300' },
-  { label: 'Green', value: 'green', hex: '#4ade80', accent: 'from-emerald-400 to-teal-300' },
-  { label: 'Amber', value: 'amber', hex: '#fbbf24', accent: 'from-amber-300 to-yellow-200' },
-  { label: 'Violet', value: 'violet', hex: '#a78bfa', accent: 'from-violet-300 to-fuchsia-300' },
-  { label: 'Pink', value: 'rose', hex: '#f472b6', accent: 'from-pink-300 to-rose-200' }
+  { label: 'Red', value: 'red', hex: '#fb7185', accent: 'from-red-500 to-rose-400' },
+  { label: 'Green', value: 'green', hex: '#4ade80', accent: 'from-green-500 to-emerald-400' },
+  { label: 'Amber', value: 'amber', hex: '#fbbf24', accent: 'from-amber-500 to-yellow-400' },
+  { label: 'Violet', value: 'violet', hex: '#a78bfa', accent: 'from-violet-500 to-purple-400' },
+  { label: 'Pink', value: 'rose', hex: '#f472b6', accent: 'from-pink-500 to-rose-400' }
 ]
 
 const themeColorToUiColor: Record<AppThemeColor, string> = {

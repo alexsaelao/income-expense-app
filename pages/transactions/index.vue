@@ -3,6 +3,7 @@ import { typeOptions, useMoneyNote } from '~/composables/useMoneyNote'
 import type { CurrencyCode, Transaction } from '~/composables/useMoneyNote'
 
 const { selectedLanguage } = useAppLanguage()
+const { activeTheme } = useAppThemeColor()
 const { wallets, filterTransactions, groupTransactions, removeTransaction, enabledCurrencyOptions, formatCurrency } = useMoneyNote()
 
 const searchDraft = ref('')
@@ -323,7 +324,7 @@ function closeDeleteConfirm() {
             >
               {{ filtersOpen ? transactionsCopy.hide : transactionsCopy.show }}
             </span>
-            <div class="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+            <div :class="['flex size-9 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
               <UIcon name="i-lucide-filter" class="size-4.5 transition-transform duration-200" :class="filtersOpen ? 'rotate-180' : ''" />
             </div>
           </div>
@@ -333,7 +334,7 @@ function closeDeleteConfirm() {
       <div v-show="filtersOpen" class="space-y-4 pt-1">
         <label class="block">
           <div class="mb-2 flex items-center gap-2">
-            <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
+            <div :class="['flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm', activeTheme.accent]">
               <UIcon name="i-lucide-search" class="size-3.5" />
             </div>
             <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ transactionsCopy.search }}</span>
@@ -350,7 +351,7 @@ function closeDeleteConfirm() {
         <div class="grid gap-3">
           <label class="block">
             <div class="mb-2 flex items-center gap-2">
-              <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
+              <div :class="['flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm', activeTheme.accent]">
                 <UIcon name="i-lucide-sliders-horizontal" class="size-3.5" />
               </div>
               <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ transactionsCopy.type }}</span>
@@ -366,7 +367,7 @@ function closeDeleteConfirm() {
 
           <label class="block">
             <div class="mb-2 flex items-center gap-2">
-              <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
+              <div :class="['flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm', activeTheme.accent]">
                 <UIcon name="i-lucide-wallet" class="size-3.5" />
               </div>
               <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ transactionsCopy.wallet }}</span>
@@ -381,7 +382,7 @@ function closeDeleteConfirm() {
 
           <label class="block">
             <div class="mb-2 flex items-center gap-2">
-              <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
+              <div :class="['flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm', activeTheme.accent]">
                 <UIcon name="i-lucide-coins" class="size-3.5" />
               </div>
               <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ transactionsCopy.currency }}</span>
@@ -398,7 +399,7 @@ function closeDeleteConfirm() {
           <div class="grid grid-cols-2 gap-2">
             <label class="block">
               <div class="mb-1.5 flex items-center gap-1.5">
-                <div class="flex size-7 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
+                <div :class="['flex size-7 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm', activeTheme.accent]">
                   <UIcon name="i-lucide-calendar-range" class="size-3" />
                 </div>
                 <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ transactionsCopy.from }}</span>
@@ -420,7 +421,7 @@ function closeDeleteConfirm() {
 
             <label class="block">
               <div class="mb-1.5 flex items-center gap-1.5">
-                <div class="flex size-7 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
+                <div :class="['flex size-7 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm', activeTheme.accent]">
                   <UIcon name="i-lucide-calendar-range" class="size-3" />
                 </div>
                 <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ transactionsCopy.to }}</span>
@@ -514,7 +515,7 @@ function closeDeleteConfirm() {
       <UButton
         to="/add"
         icon="i-lucide-plus"
-        class="mt-5 rounded-[1.4rem] bg-gradient-to-r from-sky-500 to-cyan-400 px-5 py-3 font-bold text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.65)] transition hover:from-sky-600 hover:to-cyan-500 active:scale-95"
+        :class="['mt-5 rounded-[1.4rem] px-5 py-3 font-bold text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.65)] transition active:scale-95', activeTheme.accent]"
       >
         {{ transactionsCopy.addTransaction }}
       </UButton>

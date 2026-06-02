@@ -59,9 +59,12 @@ export default defineEventHandler(async (event) => {
         pin_salt,
         pin_hash,
         remember,
+        pro_started_at,
+        cloud_cleared_count,
+        cloud_cleared_at,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     args: [
       normalized,
@@ -71,6 +74,9 @@ export default defineEventHandler(async (event) => {
       salt,
       pinHash,
       remember ? 1 : 0,
+      null,
+      0,
+      null,
       now,
       now
     ]

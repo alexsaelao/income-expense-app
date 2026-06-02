@@ -3,6 +3,7 @@ import { useMoneyNote } from '~/composables/useMoneyNote'
 import type { CurrencyCode, WalletColor } from '~/composables/useMoneyNote'
 
 const { selectedLanguage } = useAppLanguage()
+const { activeTheme } = useAppThemeColor()
 const {
   wallets,
   walletEntries,
@@ -221,7 +222,7 @@ function onSheetPointerCancel() {
       <UButton
         icon="i-lucide-plus"
         size="lg"
-        class="rounded-[1.25rem] border-0 bg-primary px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95"
+        :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
         @click="walletModalOpen = true"
       >
         {{ walletCopy.addWallet }}
@@ -523,7 +524,7 @@ function onSheetPointerCancel() {
                 {{ walletCopy.cancel }}
               </UButton>
               <UButton
-                class="h-12 flex-1 justify-center rounded-full bg-primary text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95"
+                :class="['h-12 flex-1 justify-center rounded-full bg-gradient-to-r text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
                 icon="i-lucide-check"
                 @click="submitWallet"
               >

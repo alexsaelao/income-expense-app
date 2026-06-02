@@ -1,19 +1,38 @@
+export type ProfileAvatarType = 'emoji' | 'icon'
+
 type AuthProfile = {
   identifier: string
   pin: string
   remember: boolean
   updatedAt: string
   plan?: 'free' | 'pro'
+  avatarType?: ProfileAvatarType
+  avatarValue?: string
 }
 
 type AuthSession = {
   identifier: string
   signedInAt: string
   plan?: 'free' | 'pro'
+  avatarType?: ProfileAvatarType
+  avatarValue?: string
 }
 
 const REMEMBER_KEY = 'income-expense-note-auth-remember-v1'
 const SESSION_KEY = 'income-expense-note-auth-session-v1'
+
+function normalizeAvatarValue(avatarType: ProfileAvatarType | undefined, avatarValue: string | undefined) {
+  const normalizedAvatarValue = avatarValue?.trim() ?? ''
+  if (!normalizedAvatarValue) return ''
+
+  if (avatarType === 'icon') {
+    if (normalizedAvatarValue.startsWith('i-')) return normalizedAvatarValue
+    if (normalizedAvatarValue.startsWith('lucide-')) return `i-${normalizedAvatarValue}`
+    return `i-lucide-${normalizedAvatarValue}`
+  }
+
+  return normalizedAvatarValue
+}
 
 function readStorage<T>(key: string): T | null {
   if (import.meta.server) return null
@@ -72,8 +91,21 @@ export function useDeviceAuth() {
   function hydrateAuth() {
     if (hydrated.value || import.meta.server) return
 
-    rememberedProfile.value = readStorage<AuthProfile>(REMEMBER_KEY)
-    sessionProfile.value = readSession<AuthSession>(SESSION_KEY)
+    const storedRememberedProfile = readStorage<AuthProfile>(REMEMBER_KEY)
+    const storedSessionProfile = readSession<AuthSession>(SESSION_KEY)
+
+    rememberedProfile.value = storedRememberedProfile
+      ? {
+          ...storedRememberedProfile,
+          avatarValue: normalizeAvatarValue(storedRememberedProfile.avatarType, storedRememberedProfile.avatarValue)
+        }
+      : null
+    sessionProfile.value = storedSessionProfile
+      ? {
+          ...storedSessionProfile,
+          avatarValue: normalizeAvatarValue(storedSessionProfile.avatarType, storedSessionProfile.avatarValue)
+        }
+      : null
     hydrated.value = true
     authReady.value = true
   }
@@ -84,9 +116,16 @@ export function useDeviceAuth() {
     }
   }
 
-  function setRememberedProfile(identifier: string, pin: string, remember: boolean) {
+  function setRememberedProfile(
+    identifier: string,
+    pin: string,
+    remember: boolean,
+    avatarType?: ProfileAvatarType,
+    avatarValue?: string
+  ) {
     const normalizedIdentifier = identifier.trim()
     const normalizedPin = pin.trim()
+    const normalizedAvatarValue = normalizeAvatarValue(avatarType, avatarValue)
 
     if (!remember) return
 
@@ -94,7 +133,9 @@ export function useDeviceAuth() {
       identifier: normalizedIdentifier,
       pin: normalizedPin,
       remember: true,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      avatarType,
+      avatarValue: normalizedAvatarValue || undefined
     }
 
     rememberedProfile.value = profile
@@ -109,15 +150,29 @@ export function useDeviceAuth() {
   function signIn(identifier: string, pin: string, remember = true, plan: 'free' | 'pro' = 'free') {
     const normalizedIdentifier = identifier.trim()
     const normalizedPin = pin.trim()
+    const rememberedAvatarType = rememberedProfile.value?.identifier === normalizedIdentifier
+      ? rememberedProfile.value.avatarType
+      : undefined
+    const rememberedAvatarValue = rememberedProfile.value?.identifier === normalizedIdentifier
+      ? normalizeAvatarValue(rememberedProfile.value.avatarType, rememberedProfile.value.avatarValue)
+      : undefined
 
     if (remember) {
-      setRememberedProfile(normalizedIdentifier, normalizedPin, true)
+      setRememberedProfile(
+        normalizedIdentifier,
+        normalizedPin,
+        true,
+        rememberedAvatarType,
+        rememberedAvatarValue
+      )
     }
 
     const session: AuthSession = {
       identifier: normalizedIdentifier,
       signedInAt: new Date().toISOString(),
-      plan
+      plan,
+      avatarType: rememberedAvatarType,
+      avatarValue: rememberedAvatarValue || undefined
     }
 
     sessionProfile.value = session
@@ -133,6 +188,29 @@ export function useDeviceAuth() {
     }
 
     writeSession(SESSION_KEY, sessionProfile.value)
+  }
+
+  function setProfileAvatar(avatarType: ProfileAvatarType, avatarValue: string) {
+    const normalizedAvatarValue = normalizeAvatarValue(avatarType, avatarValue)
+    if (!normalizedAvatarValue) return
+
+    if (rememberedProfile.value) {
+      rememberedProfile.value = {
+        ...rememberedProfile.value,
+        avatarType,
+        avatarValue: normalizedAvatarValue
+      }
+      writeStorage(REMEMBER_KEY, rememberedProfile.value)
+    }
+
+    if (sessionProfile.value) {
+      sessionProfile.value = {
+        ...sessionProfile.value,
+        avatarType,
+        avatarValue: normalizedAvatarValue
+      }
+      writeSession(SESSION_KEY, sessionProfile.value)
+    }
   }
 
   function signOut() {
@@ -155,6 +233,7 @@ export function useDeviceAuth() {
     sessionProfile,
     signIn,
     setSessionPlan,
+    setProfileAvatar,
     signOut,
     clearRememberedProfile,
     hydrateAuth

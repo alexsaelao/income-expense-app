@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { activeTheme } = useAppThemeColor()
+
 withDefaults(defineProps<{
   title: string
   value: string
@@ -15,7 +17,7 @@ withDefaults(defineProps<{
 <template>
   <UCard class="overflow-hidden rounded-[1.4rem] border border-white/50 bg-white/85 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.25)] dark:border-white/10 dark:bg-slate-950/80">
     <div class="flex items-start gap-3">
-      <div :class="['flex size-11 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', accent ?? 'from-sky-500 to-cyan-400']">
+      <div :class="['flex size-11 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', accent ?? activeTheme.accent]">
         <template v-if="iconText">
           <span class="text-lg font-black leading-none tracking-tight">{{ iconText }}</span>
         </template>

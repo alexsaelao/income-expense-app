@@ -634,14 +634,38 @@ function companyEntryKey(entry: { id: string; name: string; isDefault?: boolean 
   return entry.isDefault ? defaultCompanyKey(entry.name) : customCompanyKey(entry.id)
 }
 
+function calculateMoveDestinationAmount(
+  amount: number,
+  sourceCurrency?: CurrencyCode,
+  targetCurrency?: CurrencyCode,
+  exchangeRate?: number
+) {
+  if (!sourceCurrency || !targetCurrency) return amount
+  if (sourceCurrency === targetCurrency) return amount
+
+  const rate = Number(exchangeRate ?? 0)
+  if (!rate || rate <= 0) return amount
+
+  const pair = `${sourceCurrency}->${targetCurrency}`
+
+  if (pair === 'THB->LAK' || pair === 'USD->LAK' || pair === 'USD->THB') {
+    return amount * rate
+  }
+
+  if (pair === 'THB->USD' || pair === 'LAK->THB' || pair === 'LAK->USD') {
+    return amount / rate
+  }
+
+  return amount / rate
+}
+
 function moveDestinationAmount(transaction: Transaction, source?: Wallet, target?: Wallet) {
-  if (!source || !target) return transaction.amount
-  if (source.currency === target.currency) return transaction.amount
-
-  const exchangeRate = Number(transaction.exchangeRate ?? 0)
-  if (!exchangeRate || exchangeRate <= 0) return transaction.amount
-
-  return transaction.amount / exchangeRate
+  return calculateMoveDestinationAmount(
+    transaction.amount,
+    source?.currency,
+    target?.currency,
+    transaction.exchangeRate
+  )
 }
 
 function applyTransactionEffect(wallets: Wallet[], transaction: Transaction, direction = 1) {
@@ -759,6 +783,7 @@ export function useMoneyNote() {
 
   const activeAccountIdentifier = computed(() => sessionProfile.value?.identifier ?? '')
   const activeAccountKey = computed(() => normalizeAccountKey(activeAccountIdentifier.value))
+  const isCloudSyncEnabled = computed(() => (sessionProfile.value?.plan ?? 'free') === 'pro')
 
   const buildLocalSnapshot = (): MoneyNoteLocalSnapshot => ({
     stateJson: JSON.stringify(store.value),
@@ -788,6 +813,12 @@ export function useMoneyNote() {
     localSaveTimer = setTimeout(() => {
       void writeMoneyNoteLocalSnapshot(activeAccountKey.value, buildLocalSnapshot()).catch(() => {})
     }, 150)
+
+    if (!isCloudSyncEnabled.value) {
+      syncStatus.value = 'waiting'
+      syncProgress.value = 0
+      return
+    }
 
     if (!isOnline.value) {
       syncStatus.value = 'offline'
@@ -866,7 +897,7 @@ export function useMoneyNote() {
 
     const identifier = activeAccountIdentifier.value.trim()
 
-    if (identifier) {
+    if (identifier && isCloudSyncEnabled.value) {
       try {
         const remote = await nuxtApp.$fetch<{ state: Partial<MoneyNoteState> | null; updatedAt?: string | null }>('/api/app-state', {
           query: { identifier }
@@ -885,6 +916,10 @@ export function useMoneyNote() {
       catch {
         // fall back to local database below
       }
+    }
+    else if (!isCloudSyncEnabled.value) {
+      syncStatus.value = 'waiting'
+      syncProgress.value = 0
     }
 
     hydratedAccountKey.value = accountKey
@@ -1766,7 +1801,9 @@ function applyTransactionPayload(payload: TransactionInput, id?: string) {
     categorySeries,
     walletSeries,
     currencySeries,
+    calculateMoveDestinationAmount,
     defaultCategoriesEnabled,
+    isCloudSyncEnabled,
     syncStatus,
     lastSyncedAt,
     syncProgress,

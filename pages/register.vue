@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const router = useRouter()
 const { selectedLanguage } = useAppLanguage()
+const { activeTheme } = useAppThemeColor()
 const { authReady, isAuthenticated, signIn } = useDeviceAuth()
 
 const identifier = ref('')
@@ -244,7 +245,7 @@ onMounted(() => {
 <template>
   <div class="space-y-6 pb-8">
     <section class="space-y-3 text-center">
-      <div class="mx-auto flex size-16 items-center justify-center rounded-[1.4rem] bg-gradient-to-br from-sky-500 via-blue-500 to-cyan-400 text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)]">
+      <div :class="['mx-auto flex size-16 items-center justify-center rounded-[1.4rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)]', activeTheme.accent]">
         <UIcon name="i-lucide-user-round-plus" class="size-8" />
       </div>
 
@@ -304,7 +305,7 @@ onMounted(() => {
           <UButton
             type="submit"
             :disabled="!canContinue || isSubmitting || isCheckingAccount"
-            class="h-12 w-full rounded-full bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-400 text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:text-base"
+            :class="['h-12 w-full rounded-full bg-gradient-to-r text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:text-base', activeTheme.accent]"
           >
             <span class="flex w-full items-center justify-center gap-2 text-center">
               <UIcon
@@ -409,7 +410,7 @@ onMounted(() => {
           <UButton
             type="submit"
             :disabled="pinValue.length !== 6 || isSubmitting"
-            class="h-12 w-full rounded-full bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-400 text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:text-base"
+            :class="['h-12 w-full rounded-full bg-gradient-to-r text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:text-base', activeTheme.accent]"
           >
             <span class="flex w-full items-center justify-center gap-2 text-center">
               <UIcon

@@ -9,7 +9,7 @@ const props = defineProps<{
 }>()
 
 const { selectedLanguage } = useAppLanguage()
-const { formatCurrency, formatDate, typeIcon, typeLabel, typeTint, getWallet } = useMoneyNote()
+const { formatCurrency, formatDate, typeIcon, typeLabel, typeTint, getWallet, calculateMoveDestinationAmount } = useMoneyNote()
 
 const sourceWallet = computed(() => getWallet(props.transaction.walletId))
 const destinationWallet = computed(() => props.transaction.toWalletId ? getWallet(props.transaction.toWalletId) : undefined)
@@ -32,15 +32,34 @@ const moveRateLabel = computed(() => {
   if (sourceWallet.value.currency === destinationWallet.value.currency) return ''
   if (!props.transaction.exchangeRate || props.transaction.exchangeRate <= 0) return ''
 
-  return `1 ${destinationWallet.value.currency} = ${formatCurrency(props.transaction.exchangeRate, sourceWallet.value.currency)}`
+  const rateText = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(props.transaction.exchangeRate)
+  const pair = `${sourceWallet.value.currency}->${destinationWallet.value.currency}`
+
+  if (pair === 'THB->LAK' || pair === 'USD->LAK' || pair === 'USD->THB') {
+    return `1 ${sourceWallet.value.currency} = ${rateText} ${destinationWallet.value.currency}`
+  }
+
+  if (pair === 'THB->USD' || pair === 'LAK->THB' || pair === 'LAK->USD') {
+    return `1 ${destinationWallet.value.currency} = ${rateText} ${sourceWallet.value.currency}`
+  }
+
+  return `Rate: ${rateText}`
 })
 const moveDestinationAmountLabel = computed(() => {
   if (props.transaction.type !== 'move') return ''
   if (!sourceWallet.value || !destinationWallet.value) return ''
-  if (sourceWallet.value.currency === destinationWallet.value.currency) return ''
-  if (!props.transaction.exchangeRate || props.transaction.exchangeRate <= 0) return ''
+  const amount = calculateMoveDestinationAmount(
+    props.transaction.amount,
+    sourceWallet.value.currency,
+    destinationWallet.value.currency,
+    props.transaction.exchangeRate
+  )
 
-  return formatCurrency(props.transaction.amount / props.transaction.exchangeRate, destinationWallet.value.currency)
+  return formatCurrency(amount, destinationWallet.value.currency)
+})
+const loanDirectionLabel = computed(() => {
+  if (props.transaction.type !== 'loan') return ''
+  return props.transaction.loanDirection === 'received' ? 'Received' : 'Given'
 })
 </script>
 
@@ -65,6 +84,7 @@ const moveDestinationAmountLabel = computed(() => {
 
         <div :class="['flex flex-wrap items-center gap-1.5', compact ? 'mt-2' : 'mt-2.5']">
           <UBadge color="neutral" variant="soft" class="rounded-full">{{ typeLabel(transaction.type) }}</UBadge>
+          <UBadge v-if="transaction.type === 'loan'" color="amber" variant="soft" class="rounded-full">{{ loanDirectionLabel }}</UBadge>
           <UBadge color="primary" variant="soft" class="rounded-full">{{ transaction.currency }}</UBadge>
           <span v-if="showWallet" :class="compact ? 'text-[12px] text-muted' : 'text-[13px] text-muted'">{{ walletName }}</span>
           <span v-if="transaction.toWalletId" :class="compact ? 'text-[12px] text-muted' : 'text-[13px] text-muted'">→ {{ destinationName }}</span>

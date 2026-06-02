@@ -3,7 +3,10 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
     tursoDatabaseUrl: process.env.TURSO_DATABASE_URL ?? '',
-    tursoAuthToken: process.env.TURSO_AUTH_TOKEN ?? ''
+    tursoAuthToken: process.env.TURSO_AUTH_TOKEN ?? '',
+    adminLoginIdentifier: process.env.ADMIN_LOGIN_IDENTIFIER ?? process.env.ADMIN_LOGIN_EMAIL ?? 'admin@local',
+    adminLoginPin: process.env.ADMIN_LOGIN_PIN ?? '123456',
+    adminSessionSecret: process.env.ADMIN_SESSION_SECRET ?? 'income-expense-note-admin-secret'
   },
   app: {
     head: {

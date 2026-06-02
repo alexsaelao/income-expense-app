@@ -33,13 +33,14 @@ export default defineEventHandler(async (event) => {
 
   const normalizedIdentifier = normalizeAuthIdentifier(identifier)
   const normalizedKey = normalizeRedeemCode(key)
+  const now = new Date().toISOString()
 
   if (!normalizedKey) {
     throw createError({ statusCode: 400, statusMessage: 'Missing redeem key' })
   }
 
   const accountResult = await db.execute({
-    sql: `SELECT identifier, identifier_type, plan FROM ${AUTH_ACCOUNT_TABLE} WHERE identifier_normalized = ? LIMIT 1`,
+    sql: `SELECT identifier, identifier_type, plan, pro_started_at FROM ${AUTH_ACCOUNT_TABLE} WHERE identifier_normalized = ? LIMIT 1`,
     args: [normalizedIdentifier]
   })
 
@@ -47,6 +48,7 @@ export default defineEventHandler(async (event) => {
     identifier?: string
     identifier_type?: string
     plan?: string
+    pro_started_at?: string | null
   } | undefined
 
   if (!accountRow) {
@@ -54,13 +56,26 @@ export default defineEventHandler(async (event) => {
   }
 
   if (accountRow.plan === 'pro') {
+    const existingProStartedAt = accountRow.pro_started_at ?? null
+    if (!existingProStartedAt) {
+      await db.execute({
+        sql: `
+          UPDATE ${AUTH_ACCOUNT_TABLE}
+          SET pro_started_at = COALESCE(pro_started_at, ?), updated_at = ?
+          WHERE identifier_normalized = ?
+        `,
+        args: [now, now, normalizedIdentifier]
+      })
+    }
+
     return {
       ok: true,
       connected: true,
       account: {
         identifier: accountRow.identifier ?? identifier,
         identifierType: accountRow.identifier_type ?? 'phone',
-        plan: 'pro' as const
+        plan: 'pro' as const,
+        proStartedAt: existingProStartedAt ?? now
       }
     }
   }
@@ -91,15 +106,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: 'Key already used' })
   }
 
-  const now = new Date().toISOString()
-
   await db.execute({
     sql: `
       UPDATE ${AUTH_ACCOUNT_TABLE}
-      SET plan = 'pro', updated_at = ?
+      SET plan = 'pro',
+          pro_started_at = COALESCE(pro_started_at, ?),
+          updated_at = ?
       WHERE identifier_normalized = ?
     `,
-    args: [now, normalizedIdentifier]
+    args: [now, now, normalizedIdentifier]
   })
 
   await db.execute({
@@ -117,7 +132,8 @@ export default defineEventHandler(async (event) => {
     account: {
       identifier: accountRow.identifier ?? identifier,
       identifierType: accountRow.identifier_type ?? 'phone',
-      plan: 'pro' as const
+      plan: 'pro' as const,
+      proStartedAt: now
     },
     key: redeemRow.code ?? key
   }

@@ -18,8 +18,9 @@ const emit = defineEmits<{
   (event: 'delete'): void
 }>()
 
-const { wallets, walletEntries, categoryEntriesFor, categoryOptionsFor, walletOptionsForCurrency, enabledCurrencyOptions, companyEntries, companyOptions, hydrated } = useMoneyNote()
+const { wallets, walletEntries, categoryEntriesFor, categoryOptionsFor, enabledCurrencyOptions, companyEntries, companyOptions, hydrated, calculateMoveDestinationAmount } = useMoneyNote()
 const { selectedLanguage } = useAppLanguage()
+const { activeTheme } = useAppThemeColor()
 const formTypeOptions = computed(() => {
   return typeOptions.toSorted((a, b) => {
     const order: Record<string, number> = {
@@ -48,6 +49,14 @@ const form = reactive({
   loanDirection: 'given' as TransactionInput['loanDirection']
 })
 const amountDisplay = ref('')
+const amountInput = computed({
+  get: () => amountDisplay.value,
+  set: (value: string | number) => {
+    const normalized = normalizeAmountValue(String(value))
+    form.amount = normalized
+    amountDisplay.value = normalized ? formatAmountValue(normalized) : ''
+  }
+})
 const initialCategory = computed(() => props.initialTransaction?.category?.trim() ?? '')
 
 const currencyLabel = computed(() => {
@@ -82,14 +91,12 @@ const currencyItems = computed(() => {
   return items
 })
 
-const walletItems = computed(() => (
-  showDestination.value
-    ? wallets.value.map(wallet => ({
-      label: formatWalletLabel(wallet),
-      value: wallet.id
-    }))
-    : walletOptionsForCurrency(form.currency)
-))
+const walletItems = computed(() => walletEntries()
+  .filter(wallet => wallet.enabled !== false)
+  .map(wallet => ({
+    label: formatWalletLabel(wallet),
+    value: wallet.id
+  })))
 const destinationItems = computed(() => wallets.value
   .filter(wallet => wallet.id !== form.walletId)
   .map(wallet => ({
@@ -151,12 +158,77 @@ const showLoanDirectionField = computed(() => form.type === 'loan')
 const showCompanyField = computed(() => form.type === 'income')
 const showCategoryField = computed(() => !showDestination.value && form.type !== 'loan')
 const showSingleWalletField = computed(() => showDestination.value || showLoanDirectionField.value)
+const lockCurrencySelection = computed(() => true)
 const selectedWallet = computed(() => wallets.value.find(wallet => wallet.id === form.walletId))
 const destinationWallet = computed(() => wallets.value.find(wallet => wallet.id === form.toWalletId))
 const needsExchangeRate = computed(() => {
   if (!showDestination.value) return false
   if (!selectedWallet.value || !destinationWallet.value) return false
   return selectedWallet.value.currency !== destinationWallet.value.currency
+})
+const moveDestinationCurrencyLabel = computed(() => destinationWallet.value?.currency ?? '_')
+const moveDestinationAmountValue = computed(() => {
+  if (!showDestination.value) return 0
+  return calculateMoveDestinationAmount(
+    Number(form.amount || 0),
+    selectedWallet.value?.currency,
+    destinationWallet.value?.currency,
+    Number(form.exchangeRate || 0)
+  )
+})
+const moveDestinationAmountLabel = computed(() => {
+  if (!showDestination.value) return ''
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(moveDestinationAmountValue.value)
+})
+const moveRateGuideLabel = computed(() => {
+  if (!selectedWallet.value || !destinationWallet.value) return ''
+
+  const pair = `${selectedWallet.value.currency}->${destinationWallet.value.currency}`
+  const rateText = form.exchangeRate ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Number(form.exchangeRate)) : '?'
+
+  if (pair === 'THB->LAK' || pair === 'USD->LAK' || pair === 'USD->THB') {
+    return `1 ${selectedWallet.value.currency} = ${rateText} ${destinationWallet.value.currency}`
+  }
+
+  if (pair === 'THB->USD' || pair === 'LAK->THB' || pair === 'LAK->USD') {
+    return `1 ${destinationWallet.value.currency} = ${rateText} ${selectedWallet.value.currency}`
+  }
+
+  return `Rate: ${rateText}`
+})
+const exchangeRatePlaceholder = computed(() => {
+  if (!selectedWallet.value || !destinationWallet.value) return '0'
+
+  const pair = `${selectedWallet.value.currency}->${destinationWallet.value.currency}`
+  if (pair === 'THB->LAK' || pair === 'LAK->LAK') return '680'
+  if (pair === 'LAK->USD' || pair === 'USD->LAK') return '22000'
+  if (pair === 'THB->USD' || pair === 'USD->THB') return '32'
+
+  return '0'
+})
+const moveDestinationHint = computed(() => {
+  if (!showDestination.value) return ''
+  if (!selectedWallet.value || !destinationWallet.value) {
+    return selectedLanguage.value === 'lo'
+      ? 'ເລືອກກະເປົ໋າຕົ້ນທາງແລະປາຍທາງກ່ອນ.'
+      : 'Choose source and destination wallets first.'
+  }
+
+  if (!form.amount) {
+    return selectedLanguage.value === 'lo'
+      ? 'ພິມຈຳນວນເພື່ອເບິ່ງຍອດປາຍທາງ.'
+      : 'Enter an amount to preview the destination balance.'
+  }
+
+  if (selectedLanguage.value === 'lo') {
+    return needsExchangeRate.value
+      ? 'ໃສ່ອັດຕາແລກປ່ຽນເພື່ອຄຳນວນອັດຕະໂນມັດ.'
+      : 'ປາຍທາງຈະໄດ້ຮັບຈຳນວນເທົ່າກັນ.'
+  }
+
+  return needsExchangeRate.value
+    ? 'Add an exchange rate to auto-calculate the destination amount.'
+    : 'The destination wallet gets the same amount.'
 })
 const canSubmit = computed(() => Boolean(
   form.walletId
@@ -424,13 +496,6 @@ watch(
   }
 )
 
-watch(amountDisplay, (value) => {
-  const normalized = normalizeAmountValue(value)
-  if (normalized !== form.amount) {
-    form.amount = normalized
-  }
-})
-
 function handleSubmit() {
   if (!form.walletId || !form.amount || !form.category) return
   if (showDestination.value && !form.toWalletId) return
@@ -505,7 +570,7 @@ function handleAmountKeydown(event: KeyboardEvent) {
             <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">Type and amount</p>
             <h2 class="mt-1 text-xl font-black tracking-tight text-default sm:text-2xl">Quick capture</h2>
           </div>
-          <div class="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+          <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
             <UIcon name="i-lucide-scan-line" class="size-5" />
           </div>
         </div>
@@ -572,16 +637,16 @@ function handleAmountKeydown(event: KeyboardEvent) {
                 <p class="text-[9px] font-semibold uppercase tracking-[0.24em] text-muted sm:text-[10px]">{{ walletLabel }}</p>
               </div>
 
-            <select
-              :key="`wallet-${form.type}-${form.currency}-source`"
-              v-model="form.walletId"
-              class="mt-3 h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950"
-            >
-              <option value="" disabled>Select wallet</option>
-              <option v-for="item in walletItems" :key="item.value" :value="item.value">
-                {{ item.label }}
-              </option>
-            </select>
+              <select
+                :key="`wallet-${form.type}-${form.currency}-source`"
+                v-model="form.walletId"
+                class="mt-3 h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-800 dark:bg-slate-950"
+              >
+                <option value="" disabled>Select wallet</option>
+                <option v-for="item in walletItems" :key="item.value" :value="item.value">
+                  {{ item.label }}
+                </option>
+              </select>
             </div>
 
             <div v-if="showCategoryField">
@@ -656,23 +721,25 @@ function handleAmountKeydown(event: KeyboardEvent) {
           </div>
 
           <div v-if="showDestination" class="space-y-4">
-            <div class="flex items-center gap-2">
-              <div class="flex size-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200">
-                <UIcon name="i-lucide-arrow-left-right" class="size-4.5" />
+            <div>
+              <div class="flex items-center gap-2">
+                <div class="flex size-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200">
+                  <UIcon name="i-lucide-arrow-left-right" class="size-4.5" />
+                </div>
+                <p class="text-[9px] font-semibold uppercase tracking-[0.24em] text-muted sm:text-[10px]">{{ destinationLabel }}</p>
               </div>
-              <p class="text-[9px] font-semibold uppercase tracking-[0.24em] text-muted sm:text-[10px]">{{ destinationLabel }}</p>
-            </div>
 
               <select
                 :key="`wallet-${form.type}-${form.currency}-destination`"
                 v-model="form.toWalletId"
-                class="w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950"
+                class="mt-3 h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950"
               >
                 <option value="" disabled>Select destination</option>
                 <option v-for="item in destinationItems" :key="item.value" :value="item.value">
                   {{ item.label }}
                 </option>
               </select>
+            </div>
 
             <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
               <div class="flex items-center justify-between gap-3">
@@ -684,7 +751,7 @@ function handleAmountKeydown(event: KeyboardEvent) {
                 </div>
 
                 <p v-if="selectedWallet && destinationWallet" class="text-[11px] font-semibold text-cyan-700 dark:text-cyan-100">
-                  1 {{ destinationWallet.currency }} = ? {{ selectedWallet.currency }}
+                  {{ moveRateGuideLabel }}
                 </p>
               </div>
 
@@ -700,7 +767,7 @@ function handleAmountKeydown(event: KeyboardEvent) {
                   type="text"
                   inputmode="numeric"
                   pattern="[0-9]*"
-                  placeholder="21000"
+                  :placeholder="exchangeRatePlaceholder"
                   class="mt-3 w-full rounded-2xl [&>input]:h-12 [&>input]:w-full [&>input]:rounded-2xl [&>input]:border-0 [&>input]:bg-white [&>input]:px-4 [&>input]:text-[16px] [&>input]:font-semibold [&>input]:tabular-nums [&>input]:shadow-none dark:[&>input]:bg-slate-950"
                 />
 
@@ -716,6 +783,7 @@ function handleAmountKeydown(event: KeyboardEvent) {
                 Choose source and destination wallets to show exchange rate.
               </div>
             </div>
+
           </div>
 
           <div class="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
@@ -728,10 +796,10 @@ function handleAmountKeydown(event: KeyboardEvent) {
               </div>
 
 <UInput
-              v-model="amountDisplay"
+              v-model="amountInput"
                 type="text"
                 inputmode="numeric"
-                pattern="[0-9]*"
+                pattern="[0-9,]*"
                 autocomplete="off"
                 autocapitalize="off"
                 spellcheck="false"
@@ -758,12 +826,17 @@ function handleAmountKeydown(event: KeyboardEvent) {
               <select
                 v-model="form.currency"
                 class="mt-3 h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-800 dark:bg-slate-950"
-                :disabled="showDestination"
+                :disabled="lockCurrencySelection || showDestination"
               >
                 <option v-for="item in currencyItems" :key="item.value" :value="item.value">
                   {{ item.label }}
                 </option>
               </select>
+              <p class="mt-1.5 text-[10px] font-medium text-muted">
+                {{ selectedLanguage === 'lo'
+                  ? 'ຕາມກະເປົ໋າ'
+                  : 'Auto from wallet' }}
+              </p>
             </div>
           </div>
 
@@ -776,6 +849,22 @@ function handleAmountKeydown(event: KeyboardEvent) {
               <UIcon name="i-lucide-plus" class="size-3.5" />
               x1000
             </button>
+          </div>
+
+          <div v-if="showDestination" class="rounded-2xl border border-sky-200/80 bg-sky-50/80 p-4 text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-100">
+            <div class="flex items-center gap-2">
+              <div class="flex size-8 items-center justify-center rounded-full bg-white/80 text-sky-600 shadow-sm dark:bg-slate-950/80 dark:text-sky-200">
+                <UIcon name="i-lucide-badge-info" class="size-4" />
+              </div>
+              <p class="text-[9px] font-semibold uppercase tracking-[0.24em] sm:text-[10px]">Destination wallet</p>
+            </div>
+
+            <p class="mt-2 text-sm font-bold text-sky-700 dark:text-sky-100">
+              Will receive {{ moveDestinationAmountLabel }} {{ moveDestinationCurrencyLabel }}
+            </p>
+            <p class="mt-1 text-[11px] font-medium text-sky-700/80 dark:text-sky-100/80">
+              {{ moveDestinationHint }}
+            </p>
           </div>
 
           <div v-if="showLoanFields" class="space-y-4 border-t border-slate-200/70 pt-4 dark:border-slate-800">

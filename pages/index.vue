@@ -3,6 +3,7 @@ import { useMoneyNote } from '~/composables/useMoneyNote'
 import type { CurrencyCode } from '~/composables/useMoneyNote'
 
 const { selectedLanguage } = useAppLanguage()
+const { activeTheme } = useAppThemeColor()
 const {
   selectedCurrency,
   totalBalance,
@@ -15,6 +16,7 @@ const {
   walletSeries,
   currencyBalances,
   enabledCurrencyOptions,
+  isCloudSyncEnabled,
   syncStatus,
   lastSyncedAt,
   isOnline
@@ -135,7 +137,8 @@ const syncStateCopy = computed(() => {
         badge: homeCopy.value.offlineBadge,
         icon: 'i-lucide-wifi-off',
         tone: 'rose',
-        message: homeCopy.value.offlineMessage
+        message: homeCopy.value.offlineMessage,
+        meta: ''
       }
     case 'syncing':
       return {
@@ -143,7 +146,8 @@ const syncStateCopy = computed(() => {
         badge: homeCopy.value.syncingBadge,
         icon: 'i-lucide-refresh-cw',
         tone: 'sky',
-        message: homeCopy.value.syncingMessage
+        message: homeCopy.value.syncingMessage,
+        meta: ''
       }
     case 'synced':
       return {
@@ -151,9 +155,10 @@ const syncStateCopy = computed(() => {
         badge: homeCopy.value.syncedBadge,
         icon: 'i-lucide-cloud-check',
         tone: 'emerald',
-        message: lastSyncedAt.value
+        message: homeCopy.value.syncedMessage,
+        meta: lastSyncedAt.value
           ? `${homeCopy.value.lastSyncedPrefix} ${new Intl.DateTimeFormat(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(lastSyncedAt.value))}.`
-          : homeCopy.value.syncedMessage
+          : ''
       }
     default:
       return {
@@ -161,7 +166,8 @@ const syncStateCopy = computed(() => {
         badge: isOnline.value ? homeCopy.value.waitingBadge : homeCopy.value.offlineBadge,
         icon: isOnline.value ? 'i-lucide-cloud-upload' : 'i-lucide-wifi-off',
         tone: isOnline.value ? 'amber' : 'rose',
-        message: homeCopy.value.waitingMessage
+        message: homeCopy.value.waitingMessage,
+        meta: ''
       }
   }
 })
@@ -192,24 +198,21 @@ const syncStateCopy = computed(() => {
         </div>
       </div>
 
-      <div class="rounded-[1.4rem] border border-slate-200/80 bg-white px-4 py-3 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/80">
-        <div class="flex items-center justify-between gap-3">
-          <div class="flex min-w-0 items-center gap-3">
-            <div :class="['flex size-10 shrink-0 items-center justify-center rounded-full text-white shadow-lg', syncStateCopy.tone === 'emerald' ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : syncStateCopy.tone === 'sky' ? 'bg-gradient-to-br from-sky-500 to-cyan-400' : syncStateCopy.tone === 'amber' ? 'bg-gradient-to-br from-amber-500 to-orange-400' : 'bg-gradient-to-br from-rose-500 to-pink-400']">
-              <UIcon :name="syncStateCopy.icon" class="size-4" />
-            </div>
-            <div class="min-w-0">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{{ homeCopy.syncStatus }}</p>
-              <p class="truncate text-sm font-black text-default">{{ syncStateCopy.label }}</p>
-            </div>
+      <div v-if="isCloudSyncEnabled" class="rounded-[1.2rem] border border-slate-200/80 bg-white px-3 py-2.5 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/80">
+        <div class="flex items-start gap-3">
+          <div :class="['flex size-9 shrink-0 items-center justify-center rounded-full text-white shadow-lg', syncStateCopy.tone === 'emerald' ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : syncStateCopy.tone === 'sky' ? `bg-gradient-to-br ${activeTheme.accent}` : syncStateCopy.tone === 'amber' ? 'bg-gradient-to-br from-amber-500 to-orange-400' : 'bg-gradient-to-br from-rose-500 to-pink-400']">
+            <UIcon :name="syncStateCopy.icon" class="size-3.5" />
           </div>
-          <UBadge color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ homeCopy.syncStatus }}</p>
+            <p class="truncate text-xs font-black text-default">{{ syncStateCopy.label }}</p>
+            <p v-if="syncStateCopy.meta" class="mt-0.5 truncate text-[10px] text-muted">{{ syncStateCopy.meta }}</p>
+            <p v-else class="mt-0.5 truncate text-[10px] text-muted">{{ syncStateCopy.message }}</p>
+          </div>
+          <UBadge color="neutral" variant="soft" class="shrink-0 rounded-full text-[9px] font-bold uppercase tracking-[0.14em]">
             {{ syncStateCopy.badge }}
           </UBadge>
         </div>
-        <p class="mt-2 text-[11px] leading-5 text-muted">
-          {{ syncStateCopy.message }}
-        </p>
       </div>
 
       <div class="relative overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white shadow-[0_22px_55px_-30px_rgba(15,23,42,0.22)] dark:border-slate-800 dark:bg-slate-950/80">
@@ -238,7 +241,7 @@ const syncStateCopy = computed(() => {
           <div class="min-w-0">
             <p class="text-[8px] font-semibold uppercase tracking-[0.14em] text-muted">{{ homeCopy.totalBalance }}</p>
             <div class="mt-1 flex items-center gap-3">
-              <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+              <div :class="['flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
                 <UIcon name="i-lucide-wallet" class="size-5" />
               </div>
               <p class="whitespace-nowrap text-[clamp(1.12rem,6.2vw,2.45rem)] font-black leading-none tracking-[-0.06em] tabular-nums text-default">

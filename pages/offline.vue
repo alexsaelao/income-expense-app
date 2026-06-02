@@ -1,8 +1,16 @@
+<script setup lang="ts">
+const { activeTheme } = useAppThemeColor()
+
+function reload() {
+  window.location.reload()
+}
+</script>
+
 <template>
   <div class="flex min-h-[70dvh] items-center justify-center pb-10 pt-6">
     <UCard class="w-full border border-white/60 bg-white/85 shadow-[0_22px_70px_-30px_rgba(15,23,42,0.25)] dark:border-white/10 dark:bg-slate-950/80">
       <div class="text-center">
-        <div class="mx-auto flex size-16 items-center justify-center rounded-[1.5rem] bg-gradient-to-br from-sky-500 to-cyan-400 text-3xl text-white shadow-lg">
+        <div :class="['mx-auto flex size-16 items-center justify-center rounded-[1.5rem] bg-gradient-to-br text-3xl text-white shadow-lg', activeTheme.accent]">
           💸
         </div>
         <h1 class="mt-5 text-3xl font-black tracking-tight text-default">You're offline</h1>
@@ -18,9 +26,3 @@
     </UCard>
   </div>
 </template>
-
-<script setup lang="ts">
-function reload() {
-  window.location.reload()
-}
-</script>

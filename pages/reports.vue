@@ -3,6 +3,7 @@ import { useMoneyNote } from '~/composables/useMoneyNote'
 import type { CurrencyCode } from '~/composables/useMoneyNote'
 
 const { selectedLanguage } = useAppLanguage()
+const { activeTheme } = useAppThemeColor()
 
 const {
   selectedCurrency,
@@ -16,7 +17,7 @@ const {
 
 type ReportPreset = 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'custom'
 
-const reportPreset = ref<ReportPreset>('thisMonth')
+const reportPreset = ref<ReportPreset>('all')
 const reportFrom = ref('')
 const reportTo = ref('')
 const selectedWalletId = ref<'all' | string>('all')
@@ -34,6 +35,8 @@ const reportCopy = computed(() => selectedLanguage.value === 'lo'
       to: 'ຮອດ',
       wallet: 'ກະເປົ໋າ',
       quickDates: 'ວັນທີດ່ວນ',
+      cashFlow: 'ການໄຫຼເງິນ',
+      cashFlowDetail: 'ລາຍຮັບ ແລະ ລາຍຈ່າຍລວມໃນຊ່ວງນີ້',
       allTime: 'ທຸກເວລາ',
       today: 'ມື້ນີ້',
       yesterday: 'ມື້ວານ',
@@ -44,16 +47,26 @@ const reportCopy = computed(() => selectedLanguage.value === 'lo'
       income: 'ລາຍຮັບ',
       expense: 'ລາຍຈ່າຍ',
       net: 'ຍອດສຸດທິ',
+      given: 'ໃຫ້ກູ້',
+      received: 'ໄດ້ຮັບຄືນ',
+      loanNet: 'ຍອດສຸດທິກູ້ຢືມ',
+      loanSummary: 'ສະຫຼຸບກູ້ຢືມ',
       monthTrend: 'ລາຍຮັບ ແລະ ລາຍຈ່າຍລາຍເດືອນ',
       trendByMonth: 'ແນວໂນ້ມຕາມເດືອນ',
+      topCategories: 'ປະເພດຫຼັກ',
       expenseByCategory: 'ລາຍຈ່າຍຕາມປະເພດ',
+      incomeByCategory: 'ລາຍຮັບຕາມປະເພດ',
       whereMoneyGoes: 'ເງິນໄປໃສ່',
       balanceByWallet: 'ຍອດແຕ່ລະກະເປົ໋າ',
-      walletStandings: 'ຈັດອັນດັບກະເປົ໋າ',
+      topWallets: 'ກະເປົ໋າຍອດສູງສຸດ',
+      topWalletsDetail: 'ຍອດສູງສຸດຕາມກະເປົ໋າ',
       currencySummary: 'ສະຫຼຸບສະກຸນເງິນ',
       portfolioOverview: 'ພາບລວມການເງິນ',
       allWalletsCombined: 'ທຸກກະເປົ໋າລວມກັນ',
+      noReportData: 'ບໍ່ພົບຂໍ້ມູນໃນຊ່ວງນີ້',
+      noReportDataHint: 'ກົດ All time ຫຼື ເລືອກຊ່ວງວັນທີອື່ນ',
       noExpenseRecords: 'ບໍ່ພົບລາຍຈ່າຍສຳລັບສະກຸນເງິນນີ້',
+      noIncomeRecords: 'ບໍ່ພົບລາຍຮັບສຳລັບສະກຸນເງິນນີ້',
       noWallets: 'ບໍ່ມີກະເປົ໋າໃນສະກຸນເງິນນີ້',
       allWallets: 'ກະເປົ໋າທັງໝົດ',
       customRange: 'ຊ່ວງເວລາກຳນົດເອງ'
@@ -69,6 +82,8 @@ const reportCopy = computed(() => selectedLanguage.value === 'lo'
       to: 'To',
       wallet: 'Wallet',
       quickDates: 'Quick dates',
+      cashFlow: 'Cash flow',
+      cashFlowDetail: 'Income and expense totals for the selected range',
       allTime: 'All time',
       today: 'Today',
       yesterday: 'Yesterday',
@@ -79,16 +94,26 @@ const reportCopy = computed(() => selectedLanguage.value === 'lo'
       income: 'Income',
       expense: 'Expense',
       net: 'Net',
+      given: 'Given',
+      received: 'Received',
+      loanNet: 'Loan net',
+      loanSummary: 'Loan summary',
       monthTrend: 'Monthly income vs expense',
       trendByMonth: 'Trend by month',
+      topCategories: 'Top categories',
       expenseByCategory: 'Expense by category',
+      incomeByCategory: 'Income by category',
       whereMoneyGoes: 'Where the money goes',
       balanceByWallet: 'Balance by wallet',
-      walletStandings: 'Wallet standings',
+      topWallets: 'Top wallets',
+      topWalletsDetail: 'Highest balances by wallet',
       currencySummary: 'Currency summary',
       portfolioOverview: 'Portfolio overview',
       allWalletsCombined: 'All wallets combined',
+      noReportData: 'No data in this range yet.',
+      noReportDataHint: 'Tap All time or choose another date range.',
       noExpenseRecords: 'No expense records for this currency yet.',
+      noIncomeRecords: 'No income records for this currency yet.',
       noWallets: 'No wallets in this currency yet.',
       allWallets: 'All wallets',
       customRange: 'Custom range'
@@ -227,7 +252,7 @@ function applyPreset(preset: ReportPreset) {
   reportTo.value = window.to ?? ''
 }
 
-applyPreset('thisMonth')
+applyPreset('all')
 
 watch(selectedCurrency, () => {
   if (selectedWalletId.value !== 'all' && !reportWalletOptions.value.some(option => option.value === selectedWalletId.value)) {
@@ -241,6 +266,12 @@ const reportTransactions = computed(() => filterTransactions({
   from: reportFrom.value || undefined,
   to: reportTo.value || undefined
 }))
+const currencyTransactions = computed(() => filterTransactions({
+  currency: selectedCurrency.value,
+  walletId: selectedWalletId.value === 'all' ? undefined : selectedWalletId.value
+}))
+const hasReportData = computed(() => reportTransactions.value.length > 0)
+const hasCurrencyData = computed(() => currencyTransactions.value.length > 0)
 
 const monthlyData = computed(() => {
   const grouped = new Map<string, { income: number; expense: number }>()
@@ -282,12 +313,72 @@ const categoryData = computed(() => {
     .map(([label, value]) => ({ label, value }))
     .sort((a, b) => b.value - a.value)
 })
+const expenseCategoryData = computed(() => categoryData.value.slice(0, 6))
+const incomeCategoryData = computed(() => {
+  const items = reportTransactions.value.filter(transaction => transaction.type === 'income')
+  const grouped = new Map<string, number>()
+
+  items.forEach((transaction) => {
+    grouped.set(transaction.category, (grouped.get(transaction.category) ?? 0) + transaction.amount)
+  })
+
+  return [...grouped.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6)
+})
+const expenseCategoryTotal = computed(() => expenseCategoryData.value.reduce((sum, item) => sum + item.value, 0))
+const incomeCategoryTotal = computed(() => incomeCategoryData.value.reduce((sum, item) => sum + item.value, 0))
+const loanSummary = computed(() => {
+  const given = reportTransactions.value
+    .filter(transaction => transaction.type === 'loan' && transaction.loanDirection !== 'received')
+    .reduce((sum, transaction) => sum + transaction.amount, 0)
+
+  const received = reportTransactions.value
+    .filter(transaction => transaction.type === 'loan' && transaction.loanDirection === 'received')
+    .reduce((sum, transaction) => sum + transaction.amount, 0)
+
+  return {
+    given,
+    received,
+    net: received - given
+  }
+})
 const walletData = computed(() => walletSeries(selectedCurrency.value))
+const topWallets = computed(() => walletData.value.slice(0, 5))
 const currencyData = computed(() => currencySeries())
 const monthMax = computed(() => Math.max(...monthlyData.value.flatMap(item => [item.income, item.expense, 1]), 1))
 const summaryIncome = computed(() => monthlyData.value.reduce((sum, item) => sum + item.income, 0))
 const summaryExpense = computed(() => monthlyData.value.reduce((sum, item) => sum + item.expense, 0))
 const summaryNet = computed(() => summaryIncome.value - summaryExpense.value)
+const cashFlowMax = computed(() => Math.max(summaryIncome.value, summaryExpense.value, Math.abs(summaryNet.value), 1))
+const cashFlowCards = computed(() => [
+  {
+    label: reportCopy.value.income,
+    value: summaryIncome.value,
+    formatted: formatCurrency(summaryIncome.value, selectedCurrency.value),
+    detail: reportCopy.value.cashFlowDetail,
+    accent: 'from-emerald-500 to-teal-400',
+    icon: 'i-lucide-trending-up'
+  },
+  {
+    label: reportCopy.value.expense,
+    value: summaryExpense.value,
+    formatted: formatCurrency(summaryExpense.value, selectedCurrency.value),
+    detail: reportCopy.value.cashFlowDetail,
+    accent: 'from-rose-500 to-pink-400',
+    icon: 'i-lucide-trending-down'
+  },
+  {
+    label: reportCopy.value.net,
+    value: Math.abs(summaryNet.value),
+    formatted: formatCurrency(summaryNet.value, selectedCurrency.value, true),
+    detail: reportCopy.value.cashFlowDetail,
+    accent: summaryNet.value >= 0 ? 'from-sky-500 to-cyan-400' : 'from-amber-500 to-orange-400',
+    icon: 'i-lucide-badge-dollar-sign'
+  }
+])
+const topWalletMax = computed(() => Math.max(...topWallets.value.map(item => item.value), 1))
 const summaryRangeLabel = computed(() => {
   if (!reportFrom.value && !reportTo.value) return reportCopy.value.allTime
   if (reportFrom.value && reportTo.value) return `${formatReadableDate(reportFrom.value)} - ${formatReadableDate(reportTo.value)}`
@@ -373,7 +464,7 @@ const currencyAccents: Record<CurrencyCode, string> = {
             >
               {{ filtersOpen ? reportCopy.hide : reportCopy.show }}
             </span>
-            <div class="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+            <div :class="['flex size-9 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
               <UIcon name="i-lucide-filter" class="size-4.5 transition-transform duration-200" :class="filtersOpen ? 'rotate-180' : ''" />
             </div>
           </div>
@@ -431,6 +522,16 @@ const currencyAccents: Record<CurrencyCode, string> = {
       </div>
     </UCard>
 
+    <UAlert
+      v-if="!hasReportData"
+      color="neutral"
+      variant="soft"
+      icon="i-lucide-info"
+      :title="reportCopy.noReportData"
+      :description="hasCurrencyData ? reportCopy.noReportDataHint : reportCopy.noWallets"
+      class="rounded-[1.2rem] border border-slate-200/80 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"
+    />
+
     <section class="grid grid-cols-1 gap-3">
       <MetricCard
         :title="reportCopy.income"
@@ -453,7 +554,6 @@ const currencyAccents: Record<CurrencyCode, string> = {
         :value="formatCurrency(summaryNet, selectedCurrency, true)"
         :detail="summaryRangeLabel"
         icon="i-lucide-badge-dollar-sign"
-        accent="from-sky-500 to-cyan-400"
         value-class="text-[clamp(1rem,4vw,1.38rem)]"
       />
     </section>
@@ -464,9 +564,56 @@ const currencyAccents: Record<CurrencyCode, string> = {
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="text-sm font-medium text-muted">{{ reportCopy.monthTrend }}</p>
+              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.cashFlow }}</h2>
+            </div>
+            <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
+              <UIcon name="i-lucide-activity" class="size-5" />
+            </div>
+          </div>
+        </template>
+
+        <div class="grid grid-cols-1 gap-3">
+          <div
+            v-for="item in cashFlowCards"
+            :key="item.label"
+            class="space-y-3 rounded-[1.2rem] bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted">{{ item.label }}</p>
+                <p class="mt-1 text-sm font-bold text-default">{{ item.detail }}</p>
+              </div>
+              <div :class="['flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', item.accent]">
+                <UIcon :name="item.icon" class="size-4.5" />
+              </div>
+            </div>
+
+            <p class="whitespace-nowrap text-lg font-black tracking-tight text-default sm:text-xl">
+              {{ item.formatted }}
+            </p>
+
+            <div class="space-y-2">
+              <div class="h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800">
+                <div
+                  class="h-full rounded-full bg-gradient-to-r transition-all duration-500"
+                  :class="item.accent"
+                  :style="{ width: `${Math.max((item.value / cashFlowMax) * 100, item.value > 0 ? 10 : 0)}%` }"
+                />
+              </div>
+              <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ summaryRangeLabel }}</p>
+            </div>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+        <template #header>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium text-muted">{{ reportCopy.monthTrend }}</p>
               <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.trendByMonth }}</h2>
             </div>
-            <div class="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+            <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
               <UIcon name="i-lucide-chart-column" class="size-5" />
             </div>
           </div>
@@ -512,10 +659,10 @@ const currencyAccents: Record<CurrencyCode, string> = {
         <template #header>
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-sm font-medium text-muted">{{ reportCopy.expenseByCategory }}</p>
+              <p class="text-sm font-medium text-muted">{{ reportCopy.topCategories }}</p>
               <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.whereMoneyGoes }}</h2>
             </div>
-            <div class="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-pink-400 text-white shadow-lg">
+            <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
               <UIcon name="i-lucide-pie-chart" class="size-5" />
             </div>
           </div>
@@ -528,6 +675,100 @@ const currencyAccents: Record<CurrencyCode, string> = {
         />
         <p v-else class="py-8 text-center text-sm text-muted">{{ reportCopy.noExpenseRecords }}</p>
       </UCard>
+
+      <section class="grid grid-cols-1 gap-4">
+        <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+          <template #header>
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium text-muted">{{ reportCopy.topCategories }}</p>
+                <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.expenseByCategory }}</h2>
+              </div>
+              <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
+                <UIcon name="i-lucide-pie-chart" class="size-5" />
+              </div>
+            </div>
+          </template>
+
+          <DonutChart
+            v-if="expenseCategoryData.length"
+            :items="expenseCategoryData.map(item => ({
+              label: item.label,
+              value: item.value,
+              formatted: formatCurrency(item.value, selectedCurrency)
+            }))"
+            :center-label="reportCopy.expenseByCategory"
+            :center-value="formatCurrency(expenseCategoryTotal, selectedCurrency)"
+          />
+          <p v-else class="py-8 text-center text-sm text-muted">{{ reportCopy.noExpenseRecords }}</p>
+        </UCard>
+
+        <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+          <template #header>
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium text-muted">{{ reportCopy.topCategories }}</p>
+                <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.incomeByCategory }}</h2>
+              </div>
+              <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
+                <UIcon name="i-lucide-pie-chart" class="size-5" />
+              </div>
+            </div>
+          </template>
+
+          <DonutChart
+            v-if="incomeCategoryData.length"
+            :items="incomeCategoryData.map(item => ({
+              label: item.label,
+              value: item.value,
+              formatted: formatCurrency(item.value, selectedCurrency)
+            }))"
+            :center-label="reportCopy.incomeByCategory"
+            :center-value="formatCurrency(incomeCategoryTotal, selectedCurrency)"
+          />
+          <p v-else class="py-8 text-center text-sm text-muted">{{ reportCopy.noIncomeRecords }}</p>
+        </UCard>
+      </section>
+
+      <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+        <template #header>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium text-muted">{{ reportCopy.loanSummary }}</p>
+              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.given }} / {{ reportCopy.received }}</h2>
+            </div>
+            <div class="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-400 text-white shadow-lg">
+              <UIcon name="i-lucide-circle-dollar-sign" class="size-5" />
+            </div>
+          </div>
+        </template>
+
+        <div class="grid grid-cols-1 gap-3">
+          <MetricCard
+            :title="reportCopy.given"
+            :value="formatCurrency(loanSummary.given, selectedCurrency)"
+            :detail="reportCopy.loanSummary"
+            icon="i-lucide-arrow-up-right"
+            accent="from-amber-500 to-orange-400"
+            value-class="text-[clamp(1rem,4vw,1.38rem)]"
+          />
+          <MetricCard
+            :title="reportCopy.received"
+            :value="formatCurrency(loanSummary.received, selectedCurrency)"
+            :detail="reportCopy.loanSummary"
+            icon="i-lucide-arrow-down-right"
+            accent="from-emerald-500 to-teal-400"
+            value-class="text-[clamp(1rem,4vw,1.38rem)]"
+          />
+          <MetricCard
+            :title="reportCopy.loanNet"
+            :value="formatCurrency(loanSummary.net, selectedCurrency, true)"
+            :detail="reportCopy.loanSummary"
+            icon="i-lucide-badge-dollar-sign"
+            value-class="text-[clamp(1rem,4vw,1.38rem)]"
+          />
+        </div>
+      </UCard>
     </section>
 
     <section class="space-y-4">
@@ -535,8 +776,8 @@ const currencyAccents: Record<CurrencyCode, string> = {
         <template #header>
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-sm font-medium text-muted">{{ reportCopy.balanceByWallet }}</p>
-              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.walletStandings }}</h2>
+              <p class="text-sm font-medium text-muted">{{ reportCopy.topWalletsDetail }}</p>
+              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.topWallets }}</h2>
             </div>
             <div class="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg">
               <UIcon name="i-lucide-wallet" class="size-5" />
@@ -544,10 +785,36 @@ const currencyAccents: Record<CurrencyCode, string> = {
           </div>
         </template>
 
-        <SimpleBarChart
-          v-if="walletData.length"
-          :items="walletData.map(item => ({ label: item.label, value: item.value, helper: item.wallet.note }))"
-        />
+        <div v-if="topWallets.length" class="space-y-3">
+          <div
+            v-for="(item, index) in topWallets"
+            :key="item.wallet.id"
+            class="space-y-2 rounded-[1.2rem] bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black text-muted shadow-sm ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-slate-800">
+                    #{{ index + 1 }}
+                  </span>
+                  <p class="truncate text-sm font-bold text-default">{{ item.label }}</p>
+                </div>
+                <p v-if="item.wallet.note" class="mt-1 truncate text-xs text-muted">{{ item.wallet.note }}</p>
+              </div>
+              <p class="shrink-0 text-sm font-black tracking-tight text-default">
+                {{ formatCurrency(item.value, selectedCurrency) }}
+              </p>
+            </div>
+
+            <div class="h-2 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800">
+              <div
+                class="h-full rounded-full bg-gradient-to-r transition-all duration-500"
+                :class="activeTheme.accent"
+                :style="{ width: `${Math.max((item.value / topWalletMax) * 100, item.value > 0 ? 10 : 0)}%` }"
+              />
+            </div>
+          </div>
+        </div>
         <p v-else class="py-8 text-center text-sm text-muted">{{ reportCopy.noWallets }}</p>
       </UCard>
 
@@ -558,7 +825,7 @@ const currencyAccents: Record<CurrencyCode, string> = {
               <p class="text-sm font-medium text-muted">{{ reportCopy.currencySummary }}</p>
               <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.portfolioOverview }}</h2>
             </div>
-            <div class="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+            <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
               <UIcon name="i-lucide-coins" class="size-5" />
             </div>
           </div>

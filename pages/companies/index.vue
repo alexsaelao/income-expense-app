@@ -3,6 +3,7 @@ import type { WalletColor } from '~/composables/useMoneyNote'
 import { useMoneyNote, walletColorOptions } from '~/composables/useMoneyNote'
 
 const { selectedLanguage } = useAppLanguage()
+const { activeTheme } = useAppThemeColor()
 const {
   hydrated,
   companyEntries,
@@ -372,7 +373,7 @@ function onCompanyDragEnd() {
 
       <UButton
         size="lg"
-        class="rounded-[1.25rem] border-0 bg-primary px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95"
+        :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
         @click="companyModalOpen = true"
       >
         {{ companiesCopy.add }}
@@ -477,7 +478,7 @@ function onCompanyDragEnd() {
     <USlideover
       v-model:open="manageCompanyOpen"
       side="bottom"
-      :close="false"
+      :close="true"
       :ui="{
         content: 'w-full data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] data-[state=open]:rounded-t-[1.5rem] data-[state=closed]:rounded-t-[1.5rem] overflow-hidden border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 md:mx-auto md:mb-4 md:w-[min(30rem,calc(100%-2rem))] md:rounded-[1.5rem]',
         body: 'p-0',
@@ -639,7 +640,7 @@ function onCompanyDragEnd() {
     <USlideover
       v-model:open="companyModalOpen"
       side="bottom"
-      :close="false"
+      :close="true"
       :ui="{
         content: 'w-full data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] data-[state=open]:rounded-t-[1.5rem] data-[state=closed]:rounded-t-[1.5rem] overflow-hidden border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 md:mx-auto md:mb-4 md:w-[min(30rem,calc(100%-2rem))] md:rounded-[1.5rem]',
         body: 'p-0',
@@ -762,7 +763,7 @@ function onCompanyDragEnd() {
                 {{ companiesCopy.cancel }}
               </UButton>
               <UButton
-                class="h-12 flex-1 justify-center rounded-full bg-primary text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95"
+                :class="['h-12 flex-1 justify-center rounded-full bg-gradient-to-r text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
                 icon="i-lucide-check"
                 @click="submitCompany"
               >
