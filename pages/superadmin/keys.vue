@@ -288,8 +288,8 @@ useHead({
 </script>
 
 <template>
-  <div class="space-y-4 pb-8">
-    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 p-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
+  <div class="space-y-4 pb-8 md:space-y-6">
+    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 p-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75 md:p-6">
       <div class="flex items-start justify-between gap-2.5">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">{{ copy.title }}</p>
@@ -299,7 +299,7 @@ useHead({
       </div>
     </section>
 
-    <section class="grid grid-cols-2 gap-2.5">
+    <section class="grid grid-cols-2 gap-2.5 md:grid-cols-4">
       <div class="rounded-[1.2rem] border border-slate-200/80 bg-white p-3 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/70">
         <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.activeKeys }}</p>
         <p class="mt-1 text-2xl font-black text-default">{{ stats?.activeKeys ?? 0 }}</p>
@@ -310,8 +310,8 @@ useHead({
       </div>
     </section>
 
-    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
-      <div class="flex items-center justify-between gap-2.5 px-4 py-3">
+    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75 md:rounded-[1.6rem]">
+      <div class="flex items-center justify-between gap-2.5 px-4 py-3 md:px-5 md:py-4">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ copy.generateKey }}</p>
           <h2 class="text-sm font-black tracking-tight text-default">{{ copy.generateKey }}</h2>
@@ -332,7 +332,7 @@ useHead({
         </UButton>
       </div>
 
-      <div class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
+      <div class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800 md:px-5 md:py-5">
         <div v-if="lastGeneratedKey" class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
           <div class="flex items-center justify-between gap-3">
             <div class="min-w-0">
@@ -365,8 +365,8 @@ useHead({
       </div>
     </section>
 
-    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
-      <div class="flex items-center justify-between gap-3 px-4 py-4">
+    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75 md:rounded-[1.6rem]">
+      <div class="flex items-center justify-between gap-3 px-4 py-4 md:px-5 md:py-5">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ copy.totalKeys }}</p>
           <h2 class="text-sm font-black tracking-tight text-default">{{ copy.key }}</h2>

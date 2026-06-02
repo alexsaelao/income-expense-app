@@ -105,8 +105,8 @@ useHead({
 </script>
 
 <template>
-  <div v-if="route.path === '/superadmin'" class="space-y-4 pb-8">
-    <section class="relative overflow-hidden rounded-[1.6rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_22px_60px_-30px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/80">
+  <div v-if="route.path === '/superadmin'" class="space-y-4 pb-8 md:space-y-6">
+    <section class="relative overflow-hidden rounded-[1.6rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_22px_60px_-30px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/80 md:p-6">
       <div :class="['absolute inset-x-0 top-0 h-1.5', activeTheme.accent]" />
       <div class="absolute -right-10 top-3 size-28 rounded-full bg-sky-400/10 blur-3xl" />
       <div class="absolute -left-8 bottom-0 size-24 rounded-full bg-cyan-400/10 blur-3xl" />
@@ -132,7 +132,7 @@ useHead({
         </div>
       </div>
 
-      <div class="relative mt-3 grid grid-cols-1 gap-2.5">
+      <div class="relative mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-4">
         <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
           <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.totalAccounts }}</p>
           <p class="mt-1 text-[1.9rem] font-black leading-none text-default">{{ stats?.totalAccounts ?? 0 }}</p>
@@ -189,7 +189,7 @@ useHead({
       </div>
     </section>
 
-    <section class="grid grid-cols-1 gap-2.5">
+    <section class="grid grid-cols-1 gap-2.5 md:grid-cols-3">
       <NuxtLink to="/superadmin/users" class="block rounded-[1.25rem] border border-slate-200/80 bg-white p-4 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)] transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70">
         <div class="flex items-center justify-between gap-2.5">
           <div class="min-w-0">
@@ -239,7 +239,7 @@ useHead({
       </NuxtLink>
     </section>
 
-    <section class="grid grid-cols-1 gap-2.5">
+    <section class="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-4">
       <div class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white/85 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
         <div class="border-b border-slate-200/80 px-4 py-2.5 dark:border-slate-800">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Recent users</p>

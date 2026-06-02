@@ -1229,8 +1229,47 @@ export function useMoneyNote() {
     return `${amount >= 0 ? '+' : '-'}${value}`
   }
 
+  function formatLaoDate(value: Date, includeYear = true) {
+    const weekdayNames = [
+      'ວັນອາທິດ',
+      'ວັນຈັນ',
+      'ວັນອັງຄານ',
+      'ວັນພຸດ',
+      'ວັນພະຫັດ',
+      'ວັນສຸກ',
+      'ວັນເສົາ'
+    ]
+    const monthNames = [
+      'ມັງກອນ',
+      'ກຸມພາ',
+      'ມີນາ',
+      'ເມສາ',
+      'ພຶດສະພາ',
+      'ມິຖຸນາ',
+      'ກໍລະກົດ',
+      'ສິງຫາ',
+      'ກັນຍາ',
+      'ຕຸລາ',
+      'ພະຈິກ',
+      'ທັນວາ'
+    ]
+
+    const weekday = weekdayNames[value.getDay()]
+    const day = value.getDate()
+    const month = monthNames[value.getMonth()]
+
+    return includeYear
+      ? `${weekday}, ${day} ${month} ${value.getFullYear()}`
+      : `${weekday}, ${day} ${month}`
+  }
+
   function formatDate(date: string) {
-    return new Date(date).toLocaleDateString('en-US', {
+    const value = new Date(date)
+    if (selectedLanguage.value === 'lo') {
+      return formatLaoDate(value)
+    }
+
+    return value.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
@@ -1242,8 +1281,12 @@ export function useMoneyNote() {
     const today = new Date()
     const diffDays = Math.round((today.setHours(0, 0, 0, 0) - value.setHours(0, 0, 0, 0)) / 86400000)
 
-    if (diffDays === 0) return 'Today'
-    if (diffDays === 1) return 'Yesterday'
+    if (diffDays === 0) return selectedLanguage.value === 'lo' ? 'ມື້ນີ້' : 'Today'
+    if (diffDays === 1) return selectedLanguage.value === 'lo' ? 'ວານນີ້' : 'Yesterday'
+
+    if (selectedLanguage.value === 'lo') {
+      return formatLaoDate(value, false)
+    }
 
     return value.toLocaleDateString('en-US', {
       weekday: 'long',

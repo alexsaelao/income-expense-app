@@ -48,6 +48,116 @@ const storageExportFileName = ref('')
 const storageExportPending = ref<MoneyNoteBackupFile | null>(null)
 const storageImportInputRef = ref<HTMLInputElement | null>(null)
 const storageNotice = ref('')
+const clearDataConfirmModalOpen = ref(false)
+const isClearingData = ref(false)
+const clearDataError = ref('')
+const clearDataSlideValue = ref(0)
+const clearDataSlideTrackRef = ref<HTMLElement | null>(null)
+const clearDataSlideDragging = ref(false)
+const clearDataSlidePointerId = ref<number | null>(null)
+const clearDataSlideUnlocked = computed(() => clearDataSlideValue.value >= 100)
+const clearDataModalDragging = ref(false)
+const clearDataModalPointerId = ref<number | null>(null)
+const clearDataModalStartX = ref(0)
+const clearDataModalStartY = ref(0)
+const clearDataModalDragOffset = ref(0)
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function updateClearDataSlideValue(clientX: number) {
+  const track = clearDataSlideTrackRef.value
+  if (!track) return
+
+  const rect = track.getBoundingClientRect()
+  if (!rect.width) return
+
+  const nextValue = Math.round(((clientX - rect.left) / rect.width) * 100)
+  clearDataSlideValue.value = clampNumber(nextValue, 0, 100)
+}
+
+function stopClearDataSlideDrag() {
+  clearDataSlideDragging.value = false
+  clearDataSlidePointerId.value = null
+  window.removeEventListener('pointermove', handleClearDataSlidePointerMove)
+  window.removeEventListener('pointerup', handleClearDataSlidePointerUp)
+  window.removeEventListener('pointercancel', handleClearDataSlidePointerUp)
+}
+
+function stopClearDataModalDrag() {
+  clearDataModalDragging.value = false
+  clearDataModalPointerId.value = null
+  clearDataModalStartX.value = 0
+  clearDataModalStartY.value = 0
+  clearDataModalDragOffset.value = 0
+  window.removeEventListener('pointermove', handleClearDataModalPointerMove)
+  window.removeEventListener('pointerup', handleClearDataModalPointerUp)
+  window.removeEventListener('pointercancel', handleClearDataModalPointerUp)
+}
+
+function handleClearDataSlidePointerMove(event: PointerEvent) {
+  if (!clearDataSlideDragging.value || event.pointerId !== clearDataSlidePointerId.value) return
+  updateClearDataSlideValue(event.clientX)
+}
+
+function handleClearDataSlidePointerUp(event: PointerEvent) {
+  if (clearDataSlidePointerId.value !== null && event.pointerId !== clearDataSlidePointerId.value) return
+  stopClearDataSlideDrag()
+}
+
+function handleClearDataSlidePointerDown(event: PointerEvent) {
+  if (isClearingData.value) return
+
+  clearDataSlideDragging.value = true
+  clearDataSlidePointerId.value = event.pointerId
+  window.addEventListener('pointermove', handleClearDataSlidePointerMove)
+  window.addEventListener('pointerup', handleClearDataSlidePointerUp)
+  window.addEventListener('pointercancel', handleClearDataSlidePointerUp)
+}
+
+function shouldIgnoreClearDataModalDragTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && !!target.closest('button, a, input, textarea, select, [role="slider"]')
+}
+
+function handleClearDataModalPointerMove(event: PointerEvent) {
+  if (!clearDataModalDragging.value || event.pointerId !== clearDataModalPointerId.value) return
+
+  const deltaY = event.clientY - clearDataModalStartY.value
+  const deltaX = Math.abs(event.clientX - clearDataModalStartX.value)
+
+  if (deltaY <= 0 || deltaX > deltaY * 1.2) {
+    clearDataModalDragOffset.value = 0
+    return
+  }
+
+  clearDataModalDragOffset.value = clampNumber(deltaY, 0, 180)
+}
+
+function handleClearDataModalPointerUp(event: PointerEvent) {
+  if (clearDataModalPointerId.value !== null && event.pointerId !== clearDataModalPointerId.value) return
+
+  const shouldClose = clearDataModalDragOffset.value >= 90
+  stopClearDataModalDrag()
+
+  if (shouldClose) {
+    clearDataConfirmModalOpen.value = false
+  }
+}
+
+function handleClearDataModalPointerDown(event: PointerEvent) {
+  if (isClearingData.value) return
+  if (shouldIgnoreClearDataModalDragTarget(event.target)) return
+
+  clearDataModalDragging.value = true
+  clearDataModalPointerId.value = event.pointerId
+  clearDataModalStartX.value = event.clientX
+  clearDataModalStartY.value = event.clientY
+  clearDataModalDragOffset.value = 0
+  window.addEventListener('pointermove', handleClearDataModalPointerMove)
+  window.addEventListener('pointerup', handleClearDataModalPointerUp)
+  window.addEventListener('pointercancel', handleClearDataModalPointerUp)
+}
 
 function normalizeAvatarValue(avatarType: 'emoji' | 'icon', avatarValue?: string | null) {
   const normalizedAvatarValue = avatarValue?.trim() ?? ''
@@ -219,6 +329,22 @@ const settingsCopy = computed(() => {
       unsupportedBackupFile: 'backup ນີ້ບໍ່ຮອງຮັບກັບຟັງຊັນໃນຕອນນີ້.',
       dangerZone: 'ເຂດອັນຕະລາຍ',
       dangerDesc: 'ລ້າງຂໍ້ມູນທົດລອງ ຫຼືອອກຈາກເຄື່ອງນີ້.',
+      clearData: 'ລ້າງຂໍ້ມູນ',
+      clearDataDesc: 'ລຶບ local ແລະ cloud data ຂອງບັນຊີນີ້ ແລະກັບໄປ starter data.',
+      clearDataButton: 'ລ້າງຂໍ້ມູນ',
+      clearDataModalTitle: 'ຢືນຢັນການລ້າງຂໍ້ມູນ',
+      clearDataModalDesc: 'ການກະທຳນີ້ຈະລຶບຂໍ້ມູນທັງ local ແລະ cloud ຂອງບັນຊີນີ້.',
+      clearDataWarning: 'ຫຼັງຈາກລ້າງ ແອັບຈະໂຫຼດ starter data ຂຶ້ນໃໝ່.',
+      clearDataSlideLabel: 'ເລື່ອນເພື່ອຢືນຢັນ',
+      clearDataSlideHint: 'ເລື່ອນໄປສຸດຂວາເພື່ອເປີດປຸ່ມລ້າງຂໍ້ມູນ.',
+      clearDataSlideUnlocked: 'ພ້ອມແລ້ວ',
+      clearDataSlideRequired: 'ກະລຸນາເລື່ອນໃຫ້ສຸດກ່ອນ.',
+      clearDataLocalLabel: 'ຂໍ້ມູນທ້ອງຖິ່ນ',
+      clearDataLocalDesc: 'ກະເປົາເງິນ, ລາຍການທຸລະກຳ, ໝວດໝູ່, ບໍລິສັດ, ແລະ ຂໍ້ມູນສຳຮອງທ້ອງຖິ່ນ.',
+      clearDataCloudLabel: 'ຂໍ້ມູນຄລາວ',
+      clearDataCloudDesc: 'ຖ້າເປີດໃຊ້ງານຊິງຄລາວ ຂໍ້ມູນຢູ່ເຊີບເວີຂອງບັນຊີນີ້ຈະຖືກລຶບອອກດ້ວຍ.',
+      clearDataFailed: 'ບໍ່ສາມາດລ້າງຂໍ້ມູນໄດ້.',
+      clearDataAction: 'ລ້າງດຽວນີ້',
       reset: 'ລ້າງ',
       logout: 'ອອກ',
       logoutConfirmTitle: 'ຢືນຢັນການອອກ',
@@ -349,6 +475,22 @@ const settingsCopy = computed(() => {
     unsupportedBackupFile: 'This backup format is not supported yet.',
     dangerZone: 'Danger zone',
     dangerDesc: 'Reset demo data or sign out from this device.',
+    clearData: 'Clear data',
+    clearDataDesc: 'Delete local and cloud data for this account, then restore starter data.',
+    clearDataButton: 'Clear data',
+    clearDataModalTitle: 'Confirm data clear',
+    clearDataModalDesc: 'This will remove the local and cloud data for this account.',
+    clearDataWarning: 'After clearing, the app will reload with starter data.',
+    clearDataSlideLabel: 'Slide to confirm',
+    clearDataSlideHint: 'Slide all the way to the right to unlock the clear button.',
+    clearDataSlideUnlocked: 'Ready',
+    clearDataSlideRequired: 'Please slide all the way to confirm.',
+    clearDataLocalLabel: 'Local data',
+    clearDataLocalDesc: 'Wallets, transactions, categories, companies, and local snapshots.',
+    clearDataCloudLabel: 'Cloud data',
+    clearDataCloudDesc: 'If cloud sync is active, the server state for this account will also be deleted.',
+    clearDataFailed: 'Could not clear the data right now.',
+    clearDataAction: 'Clear now',
     reset: 'Reset',
     logout: 'Logout',
     logoutConfirmTitle: 'Confirm sign out',
@@ -665,22 +807,70 @@ function setLanguage(language: 'en' | 'lo') {
   selectedLanguage.value = language
 }
 
-async function resetDemoData() {
-  await clearLocalAccountState().catch(() => {})
-
-  for (const key of Object.keys(localStorage)) {
-    if (key.startsWith('income-expense-note-state-v1')) {
-      localStorage.removeItem(key)
-    }
-  }
-  localStorage.removeItem('money-note-selected-currency')
-  localStorage.removeItem('income-expense-note-currency-support-v1')
-  const identifier = sessionProfile.value?.identifier?.trim()
-  if (identifier) {
-    void $fetch('/api/app-state', { method: 'DELETE', query: { identifier } }).catch(() => {})
-  }
-  window.location.reload()
+function openClearDataConfirmModal() {
+  clearDataError.value = ''
+  clearDataSlideValue.value = 0
+  stopClearDataSlideDrag()
+  stopClearDataModalDrag()
+  clearDataConfirmModalOpen.value = true
 }
+
+async function clearAccountData() {
+  if (isClearingData.value) return
+
+  if (!clearDataSlideUnlocked.value) {
+    clearDataError.value = settingsCopy.value.clearDataSlideRequired
+    return
+  }
+
+  if (isCloudSyncEnabled.value && !isOnline.value) {
+    clearDataError.value = settingsCopy.value.clearDataCloudOffline
+    return
+  }
+
+  isClearingData.value = true
+  clearDataError.value = ''
+
+  try {
+    const identifier = sessionProfile.value?.identifier?.trim()
+    if (isCloudSyncEnabled.value) {
+      if (!identifier) {
+        throw new Error('missing-identifier')
+      }
+
+      await $fetch('/api/app-state', { method: 'DELETE', query: { identifier } })
+    }
+
+    await clearLocalAccountState().catch(() => {})
+
+    clearDataConfirmModalOpen.value = false
+    window.location.reload()
+  }
+  catch {
+    clearDataError.value = settingsCopy.value.clearDataFailed
+  }
+  finally {
+    isClearingData.value = false
+  }
+}
+
+watch(clearDataConfirmModalOpen, (open) => {
+  if (open) {
+    clearDataError.value = ''
+    clearDataSlideValue.value = 0
+    clearDataModalDragOffset.value = 0
+  }
+  else if (!isClearingData.value) {
+    clearDataSlideValue.value = 0
+    stopClearDataSlideDrag()
+    stopClearDataModalDrag()
+  }
+})
+
+onBeforeUnmount(() => {
+  stopClearDataSlideDrag()
+  stopClearDataModalDrag()
+})
 
 function handleLogout() {
   logoutConfirmModalOpen.value = true
@@ -1510,7 +1700,30 @@ const internetStatusCopy = computed(() => {
         </div>
       </div>
 
-      <div class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
+      <div class="space-y-4 border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
+        <div class="rounded-[1.1rem] border border-rose-200 bg-rose-50 p-4 text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-100">
+          <div class="flex items-start gap-3">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-400 text-white shadow-lg">
+              <UIcon name="i-lucide-trash-2" class="size-4" />
+            </div>
+
+            <div class="min-w-0">
+              <p class="text-sm font-bold text-default">{{ settingsCopy.clearData }}</p>
+              <p class="mt-1 text-xs leading-5 opacity-90">{{ settingsCopy.clearDataDesc }}</p>
+            </div>
+          </div>
+
+          <UButton
+            class="mt-4 h-11 w-full justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-400 px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(239,68,68,0.5)] transition active:scale-95 hover:opacity-95"
+            icon="i-lucide-eraser"
+            :loading="isClearingData"
+            :disabled="isClearingData"
+            @click="openClearDataConfirmModal"
+          >
+            {{ settingsCopy.clearDataButton }}
+          </UButton>
+        </div>
+
         <UButton class="h-12 w-full justify-center rounded-2xl bg-gradient-to-r from-rose-500 to-red-400 px-2 text-xs font-bold text-white shadow-[0_14px_28px_-18px_rgba(239,68,68,0.5)] transition active:scale-95 sm:px-4 sm:text-sm" icon="i-lucide-log-out" @click="handleLogout">
           {{ settingsCopy.logout }}
         </UButton>
@@ -1553,6 +1766,150 @@ const internetStatusCopy = computed(() => {
         </div>
       </template>
     </UModal>
+
+    <USlideover
+      v-model:open="clearDataConfirmModalOpen"
+      side="bottom"
+      :close="false"
+      :ui="{
+        content: 'w-full overflow-hidden rounded-t-[1.5rem] border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] md:mx-auto md:mb-4 md:w-[min(42rem,calc(100%-2rem))] md:rounded-[1.5rem]',
+        body: 'p-0',
+        header: 'p-0',
+        footer: 'p-0'
+      }"
+    >
+      <template #content="{ close }">
+        <div
+          class="flex max-h-[86svh] flex-col overflow-hidden"
+          :class="clearDataModalDragging ? 'transition-none' : 'transition-transform duration-150 ease-out'"
+          :style="{
+            transform: clearDataModalDragOffset ? `translateY(${clearDataModalDragOffset}px)` : undefined
+          }"
+        >
+          <div
+            class="shrink-0 touch-none border-b border-slate-200/80 px-4 pb-4 pt-2 dark:border-slate-800"
+            @pointerdown="handleClearDataModalPointerDown"
+          >
+            <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-300/80 dark:bg-slate-700" />
+
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ settingsCopy.clearDataModalTitle }}</p>
+                <p class="mt-1 text-[11px] text-muted">{{ settingsCopy.clearDataModalDesc }}</p>
+              </div>
+
+              <button
+                type="button"
+                class="flex size-9 items-center justify-center rounded-full bg-slate-100 text-muted transition active:scale-95 dark:bg-slate-900"
+                :aria-label="settingsCopy.cancel"
+                @click="close()"
+              >
+                <UIcon name="i-lucide-x" class="size-4" />
+              </button>
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+            <div class="space-y-4">
+              <div class="rounded-[1rem] border border-rose-200 bg-rose-50 p-4 text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-100">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.22em]">{{ settingsCopy.clearDataWarning }}</p>
+                <p class="mt-1 text-xs leading-5 opacity-90">{{ settingsCopy.clearDataModalDesc }}</p>
+              </div>
+
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.clearDataLocalLabel }}</p>
+                  <p class="mt-1 text-sm font-bold text-default">{{ settingsCopy.clearDataLocalDesc }}</p>
+                </div>
+
+                <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.clearDataCloudLabel }}</p>
+                  <p class="mt-1 text-sm font-bold text-default">{{ settingsCopy.clearDataCloudDesc }}</p>
+                </div>
+              </div>
+
+              <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-100/80 px-3 py-3 dark:border-slate-800 dark:bg-slate-900/80">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.clearDataSlideLabel }}</p>
+                    <p class="mt-1 text-xs leading-5 text-muted">{{ settingsCopy.clearDataSlideHint }}</p>
+                  </div>
+                  <UBadge
+                    class="shrink-0 rounded-full"
+                    :color="clearDataSlideUnlocked ? 'primary' : 'neutral'"
+                    variant="soft"
+                  >
+                    {{ clearDataSlideUnlocked ? settingsCopy.clearDataSlideUnlocked : '0%' }}
+                  </UBadge>
+                </div>
+
+                <div
+                  ref="clearDataSlideTrackRef"
+                  class="mt-3 relative h-12 select-none rounded-full border border-slate-200 bg-slate-200/80 p-1 dark:border-slate-700 dark:bg-slate-800"
+                  role="slider"
+                  tabindex="0"
+                  :aria-label="settingsCopy.clearDataSlideLabel"
+                  :aria-valuemin="0"
+                  :aria-valuemax="100"
+                  :aria-valuenow="clearDataSlideValue"
+                  :aria-valuetext="clearDataSlideUnlocked ? settingsCopy.clearDataSlideUnlocked : `${clearDataSlideValue}%`"
+                  @pointerdown.prevent="handleClearDataSlidePointerDown"
+                >
+                  <div
+                    class="absolute inset-y-1 left-1 rounded-full bg-gradient-to-r from-rose-500 to-red-400 transition-[width] duration-75 ease-out"
+                    :style="{ width: `${clearDataSlideValue}%` }"
+                  />
+                  <div
+                    class="absolute top-1/2 z-10 h-7 w-7 -translate-y-1/2 rounded-full border-2 border-rose-500 bg-white shadow-[0_10px_24px_-12px_rgba(244,63,94,0.55)] transition-[left] duration-75 ease-out"
+                    :style="{ left: `calc(${clearDataSlideValue}% - 0.875rem)` }"
+                  />
+                  <div class="relative flex h-full items-center justify-between px-4 text-[10px] font-bold uppercase tracking-[0.18em] drop-shadow-[0_1px_1px_rgba(15,23,42,0.45)]">
+                    <span
+                      class="transition-colors duration-150"
+                      :class="clearDataSlideValue > 0 ? 'text-white' : 'text-slate-800 dark:text-slate-200'"
+                    >
+                      0%
+                    </span>
+                    <span
+                      class="transition-colors duration-150"
+                      :class="clearDataSlideValue >= 100 ? 'text-white' : 'text-slate-800 dark:text-slate-200'"
+                    >
+                      100%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <p v-if="clearDataError" class="text-sm font-semibold text-rose-600 dark:text-rose-300">
+                {{ clearDataError }}
+              </p>
+            </div>
+          </div>
+
+          <div class="shrink-0 border-t border-slate-200/80 bg-white/96 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/96">
+            <div class="grid grid-cols-2 gap-3">
+              <UButton
+                class="h-12 w-full justify-center rounded-full border border-slate-200 bg-white px-4 text-sm font-bold whitespace-nowrap text-default shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+                variant="soft"
+                :disabled="isClearingData"
+                @click="close()"
+              >
+                {{ settingsCopy.cancel }}
+              </UButton>
+              <UButton
+                :loading="isClearingData"
+                icon="i-lucide-eraser"
+                class="h-12 w-full justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-400 px-4 text-sm font-bold whitespace-nowrap text-white shadow-[0_14px_28px_-18px_rgba(239,68,68,0.5)] transition hover:opacity-95 active:scale-95"
+                :disabled="isClearingData || !clearDataSlideUnlocked"
+                @click="clearAccountData"
+              >
+                {{ settingsCopy.clearDataAction }}
+              </UButton>
+            </div>
+          </div>
+        </div>
+      </template>
+    </USlideover>
 
     <USlideover
       v-model:open="profileAvatarModalOpen"
@@ -1932,3 +2289,52 @@ const internetStatusCopy = computed(() => {
 
   </div>
 </template>
+
+<style scoped>
+.clear-data-range {
+  accent-color: rgb(244 63 94);
+}
+
+.clear-data-range:focus-visible {
+  outline: none;
+}
+
+.clear-data-range::-webkit-slider-runnable-track {
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(244, 63, 94, 0.22) 0%, rgba(248, 113, 113, 0.42) 100%);
+}
+
+.clear-data-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: -0.375rem;
+  border: 2px solid rgb(244 63 94);
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 10px 20px rgba(244, 63, 94, 0.22);
+}
+
+.clear-data-range::-moz-range-track {
+  height: 0.75rem;
+  border: 0;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(244, 63, 94, 0.22) 0%, rgba(248, 113, 113, 0.42) 100%);
+}
+
+.clear-data-range::-moz-range-progress {
+  height: 0.75rem;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgb(244 63 94) 0%, rgb(248 113 113) 100%);
+}
+
+.clear-data-range::-moz-range-thumb {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid rgb(244 63 94);
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 10px 20px rgba(244, 63, 94, 0.22);
+}
+</style>

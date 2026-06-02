@@ -496,8 +496,8 @@ useHead({
 </script>
 
 <template>
-  <div class="space-y-4 pb-8">
-    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 p-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
+  <div class="space-y-4 pb-8 md:space-y-6">
+    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 p-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75 md:p-6">
       <div class="flex items-start justify-between gap-2.5">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">{{ copy.userStatus }}</p>
@@ -507,7 +507,7 @@ useHead({
       </div>
     </section>
 
-    <section class="grid grid-cols-2 gap-2.5">
+    <section class="grid grid-cols-2 gap-2.5 md:grid-cols-4">
       <div class="rounded-[1.2rem] border border-slate-200/80 bg-white p-3 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/70">
         <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.freeAccounts }}</p>
         <p class="mt-1 text-2xl font-black text-default">{{ overviewStats?.freeAccounts ?? 0 }}</p>
@@ -528,8 +528,8 @@ useHead({
       </div>
     </section>
 
-    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/70 dark:border-slate-800 dark:bg-slate-950/60">
-        <div class="flex items-center justify-between gap-2.5 px-4 py-2.5">
+    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/70 dark:border-slate-800 dark:bg-slate-950/60 md:rounded-[1.6rem]">
+        <div class="flex items-center justify-between gap-2.5 px-4 py-2.5 md:px-5 md:py-4">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ copy.userStatus }}</p>
           <h2 class="text-sm font-black tracking-tight text-default">{{ copy.title }}</h2>

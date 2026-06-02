@@ -141,8 +141,8 @@ useHead({
 </script>
 
 <template>
-  <div class="space-y-4 pb-8">
-    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 p-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
+  <div class="space-y-4 pb-8 md:space-y-6">
+    <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 p-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75 md:p-6">
       <div class="flex items-start justify-between gap-2.5">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">{{ copy.general }}</p>

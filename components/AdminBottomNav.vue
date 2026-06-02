@@ -1,13 +1,25 @@
 <script setup lang="ts">
 const route = useRoute()
 const { activeTheme } = useAppThemeColor()
+const { selectedLanguage } = useAppLanguage()
 
-const items = [
-  { label: 'Overview', to: '/superadmin', icon: 'i-lucide-layout-dashboard' },
-  { label: 'Users', to: '/superadmin/users', icon: 'i-lucide-users-round' },
-  { label: 'Keys', to: '/superadmin/keys', icon: 'i-lucide-key-round' },
-  { label: 'Settings', to: '/superadmin/settings', icon: 'i-lucide-settings' }
-]
+const items = computed(() => {
+  if (selectedLanguage.value === 'lo') {
+    return [
+      { label: 'ພາບລວມ', to: '/superadmin', icon: 'i-lucide-layout-dashboard' },
+      { label: 'ຜູ້ໃຊ້', to: '/superadmin/users', icon: 'i-lucide-users-round' },
+      { label: 'ຄີ', to: '/superadmin/keys', icon: 'i-lucide-key-round' },
+      { label: 'ຕັ້ງຄ່າ', to: '/superadmin/settings', icon: 'i-lucide-settings' }
+    ]
+  }
+
+  return [
+    { label: 'Overview', to: '/superadmin', icon: 'i-lucide-layout-dashboard' },
+    { label: 'Users', to: '/superadmin/users', icon: 'i-lucide-users-round' },
+    { label: 'Keys', to: '/superadmin/keys', icon: 'i-lucide-key-round' },
+    { label: 'Settings', to: '/superadmin/settings', icon: 'i-lucide-settings' }
+  ]
+})
 const currentPath = computed(() => route.path)
 
 function isActive(path: string) {
