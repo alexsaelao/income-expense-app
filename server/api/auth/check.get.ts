@@ -1,5 +1,5 @@
 import { createError, getQuery } from 'h3'
-import { ensureAuthTable, getTursoClient, normalizeAuthIdentifier, AUTH_ACCOUNT_TABLE } from '~/server/utils/turso'
+import { ensureAuthTable, getTursoClient, normalizeAuthIdentifier, AUTH_ACCOUNT_TABLE, normalizeDbTimestamp } from '~/server/utils/turso'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -47,8 +47,8 @@ export default defineEventHandler(async (event) => {
       identifierType: row.identifier_type ?? 'phone',
       plan: row.plan === 'pro' ? 'pro' : 'free',
       remember: Boolean(row.remember),
-      createdAt: row.created_at,
-      updatedAt: row.updated_at
+      createdAt: normalizeDbTimestamp(row.created_at) ?? '',
+      updatedAt: normalizeDbTimestamp(row.updated_at) ?? ''
     }
   }
 })

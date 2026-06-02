@@ -24,15 +24,16 @@ export default defineEventHandler(async (event) => {
   }
 
   await ensureStateTable(db)
+  const now = new Date().toISOString()
   await db.execute({
     sql: `
       INSERT INTO app_state (state_key, state_json, updated_at)
-      VALUES (?, ?, CURRENT_TIMESTAMP)
+      VALUES (?, ?, ?)
       ON CONFLICT(state_key) DO UPDATE SET
         state_json = excluded.state_json,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = excluded.updated_at
     `,
-    args: [stateKeyForIdentifier(identifier), JSON.stringify(body.state)]
+    args: [stateKeyForIdentifier(identifier), JSON.stringify(body.state), now]
   })
 
   return { ok: true, connected: true }

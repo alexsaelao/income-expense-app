@@ -1,5 +1,5 @@
 import { createError } from 'h3'
-import { ensureProRedeemTable, getTursoClient, PRO_REDEEM_TABLE } from '~/server/utils/turso'
+import { ensureProRedeemTable, getTursoClient, PRO_REDEEM_TABLE, normalizeDbTimestamp } from '~/server/utils/turso'
 import { readAdminSession } from '~/server/utils/admin'
 
 export default defineEventHandler(async (event) => {
@@ -43,9 +43,9 @@ export default defineEventHandler(async (event) => {
       code: (row.code as string | undefined) ?? '',
       active: Number(row.active ?? 0) === 1,
       redeemedBy: (row.redeemed_by as string | null | undefined) ?? null,
-      redeemedAt: (row.redeemed_at as string | null | undefined) ?? null,
-      createdAt: (row.created_at as string | undefined) ?? '',
-      updatedAt: (row.updated_at as string | undefined) ?? ''
+      redeemedAt: normalizeDbTimestamp(row.redeemed_at as string | null | undefined),
+      createdAt: normalizeDbTimestamp(row.created_at as string | undefined) ?? '',
+      updatedAt: normalizeDbTimestamp(row.updated_at as string | undefined) ?? ''
     }))
   }
 })

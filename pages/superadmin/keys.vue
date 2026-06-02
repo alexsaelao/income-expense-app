@@ -18,6 +18,7 @@ const { activeTheme } = useAppThemeColor()
 const keyPage = ref(1)
 const keyPageSize = ref(10)
 const keyPageSizeOptions = [10, 20, 50]
+const displayTimeZone = 'Asia/Vientiane'
 const { data: overview, pending, refresh } = useSuperadminData({
   accountsLimit: 0,
   redeemKeysPage: keyPage,
@@ -34,7 +35,8 @@ const deleteSheetDragStartY = ref(0)
 const deleteSheetPointerId = ref<number | null>(null)
 const deleteSheetHandleRef = ref<HTMLElement | null>(null)
 
-const copyState = ref<'idle' | 'copied'>('idle')
+const copiedKeyCode = ref('')
+let copiedKeyResetTimer: ReturnType<typeof setTimeout> | null = null
 
 const copy = computed(() => selectedLanguage.value === 'lo'
   ? {
@@ -120,6 +122,7 @@ const stats = computed(() => overview.value?.stats ?? null)
 const redeemKeys = computed<RedeemKeyRow[]>(() => overview.value?.redeemKeys ?? [])
 const keyPagination = computed(() => overview.value?.redeemKeysPagination ?? null)
 const refreshingKeys = ref(false)
+const isKeysLoading = computed(() => pending.value || refreshingKeys.value)
 const keyRangeStart = computed(() => {
   if (!keyPagination.value?.total || !redeemKeys.value.length) return 0
   return ((keyPagination.value.page - 1) * keyPagination.value.limit) + 1
@@ -147,7 +150,8 @@ function formatDateTime(value: string) {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone: displayTimeZone
   }).format(new Date(value))
 }
 
@@ -181,9 +185,14 @@ async function refreshKeys() {
 async function copyKey(code: string) {
   if (!code) return
   await navigator.clipboard.writeText(code)
-  copyState.value = 'copied'
-  window.setTimeout(() => {
-    copyState.value = 'idle'
+
+  copiedKeyCode.value = code
+  if (copiedKeyResetTimer) {
+    clearTimeout(copiedKeyResetTimer)
+  }
+  copiedKeyResetTimer = setTimeout(() => {
+    copiedKeyCode.value = ''
+    copiedKeyResetTimer = null
   }, 1200)
 }
 
@@ -279,9 +288,9 @@ useHead({
 </script>
 
 <template>
-  <div class="space-y-5 pb-8">
+  <div class="space-y-4 pb-8">
     <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 p-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
-      <div class="flex items-start justify-between gap-3">
+      <div class="flex items-start justify-between gap-2.5">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">{{ copy.title }}</p>
           <h1 class="mt-1 text-2xl font-black tracking-tight text-default">{{ copy.title }}</h1>
@@ -290,7 +299,7 @@ useHead({
       </div>
     </section>
 
-    <section class="grid grid-cols-2 gap-3">
+    <section class="grid grid-cols-2 gap-2.5">
       <div class="rounded-[1.2rem] border border-slate-200/80 bg-white p-3 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/70">
         <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.activeKeys }}</p>
         <p class="mt-1 text-2xl font-black text-default">{{ stats?.activeKeys ?? 0 }}</p>
@@ -302,7 +311,7 @@ useHead({
     </section>
 
     <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
-      <div class="flex items-center justify-between gap-3 px-4 py-4">
+      <div class="flex items-center justify-between gap-2.5 px-4 py-3">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ copy.generateKey }}</p>
           <h2 class="text-sm font-black tracking-tight text-default">{{ copy.generateKey }}</h2>
@@ -331,15 +340,26 @@ useHead({
               <p class="truncate text-sm font-black text-default">{{ lastGeneratedKey }}</p>
             </div>
             <UButton
-              icon="i-lucide-copy"
-              class="h-9 rounded-full bg-black px-3 text-xs font-bold text-white shadow-sm transition hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
+              class="h-9 rounded-full px-3 text-xs font-bold shadow-sm transition active:scale-95"
+              :class="copiedKeyCode === lastGeneratedKey
+                ? 'bg-emerald-500 text-white hover:bg-emerald-500 dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-500'
+                : 'bg-black text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90'"
               @click="copyKey(lastGeneratedKey)"
             >
-              {{ copy.copy }}
+              <span class="inline-flex items-center gap-1.5">
+                <Transition name="copy-icon-swap" mode="out-in">
+                  <UIcon
+                    :key="copiedKeyCode === lastGeneratedKey ? 'copied' : 'copy'"
+                    :name="copiedKeyCode === lastGeneratedKey ? 'i-lucide-check' : 'i-lucide-copy'"
+                    class="size-4 shrink-0"
+                  />
+                </Transition>
+                <span>{{ copiedKeyCode === lastGeneratedKey ? copy.copied : copy.copy }}</span>
+              </span>
             </UButton>
           </div>
           <p class="mt-2 truncate text-[11px] leading-5 text-muted">
-            {{ copyState === 'copied' ? copy.copied : copy.shareHint }}
+            {{ copiedKeyCode === lastGeneratedKey ? copy.copied : copy.shareHint }}
           </p>
         </div>
       </div>
@@ -353,10 +373,11 @@ useHead({
         </div>
         <div class="flex items-center gap-2">
           <UButton
-            :disabled="refreshingKeys || generating || pending"
+            :disabled="isKeysLoading || generating"
             class="h-9 gap-2 rounded-full px-3 text-xs font-bold shadow-none transition active:scale-95"
-            :class="refreshingKeys
-              ? 'border-transparent bg-gradient-to-r from-sky-500 to-cyan-400 text-white shadow-[0_14px_28px_-18px_rgba(14,165,233,0.35)]'
+            :style="isKeysLoading ? { backgroundColor: activeTheme.hex, borderColor: activeTheme.hex } : undefined"
+            :class="isKeysLoading
+              ? 'border-transparent text-white shadow-[0_14px_28px_-18px_rgba(14,165,233,0.35)]'
               : 'border border-slate-200 bg-white text-default hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800'"
             @click="refreshKeys"
             aria-label="Reload"
@@ -364,9 +385,9 @@ useHead({
             <UIcon
               name="i-lucide-refresh-cw"
               class="size-4 shrink-0"
-              :class="refreshingKeys ? 'animate-spin text-white' : ''"
+              :class="isKeysLoading ? 'animate-spin text-white' : ''"
             />
-            <span :class="refreshingKeys ? 'text-white' : ''">{{ copy.reload }}</span>
+            <span :class="isKeysLoading ? 'text-white' : ''">{{ copy.reload }}</span>
           </UButton>
           <UBadge color="neutral" variant="soft" class="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]">
             {{ stats?.activeKeys ?? 0 }} / {{ stats?.totalKeys ?? 0 }}
@@ -375,11 +396,9 @@ useHead({
       </div>
 
       <div class="border-t border-slate-200/80 dark:border-slate-800">
-        <div v-if="pending || generating || refreshingKeys" class="relative h-[3px] overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800/85">
-          <div class="superadmin-keys-loading-track" />
+        <div v-if="pending || generating || refreshingKeys" class="relative h-[3px] overflow-hidden rounded-full bg-slate-200/90 dark:bg-slate-800/85" :style="{ '--superadmin-loading-color': activeTheme.hex }">
           <div class="superadmin-keys-loading-bar" />
         </div>
-        <div class="border-b border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60" />
         <div class="overflow-x-auto">
           <table class="min-w-full border-collapse">
             <thead class="bg-slate-50/80 dark:bg-slate-900/60">
@@ -424,11 +443,22 @@ useHead({
                 <td class="px-4 py-3 align-middle">
                   <div class="flex items-center justify-end gap-2">
                     <UButton
-                      icon="i-lucide-copy"
-                      class="h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-default shadow-none transition hover:bg-slate-50 active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+                      class="h-9 rounded-full border px-3 text-xs font-bold shadow-none transition active:scale-95"
+                      :class="copiedKeyCode === key.code
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/45'
+                        : 'border-slate-200 bg-white text-default hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800'"
                       @click="copyKey(key.code)"
                     >
-                      {{ copy.copy }}
+                      <span class="inline-flex items-center gap-1.5">
+                        <Transition name="copy-icon-swap" mode="out-in">
+                          <UIcon
+                            :key="copiedKeyCode === key.code ? 'copied' : 'copy'"
+                            :name="copiedKeyCode === key.code ? 'i-lucide-check' : 'i-lucide-copy'"
+                            class="size-4 shrink-0"
+                          />
+                        </Transition>
+                        <span>{{ copiedKeyCode === key.code ? copy.copied : copy.copy }}</span>
+                      </span>
                     </UButton>
                     <UButton
                       icon="i-lucide-trash-2"
@@ -444,7 +474,7 @@ useHead({
           </table>
         </div>
 
-        <div class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
+        <div class="border-t border-slate-200/80 px-4 py-3 dark:border-slate-800">
           <p class="text-xs font-semibold text-muted">
             <span class="whitespace-nowrap">{{ copy.showing }}</span>
             <span class="whitespace-nowrap">
@@ -452,7 +482,7 @@ useHead({
             </span>
           </p>
 
-          <div class="mt-2 flex items-center justify-between gap-2">
+          <div class="mt-1.5 flex items-center justify-between gap-2">
             <div class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200/80 bg-slate-50 px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900">
               <span class="whitespace-nowrap text-[8px] font-semibold uppercase tracking-[0.1em] text-muted">{{ copy.perPage }}</span>
               <select
@@ -466,27 +496,29 @@ useHead({
             </div>
 
             <div class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200/80 bg-slate-50 px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900">
-              <UButton
-                icon="i-lucide-chevron-left"
-                size="xs"
-                class="h-7 w-7 justify-center rounded-full border border-slate-200 bg-white p-0 text-default shadow-none transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
+              <button
+                type="button"
+                class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white p-0 text-default shadow-none transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-black dark:text-white dark:hover:bg-slate-900"
                 :disabled="!keyHasPrevious || pending || generating"
                 :aria-label="copy.previous"
                 @click="goToPreviousKeyPage"
-              />
+              >
+                <UIcon name="i-lucide-chevron-left" class="size-4 shrink-0" />
+              </button>
 
               <span class="min-w-[4.9rem] whitespace-nowrap rounded-full border border-slate-200 bg-white px-2 py-1 text-center text-[9px] font-black text-default dark:border-slate-700 dark:bg-slate-950 dark:text-white">
                 {{ copy.page }} {{ keyPagination?.page ?? 1 }} {{ copy.of }} {{ keyPagination?.totalPages ?? 0 }}
               </span>
 
-              <UButton
-                icon="i-lucide-chevron-right"
-                size="xs"
-                class="h-7 w-7 justify-center rounded-full border border-slate-200 bg-white p-0 text-default shadow-none transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
+              <button
+                type="button"
+                class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white p-0 text-default shadow-none transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-black dark:text-white dark:hover:bg-slate-900"
                 :disabled="!keyHasNext || pending || generating"
                 :aria-label="copy.next"
                 @click="goToNextKeyPage"
-              />
+              >
+                <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0" />
+              </button>
             </div>
           </div>
         </div>
@@ -511,12 +543,12 @@ useHead({
         @click.self="closeDeleteKeySheet"
       >
         <Transition
-          enter-active-class="transition duration-200 ease-out"
-          enter-from-class="translate-y-full opacity-0"
+          enter-active-class="transition duration-260 ease-out"
+          enter-from-class="translate-y-[110%] opacity-0"
           enter-to-class="translate-y-0 opacity-100"
-          leave-active-class="transition duration-150 ease-in"
+          leave-active-class="transition duration-180 ease-in"
           leave-from-class="translate-y-0 opacity-100"
-          leave-to-class="translate-y-full opacity-0"
+          leave-to-class="translate-y-[110%] opacity-0"
         >
           <div
             class="w-full overflow-hidden rounded-t-[1.6rem] border border-slate-200/80 bg-white shadow-[0_-24px_60px_-36px_rgba(15,23,42,0.4)] dark:border-slate-800 dark:bg-slate-950 sm:max-w-lg sm:rounded-[1.6rem]"
@@ -589,86 +621,38 @@ useHead({
 <style scoped>
 @keyframes superadminKeysLoadingBar {
   0% {
-    transform: translateX(-120%) scaleX(0.85);
-    opacity: 0.24;
-  }
-
-  20% {
-    opacity: 1;
-  }
-
-  50% {
-    transform: translateX(0%) scaleX(1);
-    opacity: 1;
-  }
-
-  80% {
-    opacity: 1;
+    transform: translateX(-120%);
   }
 
   100% {
-    transform: translateX(220%) scaleX(0.9);
-    opacity: 0.24;
+    transform: translateX(320%);
   }
-}
-
-.superadmin-keys-loading-track {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgba(2, 132, 199, 0.08), rgba(14, 165, 233, 0.26), rgba(34, 211, 238, 0.32), rgba(14, 165, 233, 0.26), rgba(2, 132, 199, 0.08)),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0 8px, transparent 8px 16px);
-  background-size: 300% 100%, 18px 100%;
-  animation:
-    superadminKeysLoadingTrack 1.1s linear infinite,
-    superadminKeysLoadingTrack2 0.85s linear infinite;
-  filter: saturate(1.1);
 }
 
 .superadmin-keys-loading-bar {
   position: absolute;
-  inset-y: 0;
-  left: 0;
-  width: 38%;
+  inset: 0 auto 0 0;
+  width: 32%;
   border-radius: 9999px;
-  background: linear-gradient(90deg, transparent 0%, #0284c7 18%, #0ea5e9 44%, #67e8f9 64%, #0ea5e9 82%, transparent 100%);
-  box-shadow: 0 0 20px rgba(14, 165, 233, 0.36);
-  animation: superadminKeysLoadingBar 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  background-color: var(--superadmin-loading-color, #0ea5e9);
+  will-change: transform;
+  animation: superadminKeysLoadingBar 1.35s linear infinite;
 }
 
-:global(.dark) .superadmin-keys-loading-track {
-  background:
-    linear-gradient(90deg, rgba(14, 165, 233, 0.03), rgba(56, 189, 248, 0.12), rgba(103, 232, 249, 0.16), rgba(56, 189, 248, 0.12), rgba(14, 165, 233, 0.03)),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 8px, transparent 8px 16px);
-  background-size: 300% 100%, 18px 100%;
-  animation:
-    superadminKeysLoadingTrack 1.1s linear infinite,
-    superadminKeysLoadingTrack2 0.85s linear infinite;
-  filter: saturate(1.08);
+.copy-icon-swap-enter-active,
+.copy-icon-swap-leave-active {
+  transition: opacity 140ms ease, transform 140ms ease;
 }
 
-:global(.dark) .superadmin-keys-loading-bar {
-  background: linear-gradient(90deg, transparent 0%, #38bdf8 18%, #67e8f9 50%, #38bdf8 80%, transparent 100%);
-  box-shadow: 0 0 18px rgba(56, 189, 248, 0.28);
+.copy-icon-swap-enter-from,
+.copy-icon-swap-leave-to {
+  opacity: 0;
+  transform: scale(0.82);
 }
 
-@keyframes superadminKeysLoadingTrack {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  100% {
-    background-position: 200% 50%;
-  }
-}
-
-@keyframes superadminKeysLoadingTrack2 {
-  0% {
-    background-position: 0 0;
-  }
-
-  100% {
-    background-position: 18px 0;
-  }
+.copy-icon-swap-enter-to,
+.copy-icon-swap-leave-from {
+  opacity: 1;
+  transform: scale(1);
 }
 </style>

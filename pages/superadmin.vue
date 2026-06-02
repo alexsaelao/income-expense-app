@@ -5,9 +5,9 @@ definePageMeta({
 })
 
 const route = useRoute()
-const router = useRouter()
 const { selectedLanguage } = useAppLanguage()
 const { activeTheme } = useAppThemeColor()
+const displayTimeZone = 'Asia/Vientiane'
 const { data: overview, pending } = useSuperadminData()
 
 const adminCopy = computed(() => selectedLanguage.value === 'lo'
@@ -33,8 +33,7 @@ const adminCopy = computed(() => selectedLanguage.value === 'lo'
       keysCardTitle: 'Keys',
       settingsCardTitle: 'Settings',
       cloudStatus: 'Cloud status',
-      roleTools: 'ເຄື່ອງມືຈັດການ',
-      signOut: 'ອອກຈາກລະບົບ'
+      roleTools: 'ເຄື່ອງມືຈັດການ'
     }
   : {
       title: 'Super Admin',
@@ -58,23 +57,22 @@ const adminCopy = computed(() => selectedLanguage.value === 'lo'
       keysCardTitle: 'Keys',
       settingsCardTitle: 'Settings',
       cloudStatus: 'Cloud status',
-      roleTools: 'Admin tools',
-      signOut: 'Sign out'
+      roleTools: 'Admin tools'
     })
 
 const isConnected = computed(() => Boolean(overview.value?.connected))
 const stats = computed(() => overview.value?.stats ?? null)
 const recentAccounts = computed(() => (overview.value?.accounts ?? []).slice(0, 4))
 const recentKeys = computed(() => (overview.value?.redeemKeys ?? []).slice(0, 4))
-const signingOut = ref(false)
-
 function formatDate(value?: string | null) {
   if (!value) return '—'
   return new Intl.DateTimeFormat(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone: displayTimeZone,
+    timeZoneName: 'short'
   }).format(new Date(value))
 }
 
@@ -82,7 +80,8 @@ function formatShortDate(value?: string | null) {
   if (!value) return '—'
   return new Intl.DateTimeFormat(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', {
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
+    timeZone: displayTimeZone
   }).format(new Date(value))
 }
 
@@ -100,37 +99,25 @@ function formatCloudSize(bytes?: number | null) {
   return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`
 }
 
-async function signOutAdmin() {
-  if (signingOut.value) return
-  signingOut.value = true
-  try {
-    await $fetch('/api/admin/logout', { method: 'POST' })
-    await router.push('/admin-login')
-  }
-  finally {
-    signingOut.value = false
-  }
-}
-
 useHead({
   title: 'Super Admin · Overview'
 })
 </script>
 
 <template>
-  <div v-if="route.path === '/superadmin'" class="space-y-5 pb-8">
+  <div v-if="route.path === '/superadmin'" class="space-y-4 pb-8">
     <section class="relative overflow-hidden rounded-[1.6rem] border border-slate-200/80 bg-white/90 p-4 shadow-[0_22px_60px_-30px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/80">
       <div :class="['absolute inset-x-0 top-0 h-1.5', activeTheme.accent]" />
       <div class="absolute -right-10 top-3 size-28 rounded-full bg-sky-400/10 blur-3xl" />
       <div class="absolute -left-8 bottom-0 size-24 rounded-full bg-cyan-400/10 blur-3xl" />
 
-      <div class="relative flex items-start justify-between gap-3">
+      <div class="relative">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.32em] text-muted">{{ adminCopy.overview }}</p>
           <h1 class="mt-1 text-[1.85rem] font-black tracking-tight text-default">{{ adminCopy.title }}</h1>
           <p class="mt-1 max-w-[26rem] text-sm leading-6 text-muted">{{ adminCopy.subtitle }}</p>
 
-          <div class="mt-4 flex flex-wrap items-center gap-2">
+          <div class="mt-3.5 flex flex-wrap items-center gap-2">
             <UBadge
               :color="isConnected ? 'emerald' : 'rose'"
               variant="soft"
@@ -143,22 +130,9 @@ useHead({
             </UBadge>
           </div>
         </div>
-
-        <div class="flex shrink-0 flex-col items-end gap-2">
-          <div class="flex size-12 items-center justify-center rounded-[1.3rem] border border-slate-200/80 bg-slate-50 text-black shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white">
-            <UIcon name="i-lucide-layout-dashboard" class="size-5" />
-          </div>
-          <UButton
-            :loading="signingOut"
-            class="h-8 rounded-full border border-slate-200 bg-white px-3 text-[10px] font-bold text-black shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
-            @click="signOutAdmin"
-          >
-            {{ adminCopy.signOut }}
-          </UButton>
-        </div>
       </div>
 
-      <div class="relative mt-4 grid grid-cols-1 gap-3">
+      <div class="relative mt-3 grid grid-cols-1 gap-2.5">
         <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
           <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.totalAccounts }}</p>
           <p class="mt-1 text-[1.9rem] font-black leading-none text-default">{{ stats?.totalAccounts ?? 0 }}</p>
@@ -177,9 +151,9 @@ useHead({
         </div>
       </div>
 
-      <div class="relative mt-4 grid grid-cols-1 gap-3">
+      <div class="relative mt-3 grid grid-cols-1 gap-2.5">
         <div class="rounded-[1.15rem] border border-slate-200/80 bg-white/75 px-3 py-3 dark:border-slate-800 dark:bg-slate-950/60">
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center justify-between gap-2.5">
             <div class="min-w-0">
               <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.cloudStatus }}</p>
               <p class="mt-1 text-sm font-black text-default">{{ isConnected ? adminCopy.connected : adminCopy.disconnected }}</p>
@@ -201,7 +175,7 @@ useHead({
         </div>
 
         <div class="rounded-[1.15rem] border border-slate-200/80 bg-white/75 px-3 py-3 dark:border-slate-800 dark:bg-slate-950/60">
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center justify-between gap-2.5">
             <div class="min-w-0">
               <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.latestBackup }}</p>
               <p class="mt-1 text-sm font-black text-default">{{ stats?.latestBackupAt ? formatDate(stats.latestBackupAt) : '—' }}</p>
@@ -215,9 +189,9 @@ useHead({
       </div>
     </section>
 
-    <section class="grid grid-cols-1 gap-3">
+    <section class="grid grid-cols-1 gap-2.5">
       <NuxtLink to="/superadmin/users" class="block rounded-[1.25rem] border border-slate-200/80 bg-white p-4 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)] transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70">
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center justify-between gap-2.5">
           <div class="min-w-0">
             <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.usersCardTitle }}</p>
             <p class="mt-1 text-sm font-bold text-default">{{ adminCopy.usersDesc }}</p>
@@ -226,14 +200,14 @@ useHead({
             <UIcon name="i-lucide-users-round" class="size-4.5" />
           </div>
         </div>
-        <div class="mt-4 flex items-end justify-between">
+        <div class="mt-3 flex items-end justify-between">
           <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ adminCopy.totalAccounts }}</p>
           <p class="text-2xl font-black text-default">{{ stats?.totalAccounts ?? 0 }}</p>
         </div>
       </NuxtLink>
 
       <NuxtLink to="/superadmin/keys" class="block rounded-[1.25rem] border border-slate-200/80 bg-white p-4 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)] transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70">
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center justify-between gap-2.5">
           <div class="min-w-0">
             <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.keysCardTitle }}</p>
             <p class="mt-1 text-sm font-bold text-default">{{ adminCopy.keysDesc }}</p>
@@ -242,14 +216,14 @@ useHead({
             <UIcon name="i-lucide-key-round" class="size-4.5" />
           </div>
         </div>
-        <div class="mt-4 flex items-end justify-between">
+        <div class="mt-3 flex items-end justify-between">
           <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ adminCopy.totalBackups }}</p>
           <p class="text-2xl font-black text-default">{{ stats?.totalBackups ?? 0 }}</p>
         </div>
       </NuxtLink>
 
       <NuxtLink to="/superadmin/settings" class="block rounded-[1.25rem] border border-slate-200/80 bg-white p-4 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)] transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70">
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center justify-between gap-2.5">
           <div class="min-w-0">
             <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.settingsCardTitle }}</p>
             <p class="mt-1 text-sm font-bold text-default">{{ adminCopy.settingsDesc }}</p>
@@ -258,16 +232,16 @@ useHead({
             <UIcon name="i-lucide-settings" class="size-4.5" />
           </div>
         </div>
-        <div class="mt-4 flex items-end justify-between">
+        <div class="mt-3 flex items-end justify-between">
           <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ adminCopy.syncedAccounts }}</p>
           <p class="text-2xl font-black text-default">{{ stats?.cloudSyncedAccounts ?? 0 }}</p>
         </div>
       </NuxtLink>
     </section>
 
-    <section class="grid grid-cols-1 gap-3">
+    <section class="grid grid-cols-1 gap-2.5">
       <div class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white/85 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
-        <div class="border-b border-slate-200/80 px-4 py-4 dark:border-slate-800">
+        <div class="border-b border-slate-200/80 px-4 py-2.5 dark:border-slate-800">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Recent users</p>
           <h2 class="text-sm font-black tracking-tight text-default">Latest account updates</h2>
         </div>
@@ -276,7 +250,7 @@ useHead({
           <div
             v-for="account in recentAccounts"
             :key="account.identifier"
-            class="flex items-center justify-between gap-3 px-4 py-3"
+            class="flex items-center justify-between gap-2.5 px-4 py-2.5"
           >
             <div class="min-w-0">
               <p class="truncate text-sm font-bold text-default">{{ account.identifier }}</p>
@@ -295,7 +269,7 @@ useHead({
       </div>
 
       <div class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white/85 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
-        <div class="border-b border-slate-200/80 px-4 py-4 dark:border-slate-800">
+        <div class="border-b border-slate-200/80 px-4 py-2.5 dark:border-slate-800">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">Recent keys</p>
           <h2 class="text-sm font-black tracking-tight text-default">Latest redeem keys</h2>
         </div>
@@ -304,7 +278,7 @@ useHead({
           <div
             v-for="key in recentKeys"
             :key="key.code"
-            class="flex items-center justify-between gap-3 px-4 py-3"
+            class="flex items-center justify-between gap-2.5 px-4 py-2.5"
           >
             <div class="min-w-0">
               <p class="truncate text-sm font-bold text-default">{{ key.code }}</p>
@@ -324,14 +298,14 @@ useHead({
     </section>
 
     <section class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white/85 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
-      <div class="px-4 py-4">
+      <div class="px-4 py-3">
         <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ adminCopy.roleTools }}</p>
         <h2 class="text-sm font-black tracking-tight text-default">{{ adminCopy.title }}</h2>
       </div>
 
-      <div class="space-y-3 border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
+      <div class="space-y-2.5 border-t border-slate-200/80 px-4 py-2.5 dark:border-slate-800">
         <NuxtLink to="/superadmin/users" class="block rounded-[1.15rem] border border-slate-200/80 bg-slate-50 px-3 py-3 transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900">
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center justify-between gap-2.5">
             <div class="min-w-0">
               <p class="text-sm font-bold text-default">{{ adminCopy.usersCardTitle }}</p>
               <p class="text-xs leading-5 text-muted">{{ adminCopy.usersDesc }}</p>
@@ -343,7 +317,7 @@ useHead({
         </NuxtLink>
 
         <NuxtLink to="/superadmin/keys" class="block rounded-[1.15rem] border border-slate-200/80 bg-slate-50 px-3 py-3 transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900">
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center justify-between gap-2.5">
             <div class="min-w-0">
               <p class="text-sm font-bold text-default">{{ adminCopy.keysCardTitle }}</p>
               <p class="text-xs leading-5 text-muted">{{ adminCopy.keysDesc }}</p>
@@ -355,7 +329,7 @@ useHead({
         </NuxtLink>
 
         <NuxtLink to="/superadmin/settings" class="block rounded-[1.15rem] border border-slate-200/80 bg-slate-50 px-3 py-3 transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900">
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center justify-between gap-2.5">
             <div class="min-w-0">
               <p class="text-sm font-bold text-default">{{ adminCopy.settingsCardTitle }}</p>
               <p class="text-xs leading-5 text-muted">{{ adminCopy.settingsDesc }}</p>
@@ -370,7 +344,7 @@ useHead({
 
     <section class="rounded-[1.35rem] border border-slate-200/80 bg-white/85 p-4 text-xs leading-6 text-muted shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
       <p class="font-bold text-default">System snapshot</p>
-      <ul class="mt-2 space-y-1">
+      <ul class="mt-2 space-y-0.5">
         <li>• Overview, Users, Keys, Settings are separated into their own pages.</li>
         <li>• Use the bottom navigation to jump between admin pages.</li>
         <li>• Check latest cloud backup and user sync status from the dashboard cards above.</li>

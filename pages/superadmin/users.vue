@@ -9,6 +9,7 @@ const { activeTheme } = useAppThemeColor()
 const userPage = ref(1)
 const userPageSize = ref(10)
 const userPageSizeOptions = [10, 20, 50]
+const displayTimeZone = 'Asia/Vientiane'
 const { data: overview, pending, refresh } = useSuperadminData({
   accountsPage: userPage,
   accountsLimit: userPageSize,
@@ -42,6 +43,7 @@ const deleteUserOpen = ref(false)
 const updatingUser = ref(false)
 const deletingUser = ref(false)
 const refreshingUsers = ref(false)
+const isUsersLoading = computed(() => pending.value || refreshingUsers.value)
 const userEditPlan = ref<'free' | 'pro'>('free')
 const userEditRemember = ref(true)
 const selectedAccount = ref<{
@@ -202,7 +204,8 @@ function formatDate(value?: string | null) {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
-    minute: '2-digit'
+    minute: '2-digit',
+    timeZone: displayTimeZone
   }).format(new Date(value))
 }
 
@@ -344,6 +347,8 @@ function resetDetailSheetDrag() {
 }
 
 function onDetailSheetPointerDown(event: PointerEvent) {
+  const target = event.target as HTMLElement | null
+  if (target?.closest('button, a, input, select, textarea, [role="button"]')) return
   detailSheetHandleRef.value?.setPointerCapture(event.pointerId)
   detailSheetDragging.value = true
   detailSheetDragStartY.value = event.clientY
@@ -491,9 +496,9 @@ useHead({
 </script>
 
 <template>
-  <div class="space-y-5 pb-8">
+  <div class="space-y-4 pb-8">
     <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 p-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
-      <div class="flex items-start justify-between gap-3">
+      <div class="flex items-start justify-between gap-2.5">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">{{ copy.userStatus }}</p>
           <h1 class="mt-1 text-2xl font-black tracking-tight text-default">{{ copy.title }}</h1>
@@ -502,7 +507,7 @@ useHead({
       </div>
     </section>
 
-    <section class="grid grid-cols-2 gap-3">
+    <section class="grid grid-cols-2 gap-2.5">
       <div class="rounded-[1.2rem] border border-slate-200/80 bg-white p-3 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/70">
         <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.freeAccounts }}</p>
         <p class="mt-1 text-2xl font-black text-default">{{ overviewStats?.freeAccounts ?? 0 }}</p>
@@ -524,17 +529,18 @@ useHead({
     </section>
 
     <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/70 dark:border-slate-800 dark:bg-slate-950/60">
-      <div class="flex items-center justify-between gap-3 px-4 py-4">
+        <div class="flex items-center justify-between gap-2.5 px-4 py-2.5">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ copy.userStatus }}</p>
           <h2 class="text-sm font-black tracking-tight text-default">{{ copy.title }}</h2>
         </div>
         <div class="flex items-center gap-2">
           <UButton
-            :disabled="refreshingUsers"
+            :disabled="isUsersLoading"
             class="h-9 gap-2 rounded-full px-3 text-xs font-bold shadow-none transition active:scale-95"
-            :class="refreshingUsers
-              ? 'border-transparent bg-gradient-to-r from-sky-500 to-cyan-400 text-white shadow-[0_14px_28px_-18px_rgba(14,165,233,0.35)]'
+            :style="isUsersLoading ? { backgroundColor: activeTheme.hex, borderColor: activeTheme.hex } : undefined"
+            :class="isUsersLoading
+              ? 'border-transparent text-white shadow-[0_14px_28px_-18px_rgba(14,165,233,0.35)]'
               : 'border border-slate-200 bg-white text-default hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800'"
             @click="refreshUsers"
             aria-label="Reload"
@@ -542,9 +548,9 @@ useHead({
             <UIcon
               name="i-lucide-refresh-cw"
               class="size-4 shrink-0"
-              :class="refreshingUsers ? 'animate-spin text-white' : ''"
+              :class="isUsersLoading ? 'animate-spin text-white' : ''"
             />
-            <span :class="refreshingUsers ? 'text-white' : ''">Reload</span>
+            <span :class="isUsersLoading ? 'text-white' : ''">Reload</span>
           </UButton>
           <UBadge color="neutral" variant="soft" class="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em]">
             {{ accounts.length }}
@@ -553,25 +559,25 @@ useHead({
       </div>
 
       <div class="border-t border-slate-200/80 dark:border-slate-800">
-        <div v-if="pending || refreshingUsers" class="relative h-[3px] overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800/85">
-          <div class="superadmin-users-loading-track" />
+        <div v-if="isUsersLoading" class="relative h-[3px] overflow-hidden rounded-full bg-slate-200/90 dark:bg-slate-800/85" :style="{ '--superadmin-loading-color': activeTheme.hex }">
           <div class="superadmin-users-loading-bar" />
         </div>
         <div class="relative overflow-x-auto">
           <table class="min-w-[1140px] w-full border-separate border-spacing-0">
             <thead>
               <tr class="text-left">
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">Account</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">Plan</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.proStarted }}</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.redeemKey }}</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.cloudClears }}</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.cloudStatus }}</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.joined }}</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.lastActive }}</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.records }}</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.cloudSize }}</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.cloudUpdated }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">Account</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">Plan</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.proStarted }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.redeemKey }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.cloudClears }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.cloudStatus }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.joined }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.lastActive }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.records }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.cloudSize }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.cloudUpdated }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -580,7 +586,7 @@ useHead({
                 :key="account.identifier"
                 class="border-b border-slate-200/80 transition last:border-b-0 hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-900/70"
               >
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="min-w-0">
                     <p class="truncate text-sm font-black text-default">{{ account.identifier }}</p>
                     <p class="mt-1 whitespace-nowrap text-[10px] leading-4 text-muted">
@@ -591,7 +597,7 @@ useHead({
                     </p>
                   </div>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <UBadge
                     :color="account.plan === 'pro' ? 'emerald' : 'neutral'"
                     :variant="account.plan === 'pro' ? 'solid' : 'soft'"
@@ -600,53 +606,53 @@ useHead({
                     {{ account.plan === 'pro' ? copy.planPro : copy.planFree }}
                   </UBadge>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="inline-flex whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[11px] font-semibold text-default dark:border-slate-800 dark:bg-slate-950">
                     {{ account.proStartedAt ? formatDate(account.proStartedAt) : '—' }}
                   </div>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="inline-flex whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[11px] font-semibold text-default dark:border-slate-800 dark:bg-slate-950">
                     {{ account.redeemKeyCode ?? '—' }}
                   </div>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="inline-flex whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[11px] font-black text-default dark:border-slate-800 dark:bg-slate-950">
                     {{ account.cloudClearedCount }}
                   </div>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-bold text-default dark:border-slate-800 dark:bg-slate-950">
                     <span :class="['size-2 rounded-full', account.cloudStatus === 'synced' ? 'bg-emerald-500' : 'bg-slate-400']" />
                     {{ account.cloudStatus === 'synced' ? copy.cloudSynced : copy.cloudLocal }}
                   </div>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="inline-flex whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[11px] font-bold text-default dark:border-slate-800 dark:bg-slate-950">
                     {{ formatDate(account.createdAt) }}
                   </div>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="inline-flex whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[11px] font-semibold text-muted dark:border-slate-800 dark:bg-slate-950">
                     {{ formatDate(account.updatedAt) }}
                   </div>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="inline-flex whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[11px] font-black text-default dark:border-slate-800 dark:bg-slate-950">
                     {{ copy.records }} {{ account.recordCount }}
                   </div>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="inline-flex whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[11px] font-black text-default dark:border-slate-800 dark:bg-slate-950">
                     {{ formatBytes(account.cloudSizeBytes) }}
                   </div>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="inline-flex whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[11px] font-semibold text-muted dark:border-slate-800 dark:bg-slate-950">
                     {{ formatDate(account.cloudUpdatedAt) }}
                   </div>
                 </td>
-                <td class="px-4 py-4 align-top">
+                <td class="px-4 py-3.5 align-top">
                   <div class="flex justify-end">
                     <UButton
                       icon="i-lucide-ellipsis-vertical"
@@ -661,7 +667,7 @@ useHead({
           </table>
         </div>
 
-        <div class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
+        <div class="border-t border-slate-200/80 px-4 py-2.5 dark:border-slate-800">
           <p class="text-xs font-semibold text-muted">
             <span class="whitespace-nowrap">{{ copy.showing }}</span>
             <span class="whitespace-nowrap">
@@ -669,7 +675,7 @@ useHead({
             </span>
           </p>
 
-          <div class="mt-2 flex items-center justify-between gap-2">
+          <div class="mt-1 flex items-center justify-between gap-2">
             <div class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200/80 bg-slate-50 px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900">
               <span class="whitespace-nowrap text-[8px] font-semibold uppercase tracking-[0.1em] text-muted">{{ copy.perPage }}</span>
               <select
@@ -683,27 +689,29 @@ useHead({
             </div>
 
             <div class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200/80 bg-slate-50 px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900">
-              <UButton
-                icon="i-lucide-chevron-left"
-                size="xs"
-                class="h-7 w-7 justify-center rounded-full border border-slate-200 bg-white p-0 text-default shadow-none transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
+              <button
+                type="button"
+                class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white p-0 text-default shadow-none transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-black dark:text-white dark:hover:bg-slate-900"
                 :disabled="!userHasPrevious || pending || refreshingUsers"
                 :aria-label="copy.previous"
                 @click="goToPreviousUserPage"
-              />
+              >
+                <UIcon name="i-lucide-chevron-left" class="size-4 shrink-0" />
+              </button>
 
               <span class="min-w-[4.9rem] whitespace-nowrap rounded-full border border-slate-200 bg-white px-2 py-1 text-center text-[9px] font-black text-default dark:border-slate-700 dark:bg-slate-950 dark:text-white">
                 {{ copy.page }} {{ userPagination?.page ?? 1 }} {{ copy.of }} {{ userPagination?.totalPages ?? 0 }}
               </span>
 
-              <UButton
-                icon="i-lucide-chevron-right"
-                size="xs"
-                class="h-7 w-7 justify-center rounded-full border border-slate-200 bg-white p-0 text-default shadow-none transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:hover:bg-slate-800"
+              <button
+                type="button"
+                class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white p-0 text-default shadow-none transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-black dark:text-white dark:hover:bg-slate-900"
                 :disabled="!userHasNext || pending || refreshingUsers"
                 :aria-label="copy.next"
                 @click="goToNextUserPage"
-              />
+              >
+                <UIcon name="i-lucide-chevron-right" class="size-4 shrink-0" />
+              </button>
             </div>
           </div>
         </div>
@@ -728,19 +736,17 @@ useHead({
     >
       <template #content="{ close }">
         <div class="flex min-h-[calc(88svh-12rem)] max-h-[88svh] flex-col overflow-hidden" :style="{ transform: `translateY(${detailSheetDragY}px)`, transition: detailSheetDragging ? 'none' : 'transform 180ms ease-out' }">
-          <div class="border-b border-slate-200/80 px-4 pb-3 pt-2 dark:border-slate-800">
-            <div
-              ref="detailSheetHandleRef"
-              class="touch-none select-none cursor-grab active:cursor-grabbing"
-              @pointerdown="onDetailSheetPointerDown"
-              @pointermove="onDetailSheetPointerMove"
-              @pointerup="onDetailSheetPointerUp"
-              @pointercancel="onDetailSheetPointerCancel"
-            >
-              <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-300/80 dark:bg-slate-700" />
-            </div>
+          <div
+            ref="detailSheetHandleRef"
+            class="touch-none select-none cursor-grab active:cursor-grabbing border-b border-slate-200/80 px-4 pb-2.5 pt-2 dark:border-slate-800"
+            @pointerdown="onDetailSheetPointerDown"
+            @pointermove="onDetailSheetPointerMove"
+            @pointerup="onDetailSheetPointerUp"
+            @pointercancel="onDetailSheetPointerCancel"
+          >
+            <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-300/80 dark:bg-slate-700" />
 
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start justify-between gap-2.5">
               <div class="min-w-0">
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.details }}</p>
                 <h2 class="mt-1 truncate text-lg font-black tracking-tight text-default">{{ selectedAccount?.identifier ?? '—' }}</h2>
@@ -760,7 +766,7 @@ useHead({
             </div>
           </div>
 
-          <div class="flex-1 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+          <div class="flex-1 overflow-y-auto px-4 py-3.5 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             <div v-if="selectedAccount" class="grid grid-cols-2 gap-3">
               <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
                 <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.joined }}</p>
@@ -800,20 +806,20 @@ useHead({
               </div>
             </div>
 
-            <div v-if="selectedAccount" class="mt-4 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+            <div v-if="selectedAccount" class="mt-3.5 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
               <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.userStatus }}</p>
               <p class="mt-2 whitespace-nowrap text-[11px] leading-5 text-muted">
                 {{ copy.wallets }} {{ selectedAccount.walletCount }} · {{ copy.transactions }} {{ selectedAccount.transactionCount }} · {{ copy.categories }} {{ selectedAccount.categoryCount }} · {{ copy.companies }} {{ selectedAccount.companyCount }}
               </p>
             </div>
 
-            <p class="mt-4 text-[11px] leading-5 text-muted">
+            <p class="mt-3.5 text-[11px] leading-5 text-muted">
               {{ copy.deleteCloudHint }}
             </p>
           </div>
 
-          <div class="shrink-0 border-t border-slate-200/80 bg-white/95 p-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
-            <div v-if="selectedAccount" class="space-y-3">
+          <div class="shrink-0 border-t border-slate-200/80 bg-white/95 p-3.5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+            <div v-if="selectedAccount" class="space-y-2.5">
               <UButton
                 icon="i-lucide-trash-2"
                 class="h-11 w-full justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 text-center text-sm font-bold text-white shadow-[0_16px_28px_-18px_rgba(239,68,68,0.58)] transition active:scale-[0.99] hover:from-rose-600 hover:to-red-600 disabled:cursor-not-allowed disabled:opacity-60"
@@ -822,7 +828,7 @@ useHead({
               >
                 {{ copy.deleteCloudData }}
               </UButton>
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-2 gap-2.5">
                 <UButton
                   icon="i-lucide-pencil"
                   class="h-11 justify-center rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 text-center text-sm font-bold text-white shadow-[0_16px_28px_-18px_rgba(14,165,233,0.5)] transition active:scale-[0.99]"
@@ -859,7 +865,7 @@ useHead({
     >
       <template #content="{ close }">
         <div class="flex min-h-[calc(88svh-12rem)] max-h-[88svh] flex-col overflow-hidden" :style="{ transform: `translateY(${updateSheetDragY}px)`, transition: updateSheetDragging ? 'none' : 'transform 180ms ease-out' }">
-          <div class="border-b border-slate-200/80 px-4 pb-3 pt-2 dark:border-slate-800">
+          <div class="border-b border-slate-200/80 px-4 pb-2.5 pt-2 dark:border-slate-800">
             <div
               ref="updateSheetHandleRef"
               class="touch-none select-none cursor-grab active:cursor-grabbing"
@@ -871,7 +877,7 @@ useHead({
               <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-300/80 dark:bg-slate-700" />
             </div>
 
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start justify-between gap-2.5">
               <div class="min-w-0">
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.userUpdateTitle }}</p>
                 <h2 class="mt-1 truncate text-lg font-black tracking-tight text-default">{{ selectedAccount?.identifier ?? '—' }}</h2>
@@ -888,10 +894,10 @@ useHead({
             </div>
           </div>
 
-          <div class="flex-1 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+          <div class="flex-1 overflow-y-auto px-4 py-3.5 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             <p class="text-sm leading-6 text-muted">{{ copy.userUpdateDesc }}</p>
 
-            <div class="mt-4 rounded-[1.2rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+            <div class="mt-3.5 rounded-[1.2rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
               <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.userUpdatePlan }}</p>
               <div class="mt-3 grid grid-cols-2 gap-2">
                 <button
@@ -919,7 +925,7 @@ useHead({
 
             <button
               type="button"
-              class="mt-4 flex w-full items-center justify-between rounded-[1.2rem] border border-slate-200/80 bg-white px-4 py-3.5 text-left dark:border-slate-800 dark:bg-slate-950"
+              class="mt-3.5 flex w-full items-center justify-between rounded-[1.2rem] border border-slate-200/80 bg-white px-4 py-3 text-left dark:border-slate-800 dark:bg-slate-950"
               @click="userEditRemember = !userEditRemember"
             >
               <div class="min-w-0">
@@ -932,8 +938,8 @@ useHead({
             </button>
           </div>
 
-          <div class="shrink-0 border-t border-slate-200/80 bg-white/95 p-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
-            <div class="flex gap-3">
+          <div class="shrink-0 border-t border-slate-200/80 bg-white/95 p-3.5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+            <div class="flex gap-2.5">
               <UButton
                 icon="i-lucide-x"
                 class="h-11 flex-1 justify-center rounded-full border border-slate-200 bg-white text-center text-sm font-bold text-default shadow-none transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
@@ -971,7 +977,7 @@ useHead({
     >
       <template #content="{ close }">
         <div class="flex min-h-[calc(88svh-12rem)] max-h-[88svh] flex-col overflow-hidden" :style="{ transform: `translateY(${deleteUserSheetDragY}px)`, transition: deleteUserSheetDragging ? 'none' : 'transform 180ms ease-out' }">
-          <div class="border-b border-slate-200/80 px-4 pb-3 pt-2 dark:border-slate-800">
+          <div class="border-b border-slate-200/80 px-4 pb-2.5 pt-2 dark:border-slate-800">
             <div
               ref="deleteUserSheetHandleRef"
               class="touch-none select-none cursor-grab active:cursor-grabbing"
@@ -983,7 +989,7 @@ useHead({
               <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-300/80 dark:bg-slate-700" />
             </div>
 
-            <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start justify-between gap-2.5">
               <div class="min-w-0">
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.userDeleteTitle }}</p>
                 <h2 class="mt-1 truncate text-lg font-black tracking-tight text-default">{{ selectedAccount?.identifier ?? '—' }}</h2>
@@ -1000,12 +1006,12 @@ useHead({
             </div>
           </div>
 
-          <div class="flex-1 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+          <div class="flex-1 overflow-y-auto px-4 py-3.5 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             <p class="text-sm leading-6 text-muted">{{ copy.userDeleteDesc }}</p>
-            <div class="mt-4 rounded-[1.1rem] border border-rose-200/80 bg-rose-50 px-3 py-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/50 dark:text-rose-200">
+            <div class="mt-3.5 rounded-[1.1rem] border border-rose-200/80 bg-rose-50 px-3 py-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/50 dark:text-rose-200">
               {{ copy.userDeleteHint }}
             </div>
-            <div class="mt-4 grid grid-cols-2 gap-3">
+            <div class="mt-3.5 grid grid-cols-2 gap-2.5">
               <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
                 <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.planFree }}</p>
                 <p class="mt-1 text-sm font-black text-default">{{ selectedAccount?.plan === 'pro' ? copy.planPro : copy.planFree }}</p>
@@ -1017,8 +1023,8 @@ useHead({
             </div>
           </div>
 
-          <div class="shrink-0 border-t border-slate-200/80 bg-white/95 p-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
-            <div class="flex gap-3">
+          <div class="shrink-0 border-t border-slate-200/80 bg-white/95 p-3.5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+            <div class="flex gap-2.5">
               <UButton
                 icon="i-lucide-x"
                 class="h-11 flex-1 justify-center rounded-full border border-slate-200 bg-white text-center text-sm font-bold text-default shadow-none transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
@@ -1132,86 +1138,21 @@ useHead({
 <style scoped>
 @keyframes superadminUsersLoadingBar {
   0% {
-    transform: translateX(-120%) scaleX(0.85);
-    opacity: 0.24;
-  }
-
-  20% {
-    opacity: 1;
-  }
-
-  50% {
-    transform: translateX(0%) scaleX(1);
-    opacity: 1;
-  }
-
-  80% {
-    opacity: 1;
+    transform: translateX(-120%);
   }
 
   100% {
-    transform: translateX(220%) scaleX(0.9);
-    opacity: 0.24;
+    transform: translateX(320%);
   }
-}
-
-.superadmin-users-loading-track {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgba(2, 132, 199, 0.08), rgba(14, 165, 233, 0.26), rgba(34, 211, 238, 0.32), rgba(14, 165, 233, 0.26), rgba(2, 132, 199, 0.08)),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0 8px, transparent 8px 16px);
-  background-size: 300% 100%, 18px 100%;
-  animation:
-    superadminUsersLoadingTrack 1.1s linear infinite,
-    superadminUsersLoadingTrack2 0.85s linear infinite;
-  filter: saturate(1.1);
 }
 
 .superadmin-users-loading-bar {
   position: absolute;
-  inset-y: 0;
-  left: 0;
-  width: 38%;
+  inset: 0 auto 0 0;
+  width: 32%;
   border-radius: 9999px;
-  background: linear-gradient(90deg, transparent 0%, #0284c7 18%, #0ea5e9 44%, #67e8f9 64%, #0ea5e9 82%, transparent 100%);
-  box-shadow: 0 0 20px rgba(14, 165, 233, 0.36);
-  animation: superadminUsersLoadingBar 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-:global(.dark) .superadmin-users-loading-track {
-  background:
-    linear-gradient(90deg, rgba(14, 165, 233, 0.03), rgba(56, 189, 248, 0.12), rgba(103, 232, 249, 0.16), rgba(56, 189, 248, 0.12), rgba(14, 165, 233, 0.03)),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 8px, transparent 8px 16px);
-  background-size: 300% 100%, 18px 100%;
-  animation:
-    superadminUsersLoadingTrack 1.1s linear infinite,
-    superadminUsersLoadingTrack2 0.85s linear infinite;
-  filter: saturate(1.08);
-}
-
-:global(.dark) .superadmin-users-loading-bar {
-  background: linear-gradient(90deg, transparent 0%, #38bdf8 18%, #67e8f9 50%, #38bdf8 80%, transparent 100%);
-  box-shadow: 0 0 18px rgba(56, 189, 248, 0.28);
-}
-
-@keyframes superadminUsersLoadingTrack {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  100% {
-    background-position: 200% 50%;
-  }
-}
-
-@keyframes superadminUsersLoadingTrack2 {
-  0% {
-    background-position: 0 0;
-  }
-
-  100% {
-    background-position: 18px 0;
-  }
+  background-color: var(--superadmin-loading-color, #0ea5e9);
+  will-change: transform;
+  animation: superadminUsersLoadingBar 1.35s linear infinite;
 }
 </style>

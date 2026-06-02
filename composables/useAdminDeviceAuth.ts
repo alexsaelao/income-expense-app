@@ -129,14 +129,6 @@ export function useAdminDeviceAuth() {
   const isAuthenticated = computed(() => Boolean(sessionProfile.value))
   const rememberedIdentifier = computed(() => rememberedProfile.value?.identifier ?? '')
 
-  if (import.meta.client) {
-    hydrateAuth()
-  }
-
-  onMounted(() => {
-    ensureHydrated()
-  })
-
   return {
     authReady,
     isAuthenticated,

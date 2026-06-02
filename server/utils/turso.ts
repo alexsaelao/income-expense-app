@@ -182,6 +182,24 @@ export function normalizeRedeemCode(code: string) {
   return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
 }
 
+export function normalizeDbTimestamp(value?: string | null) {
+  if (!value) return null
+
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  if (/[zZ]$/.test(trimmed) || /[+-]\d{2}:?\d{2}$/.test(trimmed)) {
+    return trimmed
+  }
+
+  const sqliteTimestampPattern = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?$/
+  if (sqliteTimestampPattern.test(trimmed)) {
+    return `${trimmed.replace(' ', 'T')}Z`
+  }
+
+  return trimmed
+}
+
 export function createPinSalt() {
   return randomBytes(16).toString('hex')
 }

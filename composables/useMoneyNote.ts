@@ -58,6 +58,19 @@ export interface MoneyNoteState {
   pinnedCompanyKeys: string[]
 }
 
+export interface MoneyNoteBackupData {
+  state: MoneyNoteState
+  selectedCurrency: CurrencyCode
+  currencySupport: Record<CurrencyCode, boolean>
+}
+
+export interface MoneyNoteBackupFile {
+  format: 'income-expense-note-backup'
+  version: 1
+  exportedAt: string
+  data: MoneyNoteBackupData
+}
+
 export interface TransactionInput {
   type: TransactionType
   walletId: string
@@ -93,7 +106,7 @@ export interface CompanyItem {
 }
 
 const currencyFormatters: Record<CurrencyCode, Intl.NumberFormat> = {
-  LAK: new Intl.NumberFormat('lo-LA', { maximumFractionDigits: 0 }),
+  LAK: new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }),
   THB: new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
   USD: new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -622,6 +635,47 @@ function cloneState(state: MoneyNoteState): MoneyNoteState {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export function createMoneyNoteBackupFile(state: {
+  store: MoneyNoteState
+  selectedCurrency: CurrencyCode
+  currencySupport: Record<CurrencyCode, boolean>
+}): MoneyNoteBackupFile {
+  return {
+    format: 'income-expense-note-backup',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: {
+      state: cloneState(state.store),
+      selectedCurrency: state.selectedCurrency,
+      currencySupport: {
+        LAK: state.currencySupport.LAK,
+        THB: state.currencySupport.THB,
+        USD: state.currencySupport.USD
+      }
+    }
+  }
+}
+
+export function parseMoneyNoteBackupFile(input: unknown): MoneyNoteBackupFile {
+  if (!isRecord(input)) {
+    throw new Error('invalid-backup-file')
+  }
+
+  if (input.format !== 'income-expense-note-backup' || input.version !== 1) {
+    throw new Error('unsupported-backup-file')
+  }
+
+  if (!isRecord(input.data)) {
+    throw new Error('invalid-backup-file')
+  }
+
+  return input as MoneyNoteBackupFile
+}
+
 function defaultCategoryKeyForEntry(type: CategoryType, name: string) {
   return defaultCategoryKey(type, name)
 }
@@ -770,6 +824,9 @@ export function useMoneyNote() {
   )
   const hydrated = useState('money-note-hydrated', () => false)
   const hydratedAccountKey = useState('money-note-hydrated-account-key', () => '')
+  const hydrating = useState('money-note-hydrating', () => false)
+  const autoSyncReady = useState('money-note-auto-sync-ready', () => false)
+  const initialHydratedSignature = useState('money-note-initial-hydrated-signature', () => '')
   const { selectedLanguage } = useAppLanguage()
   const { authReady, sessionProfile } = useDeviceAuth()
   const { isOnline } = useConnectivity()
@@ -792,6 +849,12 @@ export function useMoneyNote() {
     updatedAt: new Date().toISOString()
   })
 
+  const buildLocalSnapshotSignature = () => JSON.stringify({
+    stateJson: JSON.stringify(store.value),
+    selectedCurrency: selectedCurrency.value,
+    currencySupportJson: JSON.stringify(currencySupport.value)
+  })
+
   function compareSnapshotTimes(localUpdatedAt?: string | null, remoteUpdatedAt?: string | null) {
     const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0
     const remoteTime = remoteUpdatedAt ? new Date(remoteUpdatedAt).getTime() : 0
@@ -804,7 +867,10 @@ export function useMoneyNote() {
   }
 
   const saveState = () => {
-    if (!import.meta.client || !hydrated.value) return
+    if (!import.meta.client || !hydrated.value || hydrating.value || !autoSyncReady.value) return
+
+    const snapshotSignature = buildLocalSnapshotSignature()
+    if (snapshotSignature === initialHydratedSignature.value) return
 
     if (localSaveTimer) {
       clearTimeout(localSaveTimer)
@@ -855,8 +921,93 @@ export function useMoneyNote() {
         .catch(() => {
           syncStatus.value = isOnline.value ? 'waiting' : 'offline'
           syncProgress.value = isOnline.value ? 35 : 0
-        })
+      })
     }, 250)
+  }
+
+  function clearPendingSaveTimers() {
+    if (localSaveTimer) {
+      clearTimeout(localSaveTimer)
+      localSaveTimer = null
+    }
+
+    if (remoteSaveTimer) {
+      clearTimeout(remoteSaveTimer)
+      remoteSaveTimer = null
+    }
+  }
+
+  async function importMoneyNoteBackupFile(input: unknown) {
+    if (!import.meta.client || !authReady.value) return
+
+    const backup = parseMoneyNoteBackupFile(input)
+    const importedState = normalizeState(backup.data.state)
+    const importedCurrencySupport = normalizeCurrencySupport(backup.data.currencySupport)
+    const importedCurrency = currencyOptions.some(option => option.value === backup.data.selectedCurrency)
+      ? backup.data.selectedCurrency
+      : 'LAK'
+    const identifier = activeAccountIdentifier.value.trim()
+    const accountKey = activeAccountKey.value
+
+    clearPendingSaveTimers()
+    autoSyncReady.value = false
+    hydrating.value = true
+    hydrated.value = false
+
+    try {
+      store.value = importedState
+      selectedCurrency.value = importedCurrency
+      currencySupport.value = importedCurrencySupport
+
+      hydratedAccountKey.value = accountKey
+      hydrated.value = true
+      initialHydratedSignature.value = buildLocalSnapshotSignature()
+
+      await writeMoneyNoteLocalSnapshot(accountKey, buildLocalSnapshot())
+      await nextTick()
+
+      if (!isCloudSyncEnabled.value) {
+        syncStatus.value = 'waiting'
+        syncProgress.value = 0
+        return
+      }
+
+      if (!isOnline.value) {
+        syncStatus.value = 'offline'
+        syncProgress.value = 0
+        return
+      }
+
+      if (!identifier || accountKey === 'guest') {
+        syncStatus.value = 'waiting'
+        syncProgress.value = 35
+        return
+      }
+
+      syncStatus.value = 'syncing'
+      syncProgress.value = 72
+
+      await $fetch('/api/app-state', {
+        method: 'POST',
+        body: {
+          identifier,
+          state: store.value
+        }
+      })
+
+      syncStatus.value = 'synced'
+      syncProgress.value = 100
+      lastSyncedAt.value = new Date().toISOString()
+    }
+    catch (error) {
+      syncStatus.value = isOnline.value ? 'waiting' : 'offline'
+      syncProgress.value = isOnline.value ? 35 : 0
+      throw error
+    }
+    finally {
+      hydrating.value = false
+      autoSyncReady.value = true
+    }
   }
 
   const loadState = async () => {
@@ -865,66 +1016,92 @@ export function useMoneyNote() {
     const accountKey = activeAccountKey.value
     if (hydrated.value && hydratedAccountKey.value === accountKey) return
 
+    autoSyncReady.value = false
+    hydrating.value = true
     hydrated.value = false
 
-    const localSnapshot = await readMoneyNoteLocalSnapshot(accountKey)
-    if (localSnapshot) {
-      try {
-        const parsedState = JSON.parse(localSnapshot.stateJson) as Partial<MoneyNoteState>
-        store.value = normalizeState(parsedState)
-      }
-      catch {
-        store.value = normalizeState(defaultState())
-      }
+    try {
+      let remoteFetchSucceeded = false
+      const localSnapshot = await readMoneyNoteLocalSnapshot(accountKey)
+      if (localSnapshot) {
+        try {
+          const parsedState = JSON.parse(localSnapshot.stateJson) as Partial<MoneyNoteState>
+          store.value = normalizeState(parsedState)
+        }
+        catch {
+          store.value = normalizeState(defaultState())
+        }
 
-      try {
-        const parsedCurrencySupport = JSON.parse(localSnapshot.currencySupportJson) as Partial<Record<CurrencyCode, boolean>>
-        currencySupport.value = normalizeCurrencySupport(parsedCurrencySupport)
+        try {
+          const parsedCurrencySupport = JSON.parse(localSnapshot.currencySupportJson) as Partial<Record<CurrencyCode, boolean>>
+          currencySupport.value = normalizeCurrencySupport(parsedCurrencySupport)
+        }
+        catch {
+          currencySupport.value = defaultCurrencySupport()
+        }
+
+        if (currencyOptions.some(option => option.value === localSnapshot.selectedCurrency)) {
+          selectedCurrency.value = localSnapshot.selectedCurrency
+        }
       }
-      catch {
+      else {
+        store.value = normalizeState(defaultState())
+        selectedCurrency.value = 'LAK'
         currencySupport.value = defaultCurrencySupport()
       }
 
-      if (currencyOptions.some(option => option.value === localSnapshot.selectedCurrency)) {
-        selectedCurrency.value = localSnapshot.selectedCurrency
-      }
-    }
-    else {
-      store.value = normalizeState(defaultState())
-      selectedCurrency.value = 'LAK'
-      currencySupport.value = defaultCurrencySupport()
-    }
+      const identifier = activeAccountIdentifier.value.trim()
 
-    const identifier = activeAccountIdentifier.value.trim()
+      if (identifier && isCloudSyncEnabled.value) {
+        try {
+          const remote = await nuxtApp.$fetch<{ state: Partial<MoneyNoteState> | null; updatedAt?: string | null }>('/api/app-state', {
+            query: { identifier }
+          })
+          remoteFetchSucceeded = true
 
-    if (identifier && isCloudSyncEnabled.value) {
-      try {
-        const remote = await nuxtApp.$fetch<{ state: Partial<MoneyNoteState> | null; updatedAt?: string | null }>('/api/app-state', {
-          query: { identifier }
-        })
+          const localSnapshotUpdatedAt = localSnapshot?.updatedAt ?? null
+          const { remoteIsNewer } = compareSnapshotTimes(localSnapshotUpdatedAt, remote?.updatedAt ?? null)
 
-        const localSnapshotUpdatedAt = localSnapshot?.updatedAt ?? null
-        const { remoteIsNewer } = compareSnapshotTimes(localSnapshotUpdatedAt, remote?.updatedAt ?? null)
-
-        if (remote?.state && (!localSnapshot || remoteIsNewer)) {
-          store.value = normalizeState(remote.state)
-          syncStatus.value = 'synced'
-          syncProgress.value = 100
-          lastSyncedAt.value = new Date().toISOString()
+          if (remote?.state && (!localSnapshot || remoteIsNewer)) {
+            store.value = normalizeState(remote.state)
+            syncStatus.value = 'synced'
+            syncProgress.value = 100
+            lastSyncedAt.value = new Date().toISOString()
+          }
+        }
+        catch {
+          // fall back to local database below
         }
       }
-      catch {
-        // fall back to local database below
+      else if (!isCloudSyncEnabled.value) {
+        syncStatus.value = 'waiting'
+        syncProgress.value = 0
+      }
+
+      hydratedAccountKey.value = accountKey
+      hydrated.value = true
+      initialHydratedSignature.value = buildLocalSnapshotSignature()
+      void writeMoneyNoteLocalSnapshot(accountKey, buildLocalSnapshot()).catch(() => {})
+      await nextTick()
+
+      if (isCloudSyncEnabled.value) {
+        if (isOnline.value && remoteFetchSucceeded) {
+          syncStatus.value = 'synced'
+          syncProgress.value = 100
+        }
+        else if (!isOnline.value) {
+          syncStatus.value = 'offline'
+          syncProgress.value = 0
+        }
+        else if (syncStatus.value === 'waiting') {
+          syncProgress.value = 0
+        }
       }
     }
-    else if (!isCloudSyncEnabled.value) {
-      syncStatus.value = 'waiting'
-      syncProgress.value = 0
+    finally {
+      hydrating.value = false
+      autoSyncReady.value = true
     }
-
-    hydratedAccountKey.value = accountKey
-    hydrated.value = true
-    saveState()
   }
 
   watch(
@@ -946,6 +1123,14 @@ export function useMoneyNote() {
   watch(
     isOnline,
     (online) => {
+      if (!autoSyncReady.value) {
+        if (!online) {
+          syncStatus.value = 'offline'
+          syncProgress.value = 0
+        }
+        return
+      }
+
       syncStatus.value = online ? 'waiting' : 'offline'
       syncProgress.value = online ? 35 : 0
 
@@ -953,7 +1138,7 @@ export function useMoneyNote() {
         saveState()
       }
     },
-    { immediate: true }
+    { immediate: false }
   )
 
   watch(
@@ -1728,15 +1913,7 @@ function applyTransactionPayload(payload: TransactionInput, id?: string) {
   }
 
   async function clearLocalAccountState() {
-    if (localSaveTimer) {
-      clearTimeout(localSaveTimer)
-      localSaveTimer = null
-    }
-
-    if (remoteSaveTimer) {
-      clearTimeout(remoteSaveTimer)
-      remoteSaveTimer = null
-    }
+    clearPendingSaveTimers()
 
     await deleteMoneyNoteLocalSnapshot(activeAccountKey.value)
   }
@@ -1818,6 +1995,12 @@ function applyTransactionPayload(payload: TransactionInput, id?: string) {
     setCompanyPinned,
     moveCategory,
     moveCompany,
+    createMoneyNoteBackupFile: () => createMoneyNoteBackupFile({
+      store: store.value,
+      selectedCurrency: selectedCurrency.value,
+      currencySupport: currencySupport.value
+    }),
+    importMoneyNoteBackupFile,
     clearLocalAccountState,
     toggleCurrencyEnabled,
     walletColorOptions

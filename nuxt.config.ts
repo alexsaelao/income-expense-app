@@ -6,14 +6,15 @@ export default defineNuxtConfig({
     tursoAuthToken: process.env.TURSO_AUTH_TOKEN ?? '',
     adminLoginIdentifier: process.env.ADMIN_LOGIN_IDENTIFIER ?? process.env.ADMIN_LOGIN_EMAIL ?? 'admin@local',
     adminLoginPin: process.env.ADMIN_LOGIN_PIN ?? '123456',
-    adminSessionSecret: process.env.ADMIN_SESSION_SECRET ?? 'income-expense-note-admin-secret'
+    adminSessionSecret: process.env.ADMIN_SESSION_SECRET ?? 'wallet-codesabai-admin-secret'
   },
   app: {
     head: {
-      title: 'Income Expense Note',
+      title: 'Wallet Code Sabai',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=overlays-content' },
-        { name: 'description', content: 'Income Expense Note is a mobile-first PWA for tracking wallets, transactions, and financial reports.' },
+        { name: 'application-name', content: 'Wallet Code Sabai' },
+        { name: 'description', content: 'Wallet Code Sabai is a mobile-first PWA for tracking wallets, transactions, and financial reports.' },
         { name: 'theme-color', content: '#0ea5e9' },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
@@ -22,6 +23,7 @@ export default defineNuxtConfig({
       ],
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/wallet-codesabai-mark.svg' },
         { rel: 'icon', type: 'image/png', href: '/pwa-192x192.png' },
         { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
       ]
@@ -39,11 +41,11 @@ export default defineNuxtConfig({
     client: {
       installPrompt: true
     },
-    includeAssets: ['offline.html', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png'],
+    includeAssets: ['offline.html', 'wallet-codesabai-mark.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png'],
     manifest: {
       id: '/',
-      name: 'Income Expense Note',
-      short_name: 'Money Note',
+      name: 'Wallet Code Sabai',
+      short_name: 'Wallet Sabai',
       description: 'A mobile-first personal finance PWA for recording income, expenses, transfers, loans, wallets, and reports.',
       theme_color: '#0ea5e9',
       background_color: '#0f172a',
@@ -58,6 +60,12 @@ export default defineNuxtConfig({
         client_mode: 'focus-existing'
       },
       icons: [
+        {
+          src: '/wallet-codesabai-mark.svg',
+          sizes: 'any',
+          type: 'image/svg+xml',
+          purpose: 'any'
+        },
         {
           src: '/pwa-192x192.png',
           sizes: '192x192',

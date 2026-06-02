@@ -1,8 +1,8 @@
-# Income Expense Note - Concept
+# Wallet Code Sabai - Concept
 
 ## Product idea
 
-Income Expense Note is a native-like mobile PWA for tracking money across wallets, categories, and reports.
+Wallet Code Sabai is a native-like mobile PWA for tracking money across wallets, categories, and reports.
 
 ## Core principles
 

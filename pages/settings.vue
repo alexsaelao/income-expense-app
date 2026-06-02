@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { currencyOptions, currencySymbols } from '~/composables/useMoneyNote'
+import {
+  currencyOptions,
+  currencySymbols,
+  parseMoneyNoteBackupFile
+} from '~/composables/useMoneyNote'
+import type { MoneyNoteBackupFile } from '~/composables/useMoneyNote'
 
 const { selectedLanguage } = useAppLanguage()
 const {
+  store,
   enabledCurrencyOptions,
+  createMoneyNoteBackupFile: buildMoneyNoteBackupFile,
+  importMoneyNoteBackupFile,
   isCurrencyEnabled,
   toggleCurrencyEnabled,
   clearLocalAccountState,
@@ -13,19 +21,33 @@ const {
   syncProgress,
   isOnline
 } = useMoneyNote()
-const { signOut, sessionProfile, rememberedProfile, setSessionPlan, setProfileAvatar } = useDeviceAuth()
+const { signOut, sessionProfile, rememberedProfile, authReady, setSessionPlan, setProfileAvatar } = useDeviceAuth()
 const colorMode = useColorMode()
 const { selectedThemeColor, activeTheme, appThemeColorOptions, setThemeColor } = useAppThemeColor()
 const router = useRouter()
 const isRedeemingPro = ref(false)
+const isPastingProKey = ref(false)
 const proRedeemModalOpen = ref(false)
 const proRedeemKey = ref('')
 const proRedeemError = ref('')
+const proRedeemInputRef = ref<{ inputRef?: HTMLInputElement | null } | null>(null)
 const profileAvatarModalOpen = ref(false)
 const logoutConfirmModalOpen = ref(false)
 const profileAvatarDraftType = ref<'emoji' | 'icon'>('icon')
 const profileAvatarDraftEmojiValue = ref('🙂')
 const profileAvatarDraftIconValue = ref('i-lucide-user-round')
+const storageImportModalOpen = ref(false)
+const storageExportModalOpen = ref(false)
+const storageExportBusy = ref(false)
+const storageExportError = ref('')
+const storageImportBusy = ref(false)
+const storageImportError = ref('')
+const storageImportFileName = ref('')
+const storageImportPending = ref<MoneyNoteBackupFile | null>(null)
+const storageExportFileName = ref('')
+const storageExportPending = ref<MoneyNoteBackupFile | null>(null)
+const storageImportInputRef = ref<HTMLInputElement | null>(null)
+const storageNotice = ref('')
 
 function normalizeAvatarValue(avatarType: 'emoji' | 'icon', avatarValue?: string | null) {
   const normalizedAvatarValue = avatarValue?.trim() ?? ''
@@ -146,7 +168,7 @@ const settingsCopy = computed(() => {
       signal: 'ສັນຍານ',
       offlineMode: 'ໂໝດອອຟລາຍ',
       syncingNow: 'ກຳລັງຊິງ',
-      cloudSyncReady: 'ພ້ອມຊິງຄລາວ',
+      cloudSyncReady: 'ຊິງຄລາວເເລ້ວ',
       waitingToSync: 'ລໍຖ້າຊິງ',
       waiting: 'ລໍຖ້າ',
       uploadProgress: 'ຄວາມຄືບໜ້າການອັບໂຫຼດ',
@@ -154,6 +176,47 @@ const settingsCopy = computed(() => {
       syncingUpload: 'ກຳລັງອັບໂຫຼດການປ່ຽນແປງຂຶ້ນຄລາວ.',
       waitingUpload: 'ບັນທຶກໄວ້ໃນເຄື່ອງແລ້ວ ກຳລັງລໍສັນຍານ.',
       pendingUpload: 'ການປ່ຽນແປງໃນເຄື່ອງກຳລັງລໍອັບໂຫຼດ.',
+      storage: 'ສຳຮອງຂໍ້ມູນ',
+      storageDesc: 'ສົ່ງອອກແລະນຳເຂົ້າ backup ແບບ JSON ໄດ້.',
+      backupRecommended: 'ແນະນຳ JSON',
+      backupRecommendedDesc: 'ເໝາະສຳລັບ backup ແບບເຕັມ ແລະ restore ກັບມາໄດ້ຄົບ.',
+      exportData: 'ສົ່ງອອກ backup',
+      exportModalTitle: 'ເລືອກວິທີສົ່ງອອກ',
+      exportModalDesc: 'ດາວໂຫຼດໄຟລ໌ JSON ຫຼືໃຊ້ native share ເພື່ອສົ່ງຕໍ່.',
+      exportFileLabel: 'ໄຟລ໌ backup',
+      exportIncludedData: 'ຂໍ້ມູນທີ່ຢູ່ໃນ backup',
+      exportCountWallets: 'ກະເປົາເງິນ',
+      exportCountTransactions: 'ລາຍການ',
+      exportCountCategories: 'ໝວດໝູ່',
+      exportCountCompanies: 'ບໍລິສັດ',
+      exportFileHint: 'Native share ຈະສົ່ງໄຟລ໌ JSON ໄປແອັບອື່ນໄດ້ຖ້າອຸປະກອນຮອງຮັບ.',
+      downloadBackup: 'ດາວໂຫຼດ',
+      shareBackup: 'Share',
+      exportCsv: 'ສົ່ງອອກ CSV',
+      exportCsvHint: 'CSV ເໝາະສຳລັບ transactions ແລະເປີດໃນ Excel/Sheets.',
+      exportCsvTitle: 'ສົ່ງອອກ transactions.csv',
+      exportCsvDesc: 'ໄຟລ໌ CSV ຈະມີແຕ່ລາຍການ transactions ເພື່ອວິເຄາະຕໍ່.',
+      exportCsvFileLabel: 'CSV file',
+      exportCsvInclude: 'Columns included',
+      exportCsvDownload: 'Download CSV',
+      importData: 'ນຳເຂົ້າ backup',
+      importHint: 'ການນຳເຂົ້າຈະທັບຂໍ້ມູນໃນເຄື່ອງຂອງບັນຊີນີ້.',
+      importModalTitle: 'ນຳ backup ເຂົ້າ',
+      importModalDesc: 'ການກະທຳນີ້ຈະທັບຂໍ້ມູນປັດຈຸບັນຂອງບັນຊີນີ້.',
+      importSelectedFile: 'ໄຟລ໌ທີ່ເລືອກ',
+      importExportedAt: 'ສົ່ງອອກເມື່ອ',
+      importIncludedData: 'ຂໍ້ມູນທີ່ຢູ່ໃນໄຟລ໌',
+      walletsLabel: 'ກະເປົາເງິນ',
+      transactionsLabel: 'ລາຍການ',
+      categoriesLabel: 'ໝວດໝູ່',
+      companiesLabel: 'ບໍລິສັດ',
+      exportSuccess: 'ສົ່ງອອກ backup JSON ແລ້ວ.',
+      exportFailed: 'ບໍ່ສາມາດສົ່ງອອກ backup ໄດ້.',
+      shareNotSupported: 'ອຸປະກອນນີ້ບໍ່ຮອງຮັບ native share.',
+      importSuccess: 'ນຳ backup ເຂົ້າສຳເລັດແລ້ວ.',
+      importFailed: 'ບໍ່ສາມາດນຳ backup ເຂົ້າໄດ້.',
+      invalidBackupFile: 'ໄຟລ໌ນີ້ບໍ່ແມ່ນ backup ທີ່ຖືກຕ້ອງ.',
+      unsupportedBackupFile: 'backup ນີ້ບໍ່ຮອງຮັບກັບຟັງຊັນໃນຕອນນີ້.',
       dangerZone: 'ເຂດອັນຕະລາຍ',
       dangerDesc: 'ລ້າງຂໍ້ມູນທົດລອງ ຫຼືອອກຈາກເຄື່ອງນີ້.',
       reset: 'ລ້າງ',
@@ -168,9 +231,11 @@ const settingsCopy = computed(() => {
       keyActivate: 'ຄີນີ້ຈະເປີດໂປຣໃຫ້ບັນຊີທີ່ເຂົ້າລະບົບຢູ່ເທົ່ານັ້ນ.',
       redeemKey: 'ຄີລົດແລກ',
       redeemPlaceholder: 'ໃສ່ຄີໂປຣ',
+      paste: 'ວາງ',
       noSignedInAccount: 'ບໍ່ພົບບັນຊີທີ່ເຂົ້າລະບົບ.',
       enterRedeemKey: 'ກະລຸນາໃສ່ຄີລົດແລກ.',
       couldNotEnable: 'ບໍ່ສາມາດເປີດໂປຣໄດ້ໃນຕອນນີ້.',
+      couldNotPaste: 'ບໍ່ສາມາດອ່ານ clipboard ໄດ້.',
       keyNotFound: 'ບໍ່ພົບຄີ ກະລຸນາກວດອີກຄັ້ງ.',
       keyUsed: 'ຄີນີ້ຖືກໃຊ້ແລ້ວ.',
       couldNotVerify: 'ບໍ່ສາມາດກວດຄີໄດ້ໃນຕອນນີ້.',
@@ -241,6 +306,47 @@ const settingsCopy = computed(() => {
     syncingUpload: 'Uploading changes to cloud now.',
     waitingUpload: 'Saved locally. Waiting for connection to upload.',
     pendingUpload: 'Local changes are waiting to be uploaded.',
+    storage: 'Storage',
+    storageDesc: 'Export a JSON backup or restore it later.',
+    backupRecommended: 'JSON recommended',
+    backupRecommendedDesc: 'Best for a full backup and restore across devices.',
+    exportData: 'Export backup',
+    exportModalTitle: 'Choose export method',
+    exportModalDesc: 'Download the JSON file or use native share to send it to another app.',
+    exportFileLabel: 'Backup file',
+    exportIncludedData: 'Included in backup',
+    exportCountWallets: 'Wallets',
+    exportCountTransactions: 'Transactions',
+    exportCountCategories: 'Categories',
+    exportCountCompanies: 'Companies',
+    exportFileHint: 'Native share can send the JSON file to other apps on supported devices.',
+    downloadBackup: 'Download',
+    shareBackup: 'Share',
+    exportCsv: 'Export CSV',
+    exportCsvHint: 'CSV is best for transactions and spreadsheet analysis.',
+    exportCsvTitle: 'Export transactions.csv',
+    exportCsvDesc: 'The CSV contains transactions only so it is easy to analyze.',
+    exportCsvFileLabel: 'CSV file',
+    exportCsvInclude: 'Columns included',
+    exportCsvDownload: 'Download CSV',
+    importData: 'Import backup',
+    importHint: 'Importing will replace the current local data for this account.',
+    importModalTitle: 'Restore backup',
+    importModalDesc: 'This will replace the current local data for this account.',
+    importSelectedFile: 'Selected file',
+    importExportedAt: 'Exported at',
+    importIncludedData: 'Included data',
+    walletsLabel: 'Wallets',
+    transactionsLabel: 'Transactions',
+    categoriesLabel: 'Categories',
+    companiesLabel: 'Companies',
+    exportSuccess: 'JSON backup downloaded.',
+    exportFailed: 'Could not export the backup.',
+    shareNotSupported: 'Native share is not supported on this device.',
+    importSuccess: 'Backup restored successfully.',
+    importFailed: 'Could not import the backup.',
+    invalidBackupFile: 'This file is not a valid backup.',
+    unsupportedBackupFile: 'This backup format is not supported yet.',
     dangerZone: 'Danger zone',
     dangerDesc: 'Reset demo data or sign out from this device.',
     reset: 'Reset',
@@ -255,9 +361,11 @@ const settingsCopy = computed(() => {
     keyActivate: 'This key will activate Pro on the signed-in account only.',
     redeemKey: 'Redeem key',
     redeemPlaceholder: 'Enter Pro key',
+    paste: 'Paste',
     noSignedInAccount: 'No signed-in account found.',
     enterRedeemKey: 'Please enter your redeem key.',
     couldNotEnable: 'Could not enable Pro right now.',
+    couldNotPaste: 'Could not read the clipboard.',
     keyNotFound: 'Key not found. Please check and try again.',
     keyUsed: 'This key has already been used.',
     couldNotVerify: 'Could not verify the key right now.',
@@ -470,6 +578,30 @@ function openProRedeemModal() {
   proRedeemModalOpen.value = true
 }
 
+async function pasteProRedeemKey() {
+  if (isPastingProKey.value) return
+  if (!navigator.clipboard?.readText) return
+
+  isPastingProKey.value = true
+  proRedeemError.value = ''
+
+  try {
+    const clipboardText = await navigator.clipboard.readText()
+    const value = clipboardText.trim()
+    if (!value) return
+
+    proRedeemKey.value = value
+    await nextTick()
+    proRedeemInputRef.value?.inputRef?.focus()
+  }
+  catch {
+    proRedeemError.value = settingsCopy.value.couldNotPaste
+  }
+  finally {
+    isPastingProKey.value = false
+  }
+}
+
 async function submitProRedeem() {
   if (isRedeemingPro.value) return
 
@@ -558,6 +690,303 @@ function confirmLogout() {
   logoutConfirmModalOpen.value = false
   signOut()
   router.replace('/login')
+}
+
+function formatBackupDate(value?: string) {
+  if (!value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  }).format(date)
+}
+
+const storageImportSummary = computed(() => {
+  const backup = storageImportPending.value
+  if (!backup) return null
+
+  const data = backup.data
+
+  return {
+    exportedAt: formatBackupDate(backup.exportedAt),
+    wallets: data.state.wallets?.length ?? 0,
+    transactions: data.state.transactions?.length ?? 0,
+    categories: data.state.categories?.length ?? 0,
+    companies: data.state.companies?.length ?? 0
+  }
+})
+
+const storageExportSummary = computed(() => {
+  const backup = storageExportPending.value
+  if (!backup) return null
+
+  const data = backup.data
+
+  return {
+    exportedAt: formatBackupDate(backup.exportedAt),
+    wallets: data.state.wallets?.length ?? 0,
+    transactions: data.state.transactions?.length ?? 0,
+    categories: data.state.categories?.length ?? 0,
+    companies: data.state.companies?.length ?? 0
+  }
+})
+
+function resetStorageImportState() {
+  storageImportPending.value = null
+  storageImportFileName.value = ''
+  storageImportError.value = ''
+}
+
+function resetStorageExportState() {
+  storageExportPending.value = null
+  storageExportFileName.value = ''
+  storageExportError.value = ''
+}
+
+function triggerStorageImportPicker() {
+  storageNotice.value = ''
+  storageImportError.value = ''
+  storageImportInputRef.value?.click()
+}
+
+function buildStorageBackupFileName(backup: MoneyNoteBackupFile) {
+  return `income-expense-backup-${backup.exportedAt.slice(0, 10)}.json`
+}
+
+function buildTransactionsCsvFileName() {
+  return `income-expense-transactions-${new Date().toISOString().slice(0, 10)}.csv`
+}
+
+function csvEscape(value: unknown) {
+  const text = `${value ?? ''}`
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+function walletLabelById(walletId?: string) {
+  if (!walletId) return ''
+  return store.value.wallets.find(wallet => wallet.id === walletId)?.name ?? walletId
+}
+
+function buildTransactionsCsv() {
+  const headers = [
+    'id',
+    'type',
+    'date',
+    'createdAt',
+    'walletId',
+    'walletName',
+    'toWalletId',
+    'toWalletName',
+    'currency',
+    'amount',
+    'exchangeRate',
+    'category',
+    'note',
+    'company',
+    'counterparty',
+    'loanDirection'
+  ]
+
+  const rows = [
+    headers.join(','),
+    ...store.value.transactions.map(transaction => [
+      transaction.id,
+      transaction.type,
+      transaction.date,
+      transaction.createdAt,
+      transaction.walletId,
+      walletLabelById(transaction.walletId),
+      transaction.toWalletId ?? '',
+      walletLabelById(transaction.toWalletId),
+      transaction.currency,
+      transaction.amount,
+      transaction.exchangeRate ?? '',
+      transaction.category,
+      transaction.note,
+      transaction.company ?? '',
+      transaction.counterparty ?? '',
+      transaction.loanDirection ?? ''
+    ].map(csvEscape).join(','))
+  ]
+
+  return `\ufeff${rows.join('\n')}`
+}
+
+function downloadCsvText(text: string, fileName: string) {
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = fileName
+  link.rel = 'noopener'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function openStorageExportModal() {
+  storageNotice.value = ''
+  storageExportError.value = ''
+  storageExportPending.value = buildMoneyNoteBackupFile()
+  storageExportFileName.value = buildStorageBackupFileName(storageExportPending.value)
+  storageExportModalOpen.value = true
+}
+
+function downloadMoneyNoteBackup(backup: MoneyNoteBackupFile, fileName = buildStorageBackupFileName(backup)) {
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = fileName
+  link.rel = 'noopener'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function createStorageShareFile(backup: MoneyNoteBackupFile, fileName = buildStorageBackupFileName(backup)) {
+  return new File(
+    [JSON.stringify(backup, null, 2)],
+    fileName,
+    { type: 'text/plain;charset=utf-8' }
+  )
+}
+
+function handleStorageExportCsv() {
+  const fileName = buildTransactionsCsvFileName()
+  downloadCsvText(buildTransactionsCsv(), fileName)
+  storageNotice.value = settingsCopy.value.exportCsv
+  storageExportModalOpen.value = false
+  resetStorageExportState()
+}
+
+async function shareMoneyNoteBackup(backup: MoneyNoteBackupFile, fileName = buildStorageBackupFileName(backup)) {
+  const shareApi = navigator.share
+  const file = createStorageShareFile(backup, fileName)
+  const sharePayload = {
+    title: fileName,
+    text: settingsCopy.value.exportSuccess,
+    files: [file]
+  }
+
+  if (!shareApi) {
+    throw new Error('share-not-supported')
+  }
+
+  if (typeof navigator.canShare === 'function') {
+    const canShareFiles = navigator.canShare(sharePayload)
+
+    if (canShareFiles) {
+      await shareApi.call(navigator, sharePayload)
+      return
+    }
+  }
+
+  await shareApi.call(navigator, {
+    title: fileName,
+    text: `${settingsCopy.value.exportSuccess}\n${fileName}`
+  })
+}
+
+function handleStorageExportDownload() {
+  const backup = storageExportPending.value ?? buildMoneyNoteBackupFile()
+  const fileName = storageExportFileName.value || buildStorageBackupFileName(backup)
+
+  downloadMoneyNoteBackup(backup, fileName)
+  storageNotice.value = settingsCopy.value.exportSuccess
+  storageExportModalOpen.value = false
+  resetStorageExportState()
+}
+
+async function handleStorageExportShare() {
+  const backup = storageExportPending.value ?? buildMoneyNoteBackupFile()
+  const fileName = storageExportFileName.value || buildStorageBackupFileName(backup)
+
+  if (storageExportBusy.value) return
+
+  storageExportBusy.value = true
+  storageExportError.value = ''
+
+  try {
+    await shareMoneyNoteBackup(backup, fileName)
+    storageNotice.value = settingsCopy.value.exportSuccess
+    storageExportModalOpen.value = false
+    resetStorageExportState()
+  }
+  catch (error) {
+    const code = error instanceof Error ? error.message : ''
+    if (code === 'share-not-supported') {
+      storageExportError.value = settingsCopy.value.shareNotSupported
+      return
+    }
+
+    storageExportError.value = settingsCopy.value.exportFailed
+  }
+  finally {
+    storageExportBusy.value = false
+  }
+}
+
+function resolveStorageImportError(error: unknown) {
+  const code = error instanceof Error ? error.message : ''
+
+  if (code === 'invalid-backup-file') return settingsCopy.value.invalidBackupFile
+  if (code === 'unsupported-backup-file') return settingsCopy.value.unsupportedBackupFile
+
+  return settingsCopy.value.importFailed
+}
+
+async function handleStorageFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+
+  input.value = ''
+  if (!file) return
+
+  storageImportError.value = ''
+  storageNotice.value = ''
+
+  try {
+    const fileText = await file.text()
+    const backup = parseMoneyNoteBackupFile(JSON.parse(fileText) as unknown)
+
+    storageImportPending.value = backup
+    storageImportFileName.value = file.name
+    storageImportModalOpen.value = true
+  }
+  catch (error) {
+    storageImportError.value = resolveStorageImportError(error)
+  }
+}
+
+async function confirmStorageImport() {
+  if (!storageImportPending.value || storageImportBusy.value) return
+
+  storageImportBusy.value = true
+  storageImportError.value = ''
+
+  try {
+    await importMoneyNoteBackupFile(storageImportPending.value)
+    storageImportModalOpen.value = false
+    storageNotice.value = settingsCopy.value.importSuccess
+    resetStorageImportState()
+  }
+  catch (error) {
+    storageImportError.value = resolveStorageImportError(error)
+  }
+  finally {
+    storageImportBusy.value = false
+  }
 }
 
 const syncStateCopy = computed(() => {
@@ -726,15 +1155,18 @@ const internetStatusCopy = computed(() => {
             <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.sync }}</h2>
             <p class="text-xs text-muted">{{ settingsCopy.syncDesc }}</p>
           </div>
-          <UBadge v-if="isCloudSyncEnabled" color="neutral" variant="soft" class="rounded-full">
+          <UBadge v-if="authReady && isCloudSyncEnabled" color="neutral" variant="soft" class="rounded-full">
             {{ syncStateCopy.badge }}
           </UBadge>
-          <UBadge v-else color="neutral" variant="soft" icon="i-lucide-key-round" class="min-w-max whitespace-nowrap rounded-full px-3">
+          <UBadge v-else-if="authReady" color="neutral" variant="soft" icon="i-lucide-key-round" class="min-w-max whitespace-nowrap rounded-full px-3">
             {{ settingsCopy.cloudSyncLocked }}
+          </UBadge>
+          <UBadge v-else color="neutral" variant="soft" class="rounded-full px-3 opacity-70">
+            ...
           </UBadge>
         </div>
 
-        <template v-if="isCloudSyncEnabled">
+        <template v-if="authReady && isCloudSyncEnabled">
           <div class="mt-3 flex items-center gap-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
             <div :class="['flex size-10 shrink-0 items-center justify-center rounded-full text-white shadow-lg', syncStateCopy.tone === 'emerald' ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : syncStateCopy.tone === 'sky' ? 'bg-gradient-to-br from-sky-500 to-cyan-400' : syncStateCopy.tone === 'amber' ? 'bg-gradient-to-br from-amber-500 to-orange-400' : 'bg-gradient-to-br from-rose-500 to-pink-400']">
               <UIcon :name="syncStateCopy.icon" class="size-4" />
@@ -749,12 +1181,15 @@ const internetStatusCopy = computed(() => {
           <div class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-white px-3 py-3 dark:border-slate-800 dark:bg-slate-950">
             <div class="flex items-center justify-between gap-3">
               <p class="text-xs font-bold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.uploadProgress }}</p>
-              <UBadge color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
+              <UBadge v-if="syncStatus === 'syncing'" color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
                 {{ syncProgressLabel }}
+              </UBadge>
+              <UBadge v-else color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
+                {{ syncStatus === 'synced' ? syncStateCopy.badge : syncStateCopy.badge }}
               </UBadge>
             </div>
 
-            <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div v-if="syncStatus === 'syncing'" class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
               <div
                 class="h-full rounded-full bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-400 transition-all duration-300"
                 :style="{ width: `${syncProgress}%` }"
@@ -762,11 +1197,19 @@ const internetStatusCopy = computed(() => {
             </div>
 
             <p class="mt-2 text-[11px] leading-5 text-muted">
-              {{ syncStatus === 'synced' ? settingsCopy.syncedAll : syncStatus === 'syncing' ? settingsCopy.syncingUpload : syncStatus === 'offline' ? settingsCopy.waitingUpload : settingsCopy.pendingUpload }}
+              {{
+                syncStatus === 'synced'
+                  ? (lastSyncedAt ? `${settingsCopy.cloudSyncReady} ${new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(lastSyncedAt))}.` : settingsCopy.syncedAll)
+                  : syncStatus === 'syncing'
+                    ? settingsCopy.syncingUpload
+                    : syncStatus === 'offline'
+                      ? settingsCopy.waitingUpload
+                      : settingsCopy.pendingUpload
+              }}
             </p>
           </div>
         </template>
-        <div v-else class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 opacity-90 dark:border-slate-800 dark:bg-slate-900">
+        <div v-else-if="authReady" class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 opacity-90 dark:border-slate-800 dark:bg-slate-900">
           <div class="flex items-center gap-3">
             <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
               <UIcon name="i-lucide-key-round" class="size-4" />
@@ -784,6 +1227,16 @@ const internetStatusCopy = computed(() => {
           >
             {{ settingsCopy.upgradeToPro }}
           </UButton>
+        </div>
+        <div v-else class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+          <div class="flex items-center gap-3">
+            <div class="size-10 shrink-0 rounded-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse" />
+            <div class="min-w-0 flex-1 space-y-2">
+              <div class="h-4 w-32 rounded-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse" />
+              <div class="h-3 w-48 rounded-full bg-slate-200/60 dark:bg-slate-800/60 animate-pulse" />
+            </div>
+          </div>
+          <div class="mt-3 h-10 w-full rounded-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse" />
         </div>
       </div>
     </section>
@@ -982,6 +1435,74 @@ const internetStatusCopy = computed(() => {
     </section>
 
     <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
+      <div class="flex items-center justify-between gap-3 px-4 py-4">
+        <div class="min-w-0">
+          <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.storage }}</h2>
+          <p class="text-xs text-muted">{{ settingsCopy.storageDesc }}</p>
+        </div>
+
+        <UBadge color="primary" variant="soft" class="rounded-full">
+          {{ settingsCopy.backupRecommended }}
+        </UBadge>
+      </div>
+
+      <div class="space-y-3 border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
+        <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+          <div class="flex items-start gap-3">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+              <UIcon name="i-lucide-database" class="size-4" />
+            </div>
+
+            <div class="min-w-0">
+              <p class="text-sm font-bold text-default">{{ settingsCopy.backupRecommended }}</p>
+              <p class="mt-1 text-xs leading-5 text-muted">{{ settingsCopy.backupRecommendedDesc }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="storageNotice" class="rounded-[1rem] border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100">
+          {{ storageNotice }}
+        </div>
+
+        <div v-if="storageImportError" class="rounded-[1rem] border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
+          {{ storageImportError }}
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <UButton
+            icon="i-lucide-download"
+            class="h-11 w-full justify-center rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(14,165,233,0.45)] transition active:scale-95"
+            @click="openStorageExportModal"
+          >
+            {{ settingsCopy.exportData }}
+          </UButton>
+
+          <UButton
+            icon="i-lucide-upload"
+            variant="soft"
+            color="neutral"
+            class="h-11 w-full justify-center rounded-full border border-slate-200 bg-white px-4 text-sm font-bold text-default shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+            @click="triggerStorageImportPicker"
+          >
+            {{ settingsCopy.importData }}
+          </UButton>
+        </div>
+
+        <p class="text-[11px] leading-5 text-muted">
+          {{ settingsCopy.importHint }}
+        </p>
+
+        <input
+          ref="storageImportInputRef"
+          type="file"
+          accept=".json,application/json"
+          class="hidden"
+          @change="handleStorageFileChange"
+        >
+      </div>
+    </section>
+
+    <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
       <div class="px-4 py-4">
         <div class="min-w-0">
           <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.dangerZone }}</h2>
@@ -1158,17 +1679,38 @@ const internetStatusCopy = computed(() => {
           <div class="space-y-2">
             <p class="text-sm font-bold text-default">{{ settingsCopy.redeemKey }}</p>
             <UInput
+              ref="proRedeemInputRef"
               v-model="proRedeemKey"
               :placeholder="settingsCopy.redeemPlaceholder"
+              variant="none"
               inputmode="text"
               autocomplete="off"
               autocapitalize="characters"
               autocorrect="off"
               spellcheck="false"
-              class="w-full rounded-2xl"
-              size="lg"
+              class="w-full"
+              :ui="{
+                root: 'w-full',
+                base: 'h-12 w-full rounded-full border border-slate-200/80 bg-white ps-4 pe-24 text-sm font-semibold text-default shadow-sm outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50',
+                trailing: 'absolute inset-y-0 end-0 flex items-center pe-1.5',
+                trailingIcon: 'size-5'
+              }"
               @keyup.enter="submitProRedeem"
-            />
+            >
+              <template #trailing>
+                <UButton
+                  type="button"
+                  variant="soft"
+                  color="neutral"
+                  :loading="isPastingProKey"
+                  icon="i-lucide-clipboard-paste"
+                  class="me-1.5 h-9 rounded-full border border-slate-200 bg-slate-100 px-3 text-xs font-bold text-default shadow-none hover:bg-slate-200/70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                  @click="pasteProRedeemKey"
+                >
+                  {{ settingsCopy.paste }}
+                </UButton>
+              </template>
+            </UInput>
           </div>
 
           <p v-if="proRedeemError" class="text-sm font-semibold text-rose-600 dark:text-rose-300">
@@ -1193,6 +1735,196 @@ const internetStatusCopy = computed(() => {
             @click="submitProRedeem"
           >
             {{ settingsCopy.activate }}
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <USlideover
+      v-model:open="storageExportModalOpen"
+      side="bottom"
+      :close="false"
+      :ui="{
+        content: 'w-full overflow-hidden rounded-t-[1.5rem] border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] md:mx-auto md:mb-4 md:w-[min(42rem,calc(100%-2rem))] md:rounded-[1.5rem]',
+        body: 'p-0',
+        header: 'p-0',
+        footer: 'p-0'
+      }"
+    >
+      <template #content="{ close }">
+        <div class="flex max-h-[86svh] flex-col overflow-hidden">
+          <div class="shrink-0 border-b border-slate-200/80 px-4 pb-4 pt-2 dark:border-slate-800">
+            <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-300/80 dark:bg-slate-700" />
+
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ settingsCopy.exportModalTitle }}</p>
+                <p class="mt-1 text-[11px] text-muted">{{ settingsCopy.exportModalDesc }}</p>
+              </div>
+
+              <button
+                type="button"
+                class="flex size-9 items-center justify-center rounded-full bg-slate-100 text-muted transition active:scale-95 dark:bg-slate-900"
+                :aria-label="settingsCopy.cancel"
+                @click="close()"
+              >
+                <UIcon name="i-lucide-x" class="size-4" />
+              </button>
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+            <div class="space-y-4">
+              <div class="rounded-[1rem] border border-sky-200 bg-sky-50 p-4 text-sky-800 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-100">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.22em]">{{ settingsCopy.exportFileLabel }}</p>
+                <p class="mt-1 break-all text-sm font-black">{{ storageExportFileName }}</p>
+                <p class="mt-1 text-xs leading-5 opacity-90">{{ settingsCopy.exportModalDesc }}</p>
+              </div>
+
+              <div v-if="storageExportSummary" class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div class="rounded-[0.95rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.exportCountWallets }}</p>
+                  <p class="mt-1 text-lg font-black text-default">{{ storageExportSummary.wallets }}</p>
+                </div>
+                <div class="rounded-[0.95rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.exportCountTransactions }}</p>
+                  <p class="mt-1 text-lg font-black text-default">{{ storageExportSummary.transactions }}</p>
+                </div>
+                <div class="rounded-[0.95rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.exportCountCategories }}</p>
+                  <p class="mt-1 text-lg font-black text-default">{{ storageExportSummary.categories }}</p>
+                </div>
+                <div class="rounded-[0.95rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.exportCountCompanies }}</p>
+                  <p class="mt-1 text-lg font-black text-default">{{ storageExportSummary.companies }}</p>
+                </div>
+              </div>
+
+              <div v-if="storageExportSummary?.exportedAt" class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 text-sm text-default dark:border-slate-800 dark:bg-slate-900">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ settingsCopy.importExportedAt }}</p>
+                <p class="mt-1 font-bold">{{ storageExportSummary.exportedAt }}</p>
+              </div>
+
+              <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 text-sm text-default dark:border-slate-800 dark:bg-slate-900">
+                <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ settingsCopy.exportCsvFileLabel }}</p>
+                <p class="mt-1 font-bold">{{ settingsCopy.exportCsvTitle }}</p>
+                <p class="mt-1 text-xs leading-5 text-muted">{{ settingsCopy.exportCsvHint }}</p>
+              </div>
+
+              <div v-if="storageExportError" class="rounded-[1rem] border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
+                {{ storageExportError }}
+              </div>
+
+              <p class="text-[11px] leading-5 text-muted">
+                {{ settingsCopy.exportFileHint }}
+              </p>
+            </div>
+          </div>
+
+          <div class="shrink-0 border-t border-slate-200/80 bg-white/96 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/96">
+            <div class="space-y-3">
+              <UButton
+                variant="soft"
+                color="neutral"
+                class="h-12 w-full justify-center rounded-full text-center font-bold whitespace-nowrap"
+                icon="i-lucide-x"
+                @click="close()"
+              >
+                {{ settingsCopy.cancel }}
+              </UButton>
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <UButton
+                  icon="i-lucide-download"
+                  class="h-12 w-full justify-center rounded-full bg-sky-600 px-4 text-sm font-bold whitespace-nowrap text-white shadow-[0_14px_28px_-18px_rgba(14,165,233,0.45)] transition active:scale-95 hover:bg-sky-500 disabled:opacity-60"
+                  :disabled="storageExportBusy"
+                  @click="handleStorageExportDownload"
+                >
+                  {{ settingsCopy.downloadBackup }}
+                </UButton>
+                <UButton
+                  icon="i-lucide-share-2"
+                  :loading="storageExportBusy"
+                  class="h-12 w-full justify-center rounded-full bg-black px-4 text-sm font-bold whitespace-nowrap text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:bg-black/90 active:scale-95 dark:bg-white dark:text-slate-950 dark:shadow-[0_14px_28px_-18px_rgba(255,255,255,0.18)] dark:hover:bg-white/90 disabled:opacity-60"
+                  :disabled="storageExportBusy"
+                  @click="handleStorageExportShare"
+                >
+                  {{ settingsCopy.shareBackup }}
+                </UButton>
+                <UButton
+                  icon="i-lucide-file-spreadsheet"
+                  class="h-12 w-full justify-center rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 px-4 text-sm font-bold whitespace-nowrap text-white shadow-[0_14px_28px_-18px_rgba(16,185,129,0.45)] transition active:scale-95 hover:opacity-95 disabled:opacity-60"
+                  :disabled="storageExportBusy"
+                  @click="handleStorageExportCsv"
+                >
+                  {{ settingsCopy.exportCsv }}
+                </UButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </USlideover>
+
+    <UModal
+      v-model:open="storageImportModalOpen"
+      :title="settingsCopy.importModalTitle"
+      :description="settingsCopy.importModalDesc"
+    >
+      <template #body>
+        <div class="space-y-4">
+          <div class="rounded-[1rem] border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.22em]">{{ settingsCopy.importSelectedFile }}</p>
+            <p class="mt-1 break-all text-sm font-black">{{ storageImportFileName }}</p>
+            <p class="mt-1 text-xs leading-5 opacity-90">{{ settingsCopy.importHint }}</p>
+          </div>
+
+          <div v-if="storageImportSummary" class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div class="rounded-[0.95rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.walletsLabel }}</p>
+              <p class="mt-1 text-lg font-black text-default">{{ storageImportSummary.wallets }}</p>
+            </div>
+            <div class="rounded-[0.95rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.transactionsLabel }}</p>
+              <p class="mt-1 text-lg font-black text-default">{{ storageImportSummary.transactions }}</p>
+            </div>
+            <div class="rounded-[0.95rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.categoriesLabel }}</p>
+              <p class="mt-1 text-lg font-black text-default">{{ storageImportSummary.categories }}</p>
+            </div>
+            <div class="rounded-[0.95rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.companiesLabel }}</p>
+              <p class="mt-1 text-lg font-black text-default">{{ storageImportSummary.companies }}</p>
+            </div>
+          </div>
+
+          <div v-if="storageImportSummary?.exportedAt" class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 text-sm text-default dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ settingsCopy.importExportedAt }}</p>
+            <p class="mt-1 font-bold">{{ storageImportSummary.exportedAt }}</p>
+          </div>
+
+          <p v-if="storageImportError" class="text-sm font-semibold text-rose-600 dark:text-rose-300">
+            {{ storageImportError }}
+          </p>
+        </div>
+      </template>
+
+      <template #footer>
+        <div class="grid grid-cols-2 gap-3">
+          <UButton
+            class="h-12 w-full justify-center rounded-full border border-slate-200 bg-white px-4 text-sm font-bold text-default shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+            variant="soft"
+            :disabled="storageImportBusy"
+            @click="storageImportModalOpen = false"
+          >
+            {{ settingsCopy.cancel }}
+          </UButton>
+          <UButton
+            :loading="storageImportBusy"
+            icon="i-lucide-download"
+            class="h-12 w-full justify-center rounded-full bg-black px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:bg-black/90 active:scale-95 dark:bg-white dark:text-slate-950 dark:shadow-[0_14px_28px_-18px_rgba(255,255,255,0.18)] dark:hover:bg-white/90"
+            @click="confirmStorageImport"
+          >
+            {{ settingsCopy.importData }}
           </UButton>
         </div>
       </template>

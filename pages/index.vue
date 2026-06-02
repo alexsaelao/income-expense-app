@@ -45,7 +45,7 @@ const homeCopy = computed(() => {
       syncStatus: 'ສະຖານະຊິງຄລາວ',
       offlineMode: 'ໂໝດອອຟລາຍ',
       syncingNow: 'ກຳລັງຊິງຄລາວ',
-      cloudSyncReady: 'ພ້ອມຊິງຄລາວ',
+      cloudSyncReady: 'ຊິງຄລາວເເລ້ວ',
       waitingToSync: 'ລໍຖ້າຊິງຄລາວ',
       offlineBadge: 'ອອຟລາຍ',
       syncingBadge: 'ຊິງຄລາວ',

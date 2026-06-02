@@ -1,11 +1,24 @@
 export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path === '/admin-login') return
 
-  const { isAuthenticated, hydrateAuth } = useAdminDeviceAuth()
+  const { isAuthenticated, hydrateAuth, signOut } = useAdminDeviceAuth()
 
   if (import.meta.client) {
     hydrateAuth()
     if (!isAuthenticated.value) {
+      return navigateTo('/admin-login')
+    }
+
+    try {
+      const result = await $fetch<{ authenticated?: boolean }>('/api/admin/me')
+
+      if (!result.authenticated) {
+        signOut()
+        return navigateTo('/admin-login')
+      }
+    }
+    catch {
+      signOut()
       return navigateTo('/admin-login')
     }
 

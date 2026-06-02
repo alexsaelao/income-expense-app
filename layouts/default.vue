@@ -2,7 +2,6 @@
 const route = useRoute()
 const router = useRouter()
 const { selectedLanguage } = useAppLanguage()
-const { isStandalone } = usePwaDisplayMode()
 const { authReady, isAuthenticated, hydrateAuth } = useDeviceAuth()
 
 const isAuthPage = computed(() => route.path === '/login' || route.path === '/register')
@@ -30,10 +29,6 @@ watchEffect(() => {
   if (isAuthenticated.value && isAuthPage.value) {
     router.replace('/')
     return
-  }
-
-  if (isAuthenticated.value && isStandalone.value && route.path !== '/' && route.path !== '/login') {
-    router.replace('/')
   }
 })
 </script>

@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Income Expense Note",
-  "short_name": "Money Note",
+  "name": "Wallet Code Sabai",
+  "short_name": "Wallet Sabai",
   "description": "A mobile-first personal finance PWA for recording income, expenses, transfers, loans, wallets, and reports.",
   "theme_color": "#0ea5e9",
   "background_color": "#0f172a",
@@ -19,6 +19,12 @@
     "client_mode": "focus-existing"
   },
   "icons": [
+    {
+      "src": "/wallet-codesabai-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/pwa-192x192.png",
       "sizes": "192x192",

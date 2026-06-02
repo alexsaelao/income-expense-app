@@ -1,8 +1,27 @@
 <script setup lang="ts">
 const route = useRoute()
-const { authReady, isAuthenticated } = useAdminDeviceAuth()
+const { authReady, isAuthenticated, hydrateAuth } = useAdminDeviceAuth()
+const { data: adminSession } = await useAsyncData<{ authenticated?: boolean }>('admin-layout-session', async () => {
+  if (import.meta.server) {
+    const headers = useRequestHeaders(['cookie'])
+    return await $fetch('/api/admin/me', { headers })
+  }
+
+  return await $fetch('/api/admin/me')
+})
 const isAdminLogin = computed(() => route.path === '/admin-login')
-const showAdminNav = computed(() => authReady.value && isAuthenticated.value && route.path.startsWith('/superadmin'))
+const showAdminNav = computed(() => {
+  const hasServerSession = Boolean(adminSession.value?.authenticated)
+  const hasClientSession = import.meta.client && authReady.value && isAuthenticated.value
+
+  return (hasServerSession || hasClientSession) && route.path.startsWith('/superadmin')
+})
+
+onMounted(() => {
+  if (import.meta.client) {
+    hydrateAuth()
+  }
+})
 </script>
 
 <template>

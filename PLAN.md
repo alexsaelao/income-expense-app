@@ -1,4 +1,4 @@
-# Income Expense Note - Project Plan
+# Wallet Code Sabai - Project Plan
 
 ## Current direction
 

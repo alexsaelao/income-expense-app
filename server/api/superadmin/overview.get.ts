@@ -1,5 +1,5 @@
 import { createError, getQuery } from 'h3'
-import { ensureAuthTable, ensureProRedeemTable, ensureStateTable, getTursoClient, APP_STATE_TABLE, AUTH_ACCOUNT_TABLE, PRO_REDEEM_TABLE } from '~/server/utils/turso'
+import { ensureAuthTable, ensureProRedeemTable, ensureStateTable, getTursoClient, APP_STATE_TABLE, AUTH_ACCOUNT_TABLE, PRO_REDEEM_TABLE, normalizeDbTimestamp } from '~/server/utils/turso'
 import { readAdminSession } from '~/server/utils/admin'
 
 type AccountOverviewRow = {
@@ -164,6 +164,9 @@ export default defineEventHandler(async (event) => {
     const cloudSizeBytes = typeof row.state_json === 'string'
       ? Buffer.byteLength(row.state_json, 'utf8')
       : 0
+    const proStartedAt = normalizeDbTimestamp(row.pro_started_at as string | null | undefined) ?? ((row.plan as string | undefined) === 'pro'
+      ? (normalizeDbTimestamp(row.updated_at as string | undefined) ?? normalizeDbTimestamp(row.created_at as string | undefined) ?? null)
+      : null)
 
     return {
       identifier: (row.identifier as string | undefined) ?? '',
@@ -171,14 +174,12 @@ export default defineEventHandler(async (event) => {
       plan: (row.plan as string | undefined) ?? 'free',
       remember: Boolean(row.remember ?? 1),
       redeemKeyCode: (row.redeem_key_code as string | null | undefined) ?? null,
-      createdAt: (row.created_at as string | undefined) ?? '',
-      updatedAt: (row.updated_at as string | undefined) ?? '',
-      proStartedAt: (row.pro_started_at as string | null | undefined) ?? ((row.plan as string | undefined) === 'pro'
-        ? ((row.updated_at as string | undefined) ?? (row.created_at as string | undefined) ?? null)
-        : null),
+      createdAt: normalizeDbTimestamp(row.created_at as string | undefined) ?? '',
+      updatedAt: normalizeDbTimestamp(row.updated_at as string | undefined) ?? '',
+      proStartedAt,
       cloudClearedCount: Number(row.cloud_cleared_count ?? 0),
-      cloudClearedAt: (row.cloud_cleared_at as string | null | undefined) ?? null,
-      cloudUpdatedAt: (row.cloud_updated_at as string | null | undefined) ?? null,
+      cloudClearedAt: normalizeDbTimestamp(row.cloud_cleared_at as string | null | undefined),
+      cloudUpdatedAt: normalizeDbTimestamp(row.cloud_updated_at as string | null | undefined),
       cloudStatus: row.cloud_updated_at ? 'synced' : 'local',
       walletCount,
       transactionCount,
@@ -193,16 +194,16 @@ export default defineEventHandler(async (event) => {
     code: (row.code as string | undefined) ?? '',
     active: Number(row.active ?? 0) === 1,
     redeemedBy: (row.redeemed_by as string | null | undefined) ?? null,
-    redeemedAt: (row.redeemed_at as string | null | undefined) ?? null,
-    createdAt: (row.created_at as string | undefined) ?? '',
-    updatedAt: (row.updated_at as string | undefined) ?? ''
+    redeemedAt: normalizeDbTimestamp(row.redeemed_at as string | null | undefined),
+    createdAt: normalizeDbTimestamp(row.created_at as string | undefined) ?? '',
+    updatedAt: normalizeDbTimestamp(row.updated_at as string | undefined) ?? ''
   }))
 
   const totalAccounts = Number(accountStatsResult.rows[0]?.total_accounts ?? 0)
   const proAccounts = Number(accountStatsResult.rows[0]?.pro_accounts ?? 0)
   const freeAccounts = Number(accountStatsResult.rows[0]?.free_accounts ?? 0)
   const totalBackups = Number(backupStatsResult.rows[0]?.total_backups ?? 0)
-  const latestBackupAt = (backupStatsResult.rows[0]?.latest_backup_at as string | undefined) ?? null
+  const latestBackupAt = normalizeDbTimestamp(backupStatsResult.rows[0]?.latest_backup_at as string | undefined)
   const totalKeys = Number(redeemStatsResult.rows[0]?.total_keys ?? 0)
   const activeKeys = Number(redeemStatsResult.rows[0]?.active_keys ?? 0)
   const usedKeys = Number(redeemStatsResult.rows[0]?.used_keys ?? 0)

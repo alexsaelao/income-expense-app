@@ -76,6 +76,8 @@ function resolvePaginationValue(value: MaybeRefOrGetter<number | null | undefine
 }
 
 export function useSuperadminData(options: SuperadminDataOptions = {}) {
+  const serverHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+
   const query = computed(() => {
     const params = new URLSearchParams()
 
@@ -94,7 +96,7 @@ export function useSuperadminData(options: SuperadminDataOptions = {}) {
 
   return useAsyncData<AdminOverview>(computed(() => `superadmin-overview:${query.value || 'default'}`), () => {
     const queryString = query.value ? `?${query.value}` : ''
-    return $fetch<AdminOverview>(`/api/superadmin/overview${queryString}`)
+    return $fetch<AdminOverview>(`/api/superadmin/overview${queryString}`, serverHeaders ? { headers: serverHeaders } : undefined)
   }, {
     watch: [query],
     lazy: true,

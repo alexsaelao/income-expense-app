@@ -6,7 +6,7 @@ definePageMeta({
 const router = useRouter()
 const { selectedLanguage } = useAppLanguage()
 const { activeTheme } = useAppThemeColor()
-const { authReady, isAuthenticated, rememberedProfile, clearRememberedProfile, signIn } = useAdminDeviceAuth()
+const { authReady, isAuthenticated, rememberedProfile, clearRememberedProfile, signIn, hydrateAuth } = useAdminDeviceAuth()
 
 const identifier = ref('')
 const rememberDevice = ref(false)
@@ -80,6 +80,16 @@ const hasSavedAccount = computed(() => Boolean(rememberedProfile.value?.identifi
 const nextButtonLabel = computed(() => step.value === 'account' ? copy.value.next : copy.value.unlock)
 const adminPortalPath = '/superadmin'
 
+async function hasServerAdminSession() {
+  try {
+    const result = await $fetch<{ authenticated?: boolean }>('/api/admin/me')
+    return Boolean(result.authenticated)
+  }
+  catch {
+    return false
+  }
+}
+
 watch(
   rememberedProfile,
   (profile) => {
@@ -93,9 +103,10 @@ watch(
 
 watch(
   authReady,
-  (ready) => {
+  async (ready) => {
     if (!ready) return
-    if (isAuthenticated.value) {
+
+    if (isAuthenticated.value && await hasServerAdminSession()) {
       router.replace(adminPortalPath)
     }
   },
@@ -248,8 +259,14 @@ watch(pinValue, (value) => {
 })
 
 onMounted(() => {
+  hydrateAuth()
+
   if (isAuthenticated.value) {
-    router.replace(adminPortalPath)
+    void hasServerAdminSession().then((authenticated) => {
+      if (authenticated) {
+        router.replace(adminPortalPath)
+      }
+    })
     return
   }
 
@@ -265,8 +282,8 @@ onMounted(() => {
 <template>
   <div class="w-full space-y-6">
     <section class="space-y-3 text-center">
-      <div :class="['mx-auto flex size-16 items-center justify-center rounded-[1.4rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)]', activeTheme.accent]">
-        <UIcon name="i-lucide-wallet-cards" class="size-8" />
+      <div :class="['mx-auto flex size-16 items-center justify-center overflow-hidden rounded-[1.4rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)]', activeTheme.accent]">
+        <img src="/wallet-codesabai-mark.svg" alt="" class="h-full w-full" />
       </div>
 
       <div class="space-y-1">

@@ -18,6 +18,7 @@ const installHelpOpen = ref(false)
 const bannerDismissed = ref(import.meta.client ? sessionStorage.getItem('money-note-install-banner-dismissed') === '1' : false)
 const installLabel = computed(() => (installAvailable.value ? 'Install app' : 'How to install'))
 const bannerVisible = computed(() => !isStandalone.value && !bannerDismissed.value)
+const appName = 'Wallet Code Sabai'
 
 async function installApp() {
   if (route.path !== '/') {
@@ -63,13 +64,13 @@ onMounted(() => {
       :style="bannerStyle"
     >
       <div class="flex flex-nowrap items-center gap-2 px-4 py-[0.55rem] pt-[calc(env(safe-area-inset-top)+0.55rem)]">
-        <div class="flex size-10 shrink-0 items-center justify-center rounded-[1.15rem] bg-white/15 text-white shadow-[0_10px_20px_-14px_rgba(15,23,42,0.35)]">
-          <UIcon name="i-lucide-smartphone" class="size-5" />
+        <div class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-[1.15rem] bg-white/15 p-1.5 text-white shadow-[0_10px_20px_-14px_rgba(15,23,42,0.35)]">
+          <img src="/wallet-codesabai-mark.svg" alt="" class="h-full w-full" />
         </div>
 
         <div class="min-w-0 flex-1 pr-1">
           <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/75 sm:text-xs">Install</p>
-          <p class="truncate text-[12px] font-bold leading-tight sm:text-sm">Add Income Expense Note to your device</p>
+          <p class="truncate text-[12px] font-bold leading-tight sm:text-sm">Add {{ appName }} to your device</p>
           <p class="hidden truncate text-[11px] text-white/80 sm:block">Open like an app without browser tabs.</p>
         </div>
 

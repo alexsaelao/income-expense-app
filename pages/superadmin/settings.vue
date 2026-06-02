@@ -141,9 +141,9 @@ useHead({
 </script>
 
 <template>
-  <div class="space-y-5 pb-8">
+  <div class="space-y-4 pb-8">
     <section class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white/85 p-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/75">
-      <div class="flex items-start justify-between gap-3">
+      <div class="flex items-start justify-between gap-2.5">
         <div class="min-w-0">
           <p class="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">{{ copy.general }}</p>
           <h1 class="mt-1 text-2xl font-black tracking-tight text-default">{{ copy.title }}</h1>
@@ -153,12 +153,12 @@ useHead({
     </section>
 
     <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
-      <div class="px-4 py-4">
+      <div class="px-4 py-3">
         <h2 class="text-sm font-black tracking-tight text-default">{{ copy.general }}</h2>
       </div>
 
-      <div class="space-y-3 border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
-        <div class="flex items-center justify-between gap-3">
+      <div class="space-y-2.5 border-t border-slate-200/80 px-4 py-3 dark:border-slate-800">
+        <div class="flex items-center justify-between gap-2.5">
           <div class="min-w-0">
             <p class="text-sm font-bold text-default">{{ copy.language }}</p>
             <p class="text-xs text-muted">{{ copy.chooseLanguage }}</p>
@@ -183,8 +183,8 @@ useHead({
         </div>
       </div>
 
-      <div class="space-y-3 border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
-        <div class="flex items-center justify-between gap-3">
+      <div class="space-y-2.5 border-t border-slate-200/80 px-4 py-3 dark:border-slate-800">
+        <div class="flex items-center justify-between gap-2.5">
           <div class="min-w-0">
             <p class="text-sm font-bold text-default">{{ copy.appearance }}</p>
             <p class="text-xs text-muted">{{ copy.themeMode }}</p>
@@ -208,7 +208,7 @@ useHead({
         </div>
 
         <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center justify-between gap-2.5">
             <div class="min-w-0">
               <p class="text-sm font-bold text-default">{{ copy.colorTheme }}</p>
               <p class="text-xs text-muted">{{ copy.colorThemeDesc }}</p>
@@ -218,7 +218,7 @@ useHead({
             </UBadge>
           </div>
 
-          <div class="mt-3 flex items-center gap-3 rounded-[1rem] border border-slate-200/80 bg-white px-3 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div class="mt-3 flex items-center gap-2.5 rounded-[1rem] border border-slate-200/80 bg-white px-3 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
             <div
               :class="['flex size-14 shrink-0 items-center justify-center rounded-[1.25rem] bg-gradient-to-br text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.35)]', activeTheme.accent]"
             >
@@ -258,14 +258,14 @@ useHead({
     </section>
 
     <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
-      <div class="px-4 py-4">
+      <div class="px-4 py-3">
         <div class="min-w-0">
           <h2 class="text-sm font-black tracking-tight text-default">{{ copy.dangerZone }}</h2>
           <p class="text-xs text-muted">{{ copy.dangerDesc }}</p>
         </div>
       </div>
 
-      <div class="border-t border-slate-200/80 px-4 py-4 dark:border-slate-800">
+      <div class="border-t border-slate-200/80 px-4 py-3 dark:border-slate-800">
         <UButton
           class="h-12 w-full justify-center rounded-2xl bg-gradient-to-r from-rose-500 to-red-400 px-2 text-xs font-bold text-white transition active:scale-95 sm:px-4 sm:text-sm"
           icon="i-lucide-log-out"
