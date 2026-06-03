@@ -16,6 +16,20 @@ cd landing
 npm run build
 ```
 
+## Cloudflare Pages deploy
+
+Use this build command in Cloudflare Pages:
+
+```bash
+npm run generate
+```
+
+And set the output directory to:
+
+```bash
+.output/public
+```
+
 ## Notes
 
 - This landing page is isolated from the main app.
