@@ -1,6 +1,6 @@
 # Wallet Code Sabai Landing
 
-Static landing page for promoting the app.
+Nuxt CSR landing page for the app.
 
 ## Run
 
@@ -18,7 +18,6 @@ npm run build
 
 ## Notes
 
-- The landing page is intentionally static.
-- It uses Tailwind CSS via CDN and inline Lucide-style SVG icons.
-- Update the app target in `index.html` if the main app URL changes.
-- Fonts are loaded from `public/fonts`.
+- This landing page is isolated from the main app.
+- It uses Nuxt in CSR mode and generates a static `dist/` output for deployment.
+- Fonts and logos are served from `public/`.

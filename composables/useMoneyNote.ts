@@ -22,6 +22,7 @@ export interface Wallet {
   accent: string
   emoji: string
   note?: string
+  updatedAt?: string
 }
 
 export interface Transaction {
@@ -39,6 +40,7 @@ export interface Transaction {
   counterparty?: string
   loanDirection?: LoanDirection
   createdAt: string
+  updatedAt: string
 }
 
 export interface MoneyNoteState {
@@ -94,6 +96,7 @@ export interface CategoryItem {
   color: WalletColor
   enabled: boolean
   createdAt: string
+  updatedAt?: string
 }
 
 export interface CompanyItem {
@@ -103,6 +106,7 @@ export interface CompanyItem {
   color: WalletColor
   enabled: boolean
   createdAt: string
+  updatedAt?: string
 }
 
 const currencyFormatters: Record<CurrencyCode, Intl.NumberFormat> = {
@@ -188,6 +192,49 @@ function walletColorForAccent(accent?: string | null): WalletColor {
   return match?.[0] ?? 'sky'
 }
 
+function safeTimestamp(value?: string | null) {
+  const time = value ? new Date(value).getTime() : Number.NaN
+  return Number.isFinite(time) ? time : 0
+}
+
+function recordTimestamp(record?: { updatedAt?: string | null; createdAt?: string | null }) {
+  return record?.updatedAt ?? record?.createdAt ?? new Date().toISOString()
+}
+
+function isNewerRecord<T extends { updatedAt?: string | null; createdAt?: string | null }>(candidate: T, current: T) {
+  const candidateTime = safeTimestamp(recordTimestamp(candidate))
+  const currentTime = safeTimestamp(recordTimestamp(current))
+
+  if (candidateTime !== currentTime) {
+    return candidateTime > currentTime
+  }
+
+  return recordTimestamp(candidate) > recordTimestamp(current)
+}
+
+function mergeKeyList(local: string[] = [], remote: string[] = []) {
+  return [...new Set([...local, ...remote])]
+}
+
+function mergeRecordLists<T extends { id: string; updatedAt?: string | null; createdAt?: string | null }>(
+  local: T[] = [],
+  remote: T[] = []
+) {
+  const merged = new Map<string, T>()
+
+  const ingest = (record: T) => {
+    const current = merged.get(record.id)
+    if (!current || isNewerRecord(record, current)) {
+      merged.set(record.id, record)
+    }
+  }
+
+  local.forEach(ingest)
+  remote.forEach(ingest)
+
+  return [...merged.values()]
+}
+
 function normalizeWallet(wallet: Partial<Wallet> & { id: string }): Wallet {
   const color = wallet.color ?? walletColorForAccent(wallet.accent)
 
@@ -200,7 +247,8 @@ function normalizeWallet(wallet: Partial<Wallet> & { id: string }): Wallet {
     color,
     accent: walletAccentForColor(color),
     emoji: wallet.emoji ?? '💳',
-    note: wallet.note?.trim() || undefined
+    note: wallet.note?.trim() || undefined,
+    updatedAt: wallet.updatedAt ?? wallet.createdAt ?? new Date().toISOString()
   }
 }
 
@@ -214,7 +262,8 @@ function normalizeCategory(category: Partial<CategoryItem> & { id: string; type:
     emoji: category.emoji?.trim() || '🏷️',
     color: category.color ?? 'sky',
     enabled: typeof category.enabled === 'boolean' ? category.enabled : true,
-    createdAt: category.createdAt ?? new Date().toISOString()
+    createdAt: category.createdAt ?? new Date().toISOString(),
+    updatedAt: category.updatedAt ?? category.createdAt ?? new Date().toISOString()
   }
 }
 
@@ -225,7 +274,8 @@ function normalizeCompany(company: Partial<CompanyItem> & { id: string }): Compa
     emoji: company.emoji?.trim() || '🏢',
     color: company.color ?? 'sky',
     enabled: typeof company.enabled === 'boolean' ? company.enabled : true,
-    createdAt: company.createdAt ?? new Date().toISOString()
+    createdAt: company.createdAt ?? new Date().toISOString(),
+    updatedAt: company.updatedAt ?? company.createdAt ?? new Date().toISOString()
   }
 }
 
@@ -389,6 +439,63 @@ function normalizeState(state?: Partial<MoneyNoteState> | null): MoneyNoteState 
   })
 }
 
+function mergeMoneyNoteState(localState: MoneyNoteState, remoteState: MoneyNoteState): MoneyNoteState {
+  const local = normalizeState(localState)
+  const remote = normalizeState(remoteState)
+
+  const mergedTransactions = mergeRecordLists(local.transactions, remote.transactions)
+    .map(transaction => ({
+      ...transaction,
+      updatedAt: recordTimestamp(transaction),
+      createdAt: transaction.createdAt ?? recordTimestamp(transaction)
+    }))
+    .sort((a, b) => {
+      const timeDelta = safeTimestamp(a.updatedAt) - safeTimestamp(b.updatedAt)
+      if (timeDelta !== 0) return timeDelta
+
+      const createdDelta = safeTimestamp(a.createdAt) - safeTimestamp(b.createdAt)
+      if (createdDelta !== 0) return createdDelta
+
+      return a.id.localeCompare(b.id)
+    })
+
+  const mergedWallets = mergeRecordLists(local.wallets, remote.wallets).map(wallet => ({
+    ...wallet,
+    updatedAt: recordTimestamp(wallet)
+  }))
+
+  const mergedCategories = mergeRecordLists(local.categories, remote.categories).map(category => ({
+    ...category,
+    updatedAt: recordTimestamp(category)
+  }))
+
+  const mergedCompanies = mergeRecordLists(local.companies, remote.companies).map(company => ({
+    ...company,
+    updatedAt: recordTimestamp(company)
+  }))
+
+  return recalculateBalances({
+    walletOrder: mergeKeyList(local.walletOrder, remote.walletOrder),
+    pinnedWalletKeys: mergeKeyList(local.pinnedWalletKeys, remote.pinnedWalletKeys),
+    disabledDefaultCategories: mergeKeyList(local.disabledDefaultCategories, remote.disabledDefaultCategories),
+    disabledDefaultCompanies: mergeKeyList(local.disabledDefaultCompanies, remote.disabledDefaultCompanies),
+    categoryOrder: {
+      income: mergeKeyList(local.categoryOrder.income, remote.categoryOrder.income),
+      expense: mergeKeyList(local.categoryOrder.expense, remote.categoryOrder.expense)
+    },
+    pinnedCategoryKeys: {
+      income: mergeKeyList(local.pinnedCategoryKeys.income, remote.pinnedCategoryKeys.income),
+      expense: mergeKeyList(local.pinnedCategoryKeys.expense, remote.pinnedCategoryKeys.expense)
+    },
+    companyOrder: mergeKeyList(local.companyOrder, remote.companyOrder),
+    pinnedCompanyKeys: mergeKeyList(local.pinnedCompanyKeys, remote.pinnedCompanyKeys),
+    wallets: mergedWallets,
+    transactions: mergedTransactions,
+    categories: mergedCategories,
+    companies: mergedCompanies
+  })
+}
+
 function localizedTypeLabel(type: TransactionType, language: AppLanguage = 'en') {
   if (language === 'lo') {
     const labels: Record<TransactionType, string> = {
@@ -453,47 +560,15 @@ function defaultState(): MoneyNoteState {
     wallets: [
       {
         id: 'wallet-cash',
-        name: 'Everyday Cash',
+        name: 'Cash',
         currency: 'LAK',
-        openingBalance: 24_800_000,
+        openingBalance: 0,
         balance: 0,
         color: 'sky',
         accent: 'from-sky-500 to-cyan-400',
-        emoji: '💼',
-        note: 'Daily spending wallet'
-      },
-      {
-        id: 'wallet-bank',
-        name: 'Breeze Bank',
-        currency: 'THB',
-        openingBalance: 42_500,
-        balance: 0,
-        color: 'emerald',
-        accent: 'from-emerald-500 to-teal-400',
-        emoji: '🏦',
-        note: 'Salary and savings'
-      },
-      {
-        id: 'wallet-usd',
-        name: 'Travel USD',
-        currency: 'USD',
-        openingBalance: 1_250,
-        balance: 0,
-        color: 'indigo',
-        accent: 'from-indigo-500 to-violet-400',
-        emoji: '✈️',
-        note: 'Trips and online payments'
-      },
-      {
-        id: 'wallet-family',
-        name: 'Family Support',
-        currency: 'LAK',
-        openingBalance: 8_200_000,
-        balance: 0,
-        color: 'amber',
-        accent: 'from-amber-500 to-orange-400',
-        emoji: '🤝',
-        note: 'Shared living costs'
+        emoji: '💳',
+        note: 'Default wallet',
+        updatedAt: new Date().toISOString()
       }
     ],
     categories: [],
@@ -503,112 +578,10 @@ function defaultState(): MoneyNoteState {
       emoji: company.emoji,
       color: company.color,
       enabled: true,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     })),
-    transactions: [
-      {
-        id: 'tx-1',
-        type: 'income',
-        walletId: 'wallet-cash',
-        currency: 'LAK',
-        amount: 8_000_000,
-        category: 'Salary',
-        note: 'Monthly salary from studio',
-        date: makeDate(0, 3),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'tx-2',
-        type: 'expense',
-        walletId: 'wallet-cash',
-        currency: 'LAK',
-        amount: 420_000,
-        category: 'Food',
-        note: 'Lunch and coffee week',
-        date: makeDate(0, 5),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'tx-3',
-        type: 'move',
-        walletId: 'wallet-cash',
-        toWalletId: 'wallet-family',
-        currency: 'LAK',
-        amount: 1_000_000,
-        category: 'Transfer',
-        note: 'Support for house bills',
-        date: makeDate(0, 7),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'tx-4',
-        type: 'expense',
-        walletId: 'wallet-bank',
-        currency: 'THB',
-        amount: 1_650,
-        category: 'Shopping',
-        note: 'Work clothes and supplies',
-        date: makeDate(0, 8),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'tx-5',
-        type: 'income',
-        walletId: 'wallet-bank',
-        currency: 'THB',
-        amount: 12_000,
-        category: 'Freelance',
-        note: 'Design review project',
-        date: makeDate(0, 10),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'tx-6',
-        type: 'loan',
-        walletId: 'wallet-usd',
-        currency: 'USD',
-        amount: 300,
-        category: 'Loan',
-        note: 'Loan given to friend for 30 days',
-        loanDirection: 'given',
-        counterparty: 'Dara',
-        date: makeDate(0, 11),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'tx-7',
-        type: 'income',
-        walletId: 'wallet-family',
-        currency: 'LAK',
-        amount: 1_800_000,
-        category: 'Gift',
-        note: 'Birthday gift from relatives',
-        date: makeDate(0, 12),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'tx-8',
-        type: 'expense',
-        walletId: 'wallet-family',
-        currency: 'LAK',
-        amount: 275_000,
-        category: 'Bills',
-        note: 'Electricity and water',
-        date: makeDate(0, 13),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'tx-9',
-        type: 'expense',
-        walletId: 'wallet-usd',
-        currency: 'USD',
-        amount: 54.5,
-        category: 'Transport',
-        note: 'Taxi and airport shuttle',
-        date: makeDate(0, 15),
-        createdAt: new Date().toISOString()
-      }
-    ]
+    transactions: []
   }
 }
 
@@ -827,6 +800,9 @@ export function useMoneyNote() {
   const hydrating = useState('money-note-hydrating', () => false)
   const autoSyncReady = useState('money-note-auto-sync-ready', () => false)
   const initialHydratedSignature = useState('money-note-initial-hydrated-signature', () => '')
+  const localDirty = useState('money-note-local-dirty', () => false)
+  const syncInFlight = useState('money-note-sync-in-flight', () => false)
+  const queuedForceSync = useState('money-note-queued-force-sync', () => false)
   const { selectedLanguage } = useAppLanguage()
   const { authReady, sessionProfile } = useDeviceAuth()
   const { isOnline } = useConnectivity()
@@ -842,18 +818,86 @@ export function useMoneyNote() {
   const activeAccountKey = computed(() => normalizeAccountKey(activeAccountIdentifier.value))
   const isCloudSyncEnabled = computed(() => (sessionProfile.value?.plan ?? 'free') === 'pro')
 
-  const buildLocalSnapshot = (): MoneyNoteLocalSnapshot => ({
-    stateJson: JSON.stringify(store.value),
-    selectedCurrency: selectedCurrency.value,
-    currencySupportJson: JSON.stringify(currencySupport.value),
-    updatedAt: new Date().toISOString()
+  const buildStateSignature = (
+    stateValue: MoneyNoteState = store.value,
+    selectedCurrencyValue: CurrencyCode = selectedCurrency.value,
+    currencySupportValue: Record<CurrencyCode, boolean> = currencySupport.value
+  ) => JSON.stringify({
+    stateJson: JSON.stringify(stateValue),
+    selectedCurrency: selectedCurrencyValue,
+    currencySupportJson: JSON.stringify(currencySupportValue)
   })
 
-  const buildLocalSnapshotSignature = () => JSON.stringify({
-    stateJson: JSON.stringify(store.value),
-    selectedCurrency: selectedCurrency.value,
-    currencySupportJson: JSON.stringify(currencySupport.value)
+  const buildLocalSnapshot = (
+    updatedAt = new Date().toISOString(),
+    stateValue: MoneyNoteState = store.value,
+    selectedCurrencyValue: CurrencyCode = selectedCurrency.value,
+    currencySupportValue: Record<CurrencyCode, boolean> = currencySupport.value
+  ): MoneyNoteLocalSnapshot => ({
+    stateJson: JSON.stringify(stateValue),
+    selectedCurrency: selectedCurrencyValue,
+    currencySupportJson: JSON.stringify(currencySupportValue),
+    updatedAt
   })
+
+  const buildLocalSnapshotSignature = () => buildStateSignature()
+
+  function parseSnapshotState(snapshot?: MoneyNoteLocalSnapshot | null) {
+    if (!snapshot) {
+      return {
+        state: normalizeState(defaultState()),
+        selectedCurrency: 'LAK' as CurrencyCode,
+        currencySupport: defaultCurrencySupport(),
+        updatedAt: new Date().toISOString()
+      }
+    }
+
+    let parsedState = normalizeState(defaultState())
+    let parsedCurrency = 'LAK' as CurrencyCode
+    let parsedSupport = defaultCurrencySupport()
+
+    try {
+      parsedState = normalizeState(JSON.parse(snapshot.stateJson) as Partial<MoneyNoteState>)
+    }
+    catch {
+      parsedState = normalizeState(defaultState())
+    }
+
+    try {
+      parsedSupport = normalizeCurrencySupport(JSON.parse(snapshot.currencySupportJson) as Partial<Record<CurrencyCode, boolean>>)
+    }
+    catch {
+      parsedSupport = defaultCurrencySupport()
+    }
+
+    if (currencyOptions.some(option => option.value === snapshot.selectedCurrency)) {
+      parsedCurrency = snapshot.selectedCurrency
+    }
+
+    return {
+      state: parsedState,
+      selectedCurrency: parsedCurrency,
+      currencySupport: parsedSupport,
+      updatedAt: snapshot.updatedAt ?? new Date().toISOString()
+    }
+  }
+
+  async function persistLocalSnapshot(updatedAt = new Date().toISOString()) {
+    await writeMoneyNoteLocalSnapshot(
+      activeAccountKey.value,
+      buildLocalSnapshot(updatedAt)
+    ).catch(() => {})
+  }
+
+  function pushCloudState(identifier: string, state: MoneyNoteState) {
+    void $fetch('/api/app-state', {
+      method: 'POST',
+      body: {
+        identifier,
+        state
+      }
+    }).catch(() => {})
+  }
 
   function compareSnapshotTimes(localUpdatedAt?: string | null, remoteUpdatedAt?: string | null) {
     const localTime = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0
@@ -866,18 +910,20 @@ export function useMoneyNote() {
     }
   }
 
-  const saveState = () => {
+  const saveState = (options?: { force?: boolean }) => {
     if (!import.meta.client || !hydrated.value || hydrating.value || !autoSyncReady.value) return
 
     const snapshotSignature = buildLocalSnapshotSignature()
-    if (snapshotSignature === initialHydratedSignature.value) return
+    if (!options?.force && snapshotSignature === initialHydratedSignature.value) return
 
     if (localSaveTimer) {
       clearTimeout(localSaveTimer)
     }
 
+    localDirty.value = true
     localSaveTimer = setTimeout(() => {
-      void writeMoneyNoteLocalSnapshot(activeAccountKey.value, buildLocalSnapshot()).catch(() => {})
+      localSaveTimer = null
+      void persistLocalSnapshot()
     }, 150)
 
     if (!isCloudSyncEnabled.value) {
@@ -899,29 +945,18 @@ export function useMoneyNote() {
     const identifier = activeAccountIdentifier.value.trim()
     if (!identifier || activeAccountKey.value === 'guest') {
       syncStatus.value = 'waiting'
-      syncProgress.value = 35
+      syncProgress.value = 0
       return
     }
 
-    syncStatus.value = 'syncing'
-    syncProgress.value = 72
+    if (syncInFlight.value) {
+      queuedForceSync.value = true
+      return
+    }
+
     remoteSaveTimer = setTimeout(() => {
-      void $fetch('/api/app-state', {
-        method: 'POST',
-        body: {
-          identifier,
-          state: store.value
-        }
-      })
-        .then(() => {
-          syncStatus.value = 'synced'
-          syncProgress.value = 100
-          lastSyncedAt.value = new Date().toISOString()
-        })
-        .catch(() => {
-          syncStatus.value = isOnline.value ? 'waiting' : 'offline'
-          syncProgress.value = isOnline.value ? 35 : 0
-      })
+      remoteSaveTimer = null
+      void refreshCloudState({ force: true })
     }, 250)
   }
 
@@ -980,24 +1015,19 @@ export function useMoneyNote() {
 
       if (!identifier || accountKey === 'guest') {
         syncStatus.value = 'waiting'
-        syncProgress.value = 35
+        syncProgress.value = 0
         return
       }
 
       syncStatus.value = 'syncing'
       syncProgress.value = 72
 
-      await $fetch('/api/app-state', {
-        method: 'POST',
-        body: {
-          identifier,
-          state: store.value
-        }
-      })
+      pushCloudState(identifier, store.value)
 
       syncStatus.value = 'synced'
       syncProgress.value = 100
       lastSyncedAt.value = new Date().toISOString()
+      initialHydratedSignature.value = buildLocalSnapshotSignature()
     }
     catch (error) {
       syncStatus.value = isOnline.value ? 'waiting' : 'offline'
@@ -1007,6 +1037,133 @@ export function useMoneyNote() {
     finally {
       hydrating.value = false
       autoSyncReady.value = true
+    }
+  }
+
+  async function refreshCloudState(options?: { force?: boolean }) {
+    if (!import.meta.client || !authReady.value || hydrating.value || !autoSyncReady.value) return false
+
+    if (!isCloudSyncEnabled.value) {
+      syncStatus.value = 'waiting'
+      syncProgress.value = 0
+      return false
+    }
+
+    if (!isOnline.value) {
+      syncStatus.value = 'offline'
+      syncProgress.value = 0
+      return false
+    }
+
+    const identifier = activeAccountIdentifier.value.trim()
+    const accountKey = activeAccountKey.value
+    if (!identifier || accountKey === 'guest') {
+      syncStatus.value = 'waiting'
+      syncProgress.value = 0
+      return false
+    }
+
+    if (syncInFlight.value) {
+      if (options?.force) {
+        queuedForceSync.value = true
+      }
+      return false
+    }
+
+    if (!options?.force && buildLocalSnapshotSignature() !== initialHydratedSignature.value) {
+      return false
+    }
+
+    try {
+      if (remoteSaveTimer) {
+        clearTimeout(remoteSaveTimer)
+        remoteSaveTimer = null
+      }
+      if (localSaveTimer) {
+        clearTimeout(localSaveTimer)
+        localSaveTimer = null
+      }
+
+      syncInFlight.value = true
+      queuedForceSync.value = false
+      syncStatus.value = 'syncing'
+      syncProgress.value = 72
+
+      const remote = await nuxtApp.$fetch<{ state: Partial<MoneyNoteState> | null; updatedAt?: string | null }>('/api/app-state', {
+        query: { identifier }
+      })
+
+      const localSnapshot = await readMoneyNoteLocalSnapshot(accountKey)
+      const localSnapshotParsed = parseSnapshotState(localSnapshot ?? buildLocalSnapshot())
+      const currentSignature = buildLocalSnapshotSignature()
+      const remoteState = remote?.state ? normalizeState(remote.state) : null
+      const remoteSignature = remoteState
+        ? buildStateSignature(remoteState, localSnapshotParsed.selectedCurrency, localSnapshotParsed.currencySupport)
+        : ''
+      const mergedState = remoteState ? mergeMoneyNoteState(localSnapshotParsed.state, remoteState) : localSnapshotParsed.state
+      const mergedSignature = buildStateSignature(
+        mergedState,
+        localSnapshotParsed.selectedCurrency,
+        localSnapshotParsed.currencySupport
+      )
+      const mergedSnapshotUpdatedAt = localDirty.value || !remoteState || remoteSignature !== mergedSignature
+        ? new Date().toISOString()
+        : remote?.updatedAt ?? localSnapshotParsed.updatedAt ?? new Date().toISOString()
+
+      hydrating.value = true
+      selectedCurrency.value = localSnapshotParsed.selectedCurrency
+      currencySupport.value = localSnapshotParsed.currencySupport
+      store.value = mergedState
+      hydratedAccountKey.value = accountKey
+      hydrated.value = true
+
+      if (currentSignature !== mergedSignature || !localSnapshot) {
+        await writeMoneyNoteLocalSnapshot(
+          accountKey,
+          buildLocalSnapshot(
+            mergedSnapshotUpdatedAt,
+            mergedState,
+            localSnapshotParsed.selectedCurrency,
+            localSnapshotParsed.currencySupport
+          )
+        )
+      }
+
+      const shouldPushRemote = !remoteState || remoteSignature !== mergedSignature || localDirty.value
+
+      if (shouldPushRemote) {
+        syncProgress.value = 88
+        pushCloudState(identifier, mergedState)
+      }
+
+      localDirty.value = false
+      syncStatus.value = 'synced'
+      syncProgress.value = 100
+      lastSyncedAt.value = new Date().toISOString()
+      initialHydratedSignature.value = buildStateSignature(
+        mergedState,
+        localSnapshotParsed.selectedCurrency,
+        localSnapshotParsed.currencySupport
+      )
+
+      return Boolean(remote?.state)
+    }
+    catch {
+      syncStatus.value = isOnline.value ? 'waiting' : 'offline'
+      syncProgress.value = isOnline.value ? 35 : 0
+      return false
+    }
+    finally {
+      syncInFlight.value = false
+      hydrating.value = false
+      autoSyncReady.value = true
+
+      if (queuedForceSync.value && import.meta.client) {
+        queuedForceSync.value = false
+        queueMicrotask(() => {
+          void refreshCloudState({ force: true })
+        })
+      }
     }
   }
 
@@ -1021,87 +1178,46 @@ export function useMoneyNote() {
     hydrated.value = false
 
     try {
-      let remoteFetchSucceeded = false
       const localSnapshot = await readMoneyNoteLocalSnapshot(accountKey)
-      if (localSnapshot) {
-        try {
-          const parsedState = JSON.parse(localSnapshot.stateJson) as Partial<MoneyNoteState>
-          store.value = normalizeState(parsedState)
-        }
-        catch {
-          store.value = normalizeState(defaultState())
-        }
+      const localSnapshotParsed = parseSnapshotState(localSnapshot)
 
-        try {
-          const parsedCurrencySupport = JSON.parse(localSnapshot.currencySupportJson) as Partial<Record<CurrencyCode, boolean>>
-          currencySupport.value = normalizeCurrencySupport(parsedCurrencySupport)
-        }
-        catch {
-          currencySupport.value = defaultCurrencySupport()
-        }
-
-        if (currencyOptions.some(option => option.value === localSnapshot.selectedCurrency)) {
-          selectedCurrency.value = localSnapshot.selectedCurrency
-        }
-      }
-      else {
-        store.value = normalizeState(defaultState())
-        selectedCurrency.value = 'LAK'
-        currencySupport.value = defaultCurrencySupport()
-      }
-
-      const identifier = activeAccountIdentifier.value.trim()
-
-      if (identifier && isCloudSyncEnabled.value) {
-        try {
-          const remote = await nuxtApp.$fetch<{ state: Partial<MoneyNoteState> | null; updatedAt?: string | null }>('/api/app-state', {
-            query: { identifier }
-          })
-          remoteFetchSucceeded = true
-
-          const localSnapshotUpdatedAt = localSnapshot?.updatedAt ?? null
-          const { remoteIsNewer } = compareSnapshotTimes(localSnapshotUpdatedAt, remote?.updatedAt ?? null)
-
-          if (remote?.state && (!localSnapshot || remoteIsNewer)) {
-            store.value = normalizeState(remote.state)
-            syncStatus.value = 'synced'
-            syncProgress.value = 100
-            lastSyncedAt.value = new Date().toISOString()
-          }
-        }
-        catch {
-          // fall back to local database below
-        }
-      }
-      else if (!isCloudSyncEnabled.value) {
-        syncStatus.value = 'waiting'
-        syncProgress.value = 0
-      }
+      store.value = localSnapshotParsed.state
+      selectedCurrency.value = localSnapshotParsed.selectedCurrency
+      currencySupport.value = localSnapshotParsed.currencySupport
+      localDirty.value = false
 
       hydratedAccountKey.value = accountKey
       hydrated.value = true
       initialHydratedSignature.value = buildLocalSnapshotSignature()
-      void writeMoneyNoteLocalSnapshot(accountKey, buildLocalSnapshot()).catch(() => {})
+      await writeMoneyNoteLocalSnapshot(
+        accountKey,
+        buildLocalSnapshot(
+          localSnapshotParsed.updatedAt,
+          localSnapshotParsed.state,
+          localSnapshotParsed.selectedCurrency,
+          localSnapshotParsed.currencySupport
+        )
+      ).catch(() => {})
       await nextTick()
-
-      if (isCloudSyncEnabled.value) {
-        if (isOnline.value && remoteFetchSucceeded) {
-          syncStatus.value = 'synced'
-          syncProgress.value = 100
-        }
-        else if (!isOnline.value) {
-          syncStatus.value = 'offline'
-          syncProgress.value = 0
-        }
-        else if (syncStatus.value === 'waiting') {
-          syncProgress.value = 0
-        }
-      }
     }
     finally {
       hydrating.value = false
       autoSyncReady.value = true
     }
+
+    if (!isCloudSyncEnabled.value) {
+      syncStatus.value = 'waiting'
+      syncProgress.value = 0
+      return
+    }
+
+    if (!isOnline.value) {
+      syncStatus.value = 'offline'
+      syncProgress.value = 0
+      return
+    }
+
+    void refreshCloudState({ force: true })
   }
 
   watch(
@@ -1131,11 +1247,20 @@ export function useMoneyNote() {
         return
       }
 
-      syncStatus.value = online ? 'waiting' : 'offline'
-      syncProgress.value = online ? 35 : 0
+      if (!online) {
+        syncStatus.value = 'offline'
+        syncProgress.value = 0
+        return
+      }
+
+      if (!isCloudSyncEnabled.value) {
+        syncStatus.value = 'waiting'
+        syncProgress.value = 0
+        return
+      }
 
       if (online && hydrated.value) {
-        saveState()
+        void refreshCloudState({ force: true })
       }
     },
     { immediate: false }
@@ -1414,9 +1539,10 @@ export function useMoneyNote() {
 
   const companyOptions = computed(() => companyEntries().filter(company => company.enabled !== false).map(company => company.name))
 
-  function addCategory(payload: { type: CategoryType; name: string; emoji?: string; color?: WalletColor }) {
-    const name = payload.name.trim()
-    if (!name) return false
+function addCategory(payload: { type: CategoryType; name: string; emoji?: string; color?: WalletColor }) {
+  const name = payload.name.trim()
+  if (!name) return false
+  const now = new Date().toISOString()
 
     const normalizedType = payload.type === 'expense' ? 'expense' : 'income'
     const exists = [
@@ -1433,7 +1559,8 @@ export function useMoneyNote() {
         emoji: payload.emoji?.trim() || '🏷️',
         color: payload.color ?? 'sky',
         enabled: true,
-        createdAt: new Date().toISOString()
+        createdAt: now,
+        updatedAt: now
       },
       ...store.value.categories
     ]
@@ -1463,9 +1590,10 @@ export function useMoneyNote() {
     store.value = recalculateBalances(cloneState(store.value))
   }
 
-  function updateCategory(categoryId: string, payload: { name: string; emoji?: string; color?: WalletColor }) {
-    const current = store.value.categories.find(category => category.id === categoryId)
-    if (!current) return false
+function updateCategory(categoryId: string, payload: { name: string; emoji?: string; color?: WalletColor }) {
+  const current = store.value.categories.find(category => category.id === categoryId)
+  if (!current) return false
+  const now = new Date().toISOString()
 
     const nextName = payload.name.trim()
     if (!nextName) return false
@@ -1487,7 +1615,8 @@ export function useMoneyNote() {
             ...category,
             name: nextName,
             emoji: payload.emoji?.trim() || category.emoji,
-            color: payload.color ?? category.color
+            color: payload.color ?? category.color,
+            updatedAt: now
           }
         : category
     ))
@@ -1542,9 +1671,10 @@ export function useMoneyNote() {
     store.value = recalculateBalances(cloneState(store.value))
   }
 
-  function addCompany(payload: { name: string; emoji?: string; color?: WalletColor }) {
-    const name = payload.name.trim()
-    if (!name) return false
+function addCompany(payload: { name: string; emoji?: string; color?: WalletColor }) {
+  const name = payload.name.trim()
+  if (!name) return false
+  const now = new Date().toISOString()
 
     const exists = [
       ...defaultCompanyDefinitions.map(company => company.name),
@@ -1560,7 +1690,8 @@ export function useMoneyNote() {
         emoji: payload.emoji?.trim() || '🏢',
         color: payload.color ?? 'sky',
         enabled: true,
-        createdAt: new Date().toISOString()
+        createdAt: now,
+        updatedAt: now
       },
       ...store.value.companies
     ]
@@ -1573,9 +1704,10 @@ export function useMoneyNote() {
     return true
   }
 
-  function updateCompany(companyId: string, payload: { name: string; emoji?: string; color?: WalletColor }) {
-    const current = store.value.companies.find(company => company.id === companyId)
-    if (!current) return false
+function updateCompany(companyId: string, payload: { name: string; emoji?: string; color?: WalletColor }) {
+  const current = store.value.companies.find(company => company.id === companyId)
+  if (!current) return false
+  const now = new Date().toISOString()
 
     const nextName = payload.name.trim()
     if (!nextName) return false
@@ -1597,7 +1729,8 @@ export function useMoneyNote() {
             ...company,
             name: nextName,
             emoji: payload.emoji?.trim() || company.emoji,
-            color: payload.color ?? company.color
+            color: payload.color ?? company.color,
+            updatedAt: now
           }
         : company
     ))
@@ -1746,6 +1879,7 @@ export function useMoneyNote() {
   }
 
 function applyTransactionPayload(payload: TransactionInput, id?: string) {
+  const now = new Date().toISOString()
   const baseTransaction: Transaction = {
     id: id ?? `tx-${crypto.randomUUID()}`,
     type: payload.type,
@@ -1760,15 +1894,24 @@ function applyTransactionPayload(payload: TransactionInput, id?: string) {
     company: payload.company?.trim() || undefined,
     counterparty: payload.counterparty?.trim() || undefined,
     loanDirection: payload.loanDirection,
-      createdAt: new Date().toISOString()
+    createdAt: now,
+    updatedAt: now
     }
 
     return baseTransaction
   }
 
-  function addTransaction(payload: TransactionInput) {
+  async function persistSnapshotAfterMutation() {
+    if (!import.meta.client || !hydrated.value || hydrating.value || !autoSyncReady.value) return
+
+    await writeMoneyNoteLocalSnapshot(activeAccountKey.value, buildLocalSnapshot()).catch(() => {})
+    saveState()
+  }
+
+  async function addTransaction(payload: TransactionInput) {
     store.value.transactions = [applyTransactionPayload(payload), ...store.value.transactions]
     store.value = recalculateBalances(cloneState(store.value))
+    await persistSnapshotAfterMutation()
   }
 
   function updateTransaction(transactionId: string, payload: TransactionInput) {
@@ -1776,26 +1919,30 @@ function applyTransactionPayload(payload: TransactionInput, id?: string) {
       transaction.id === transactionId ? { ...applyTransactionPayload(payload, transactionId), createdAt: transaction.createdAt } : transaction
     )
     store.value = recalculateBalances(cloneState(store.value))
+    void persistSnapshotAfterMutation()
   }
 
   function removeTransaction(transactionId: string) {
     store.value.transactions = store.value.transactions.filter(transaction => transaction.id !== transactionId)
     store.value = recalculateBalances(cloneState(store.value))
+    void persistSnapshotAfterMutation()
   }
 
-  function addWallet(payload: { name: string; currency: CurrencyCode; openingBalance: number; note?: string; color?: WalletColor; accent?: string; emoji?: string }) {
-    const color = payload.color ?? walletColorForAccent(payload.accent)
-    const wallet: Wallet = {
-      id: `wallet-${crypto.randomUUID()}`,
-      name: payload.name.trim(),
-      currency: payload.currency,
-      openingBalance: Number(payload.openingBalance),
-      balance: Number(payload.openingBalance),
-      note: payload.note?.trim(),
-      color,
-      accent: walletAccentForColor(color),
-      emoji: payload.emoji ?? '💳'
-    }
+function addWallet(payload: { name: string; currency: CurrencyCode; openingBalance: number; note?: string; color?: WalletColor; accent?: string; emoji?: string }) {
+  const color = payload.color ?? walletColorForAccent(payload.accent)
+  const now = new Date().toISOString()
+  const wallet: Wallet = {
+    id: `wallet-${crypto.randomUUID()}`,
+    name: payload.name.trim(),
+    currency: payload.currency,
+    openingBalance: Number(payload.openingBalance),
+    balance: Number(payload.openingBalance),
+    note: payload.note?.trim(),
+    color,
+    accent: walletAccentForColor(color),
+    emoji: payload.emoji ?? '💳',
+    updatedAt: now
+  }
 
     store.value.wallets = [wallet, ...store.value.wallets]
     const newKey = customWalletKey(wallet.id)
@@ -1804,6 +1951,7 @@ function applyTransactionPayload(payload: TransactionInput, id?: string) {
   }
 
   function updateWallet(walletId: string, payload: Partial<Wallet>) {
+    const now = new Date().toISOString()
     store.value.wallets = store.value.wallets.map((wallet) => {
       if (wallet.id !== walletId) return wallet
 
@@ -1812,7 +1960,8 @@ function applyTransactionPayload(payload: TransactionInput, id?: string) {
         ...wallet,
         ...payload,
         color,
-        accent: walletAccentForColor(color)
+        accent: walletAccentForColor(color),
+        updatedAt: now
       }
     })
     store.value = recalculateBalances(cloneState(store.value))
@@ -2028,6 +2177,7 @@ function applyTransactionPayload(payload: TransactionInput, id?: string) {
     lastSyncedAt,
     syncProgress,
     isOnline,
+    refreshCloudState,
     isCurrencyEnabled,
     setCurrencyEnabled,
     setDefaultCategoryEnabled,

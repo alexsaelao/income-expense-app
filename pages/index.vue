@@ -55,6 +55,9 @@ const homeCopy = computed(() => {
       syncingMessage: 'ກຳລັງບັນທຶກການປ່ຽນແປງລ່າສຸດຂຶ້ນຄລາວ.',
       syncedMessage: 'ຂໍ້ມູນຂອງທ່ານຊິງກັບຄລາວແລ້ວ.',
       waitingMessage: 'ການປ່ຽນແປງຖືກບັນທຶກໄວ້ຢ່າງປອດໄພ ແອັບຈະຊິງອີກຄັ້ງເມື່ອເນັດກັບມາ.',
+      syncPreparing: 'Checking cloud backup and preparing sync.',
+      syncComparing: 'Comparing cloud and local data.',
+      syncApplying: 'Applying the latest changes.',
       lastSyncedPrefix: 'ຊິງຄັ້ງລ່າສຸດ',
       totalBalance: 'ຍອດລວມ',
       acrossWallets: (count: number) => `ທັງໝົດ ${count} ກະເປົ໋າ`,
@@ -96,6 +99,9 @@ const homeCopy = computed(() => {
     syncingMessage: 'Saving your latest changes to the cloud.',
     syncedMessage: 'Your data is synced with the cloud.',
     waitingMessage: 'Local changes are safe. The app will sync again once the network is available.',
+    syncPreparing: 'Checking cloud backup and preparing sync.',
+    syncComparing: 'Comparing cloud and local data.',
+    syncApplying: 'Applying the latest changes.',
     lastSyncedPrefix: 'Last synced',
     totalBalance: 'Total balance',
     acrossWallets: (count: number) => `Across ${count} wallets`,
@@ -138,6 +144,7 @@ const syncStateCopy = computed(() => {
         icon: 'i-lucide-wifi-off',
         tone: 'rose',
         message: homeCopy.value.offlineMessage,
+        detail: homeCopy.value.syncPreparing,
         meta: ''
       }
     case 'syncing':
@@ -147,6 +154,7 @@ const syncStateCopy = computed(() => {
         icon: 'i-lucide-refresh-cw',
         tone: 'sky',
         message: homeCopy.value.syncingMessage,
+        detail: `${homeCopy.value.syncPreparing} ${homeCopy.value.syncComparing} ${homeCopy.value.syncApplying}`,
         meta: ''
       }
     case 'synced':
@@ -156,6 +164,7 @@ const syncStateCopy = computed(() => {
         icon: 'i-lucide-cloud-check',
         tone: 'emerald',
         message: homeCopy.value.syncedMessage,
+        detail: homeCopy.value.syncComparing,
         meta: lastSyncedAt.value
           ? `${homeCopy.value.lastSyncedPrefix} ${new Intl.DateTimeFormat(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(lastSyncedAt.value))}.`
           : ''
@@ -167,6 +176,7 @@ const syncStateCopy = computed(() => {
         icon: isOnline.value ? 'i-lucide-cloud-upload' : 'i-lucide-wifi-off',
         tone: isOnline.value ? 'amber' : 'rose',
         message: homeCopy.value.waitingMessage,
+        detail: homeCopy.value.syncPreparing,
         meta: ''
       }
   }
@@ -207,7 +217,8 @@ const syncStateCopy = computed(() => {
             <p class="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ homeCopy.syncStatus }}</p>
             <p class="truncate text-xs font-black text-default">{{ syncStateCopy.label }}</p>
             <p v-if="syncStateCopy.meta" class="mt-0.5 truncate text-[10px] text-muted">{{ syncStateCopy.meta }}</p>
-            <p v-else class="mt-0.5 truncate text-[10px] text-muted">{{ syncStateCopy.message }}</p>
+            <p class="mt-0.5 truncate text-[10px] text-muted">{{ syncStateCopy.message }}</p>
+            <p class="mt-0.5 truncate text-[10px] text-muted/90">{{ syncStateCopy.detail }}</p>
           </div>
           <UBadge color="neutral" variant="soft" class="shrink-0 rounded-full text-[9px] font-bold uppercase tracking-[0.14em]">
             {{ syncStateCopy.badge }}

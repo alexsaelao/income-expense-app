@@ -61,9 +61,42 @@ const clearDataModalPointerId = ref<number | null>(null)
 const clearDataModalStartX = ref(0)
 const clearDataModalStartY = ref(0)
 const clearDataModalDragOffset = ref(0)
+const networkSignalLevel = ref(4)
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function getNetworkSignalLevel() {
+  if (!import.meta.client || !isOnline.value) return 0
+
+  const connection = navigator.connection || (navigator as Navigator & { mozConnection?: any; webkitConnection?: any }).mozConnection || (navigator as Navigator & { webkitConnection?: any }).webkitConnection
+  const effectiveType = typeof connection?.effectiveType === 'string' ? connection.effectiveType : ''
+  const downlink = typeof connection?.downlink === 'number' ? connection.downlink : null
+
+  if (effectiveType === 'slow-2g' || effectiveType === '2g') return 1
+  if (effectiveType === '3g') return 2
+  if (effectiveType === '4g') return 4
+
+  if (downlink !== null) {
+    if (downlink < 0.5) return 1
+    if (downlink < 1.5) return 2
+    if (downlink < 5) return 3
+    return 4
+  }
+
+  return 4
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const normalized = hex.replace('#', '').trim()
+  if (normalized.length !== 6) return `rgba(14, 165, 233, ${alpha})`
+
+  const red = Number.parseInt(normalized.slice(0, 2), 16)
+  const green = Number.parseInt(normalized.slice(2, 4), 16)
+  const blue = Number.parseInt(normalized.slice(4, 6), 16)
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
 }
 
 function updateClearDataSlideValue(clientX: number) {
@@ -176,6 +209,29 @@ function openCompaniesPage() {
   return navigateTo('/companies')
 }
 
+if (import.meta.client) {
+  const updateNetworkSignal = () => {
+    networkSignalLevel.value = getNetworkSignalLevel()
+  }
+
+  onMounted(() => {
+    updateNetworkSignal()
+    window.addEventListener('online', updateNetworkSignal)
+    window.addEventListener('offline', updateNetworkSignal)
+
+    const connection = navigator.connection || (navigator as Navigator & { mozConnection?: any; webkitConnection?: any }).mozConnection || (navigator as Navigator & { webkitConnection?: any }).webkitConnection
+    connection?.addEventListener?.('change', updateNetworkSignal)
+  })
+
+  onBeforeUnmount(() => {
+    window.removeEventListener('online', updateNetworkSignal)
+    window.removeEventListener('offline', updateNetworkSignal)
+
+    const connection = navigator.connection || (navigator as Navigator & { mozConnection?: any; webkitConnection?: any }).mozConnection || (navigator as Navigator & { webkitConnection?: any }).webkitConnection
+    connection?.removeEventListener?.('change', updateNetworkSignal)
+  })
+}
+
 const themeChoices = computed(() => {
   if (selectedLanguage.value === 'lo') {
     return [
@@ -281,11 +337,16 @@ const settingsCopy = computed(() => {
       cloudSyncReady: 'ຊິງຄລາວເເລ້ວ',
       waitingToSync: 'ລໍຖ້າຊິງ',
       waiting: 'ລໍຖ້າ',
-      uploadProgress: 'ຄວາມຄືບໜ້າການອັບໂຫຼດ',
+      uploadProgress: 'ຄວາມຄືບໜ້າການຊິງ',
       syncedAll: 'ຂໍ້ມູນໃນເຄື່ອງນີ້ກົງກັບຄລາວແລ້ວ.',
       syncingUpload: 'ກຳລັງອັບໂຫຼດການປ່ຽນແປງຂຶ້ນຄລາວ.',
       waitingUpload: 'ບັນທຶກໄວ້ໃນເຄື່ອງແລ້ວ ກຳລັງລໍສັນຍານ.',
       pendingUpload: 'ການປ່ຽນແປງໃນເຄື່ອງກຳລັງລໍອັບໂຫຼດ.',
+      syncPreparing: 'ກຳລັງກວດຄລາວ ແລະກຽມຊິງຂໍ້ມູນ.',
+      syncComparing: 'ກຳລັງທຽບຂໍ້ມູນທ້ອງຖິ່ນກັບຄລາວ.',
+      syncApplying: 'ກຳລັງອັບເດດຂໍ້ມູນລ່າສຸດ.',
+      syncOfflineDetail: 'ບໍ່ມີເນັດຕອນນີ້ ການປ່ຽນແປງຈະຊິງເມື່ອກັບອອນລາຍ.',
+      syncLastSyncedAt: 'ຊິງຄັ້ງລ່າສຸດ',
       storage: 'ສຳຮອງຂໍ້ມູນ',
       storageDesc: 'ສົ່ງອອກແລະນຳເຂົ້າ backup ແບບ JSON ໄດ້.',
       backupRecommended: 'ແນະນຳ JSON',
@@ -427,11 +488,16 @@ const settingsCopy = computed(() => {
     cloudSyncReady: 'Cloud sync ready',
     waitingToSync: 'Waiting to sync',
     waiting: 'Waiting',
-    uploadProgress: 'Upload progress',
+    uploadProgress: 'Sync progress',
     syncedAll: 'Everything on this device matches the cloud.',
     syncingUpload: 'Uploading changes to cloud now.',
     waitingUpload: 'Saved locally. Waiting for connection to upload.',
     pendingUpload: 'Local changes are waiting to be uploaded.',
+    syncPreparing: 'Checking cloud backup and preparing sync.',
+    syncComparing: 'Comparing cloud and local data.',
+    syncApplying: 'Applying the latest changes.',
+    syncOfflineDetail: 'No connection right now. Changes will sync when online.',
+    syncLastSyncedAt: 'Last synced at',
     storage: 'Storage',
     storageDesc: 'Export a JSON backup or restore it later.',
     backupRecommended: 'JSON recommended',
@@ -1181,6 +1247,10 @@ async function confirmStorageImport() {
 
 const syncStateCopy = computed(() => {
   const copy = settingsCopy.value
+  const syncedTime = lastSyncedAt.value
+    ? new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(lastSyncedAt.value))
+    : ''
+
   switch (syncStatus.value) {
     case 'offline':
       return {
@@ -1188,7 +1258,8 @@ const syncStateCopy = computed(() => {
         badge: copy.waiting,
         icon: 'i-lucide-wifi-off',
         tone: 'rose',
-        message: copy.waitingUpload
+        message: copy.offlineMode,
+        detail: copy.syncOfflineDetail
       }
     case 'syncing':
       return {
@@ -1196,7 +1267,8 @@ const syncStateCopy = computed(() => {
         badge: copy.syncingNow,
         icon: 'i-lucide-refresh-cw',
         tone: 'sky',
-        message: copy.syncingUpload
+        message: copy.syncingNow,
+        detail: `${copy.syncPreparing} ${copy.syncComparing} ${copy.syncApplying}`
       }
     case 'synced':
       return {
@@ -1204,8 +1276,9 @@ const syncStateCopy = computed(() => {
         badge: copy.pro,
         icon: 'i-lucide-cloud-check',
         tone: 'emerald',
-        message: lastSyncedAt.value
-          ? `${copy.cloudSyncReady} ${new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(lastSyncedAt.value))}.`
+        message: copy.cloudSyncReady,
+        detail: syncedTime
+          ? `${copy.syncLastSyncedAt} ${syncedTime}.`
           : copy.syncedAll
       }
     default:
@@ -1214,12 +1287,26 @@ const syncStateCopy = computed(() => {
         badge: isOnline.value ? copy.waiting : copy.free,
         icon: isOnline.value ? 'i-lucide-cloud-upload' : 'i-lucide-wifi-off',
         tone: isOnline.value ? 'amber' : 'rose',
-        message: isOnline.value ? copy.pendingUpload : copy.waitingUpload
+        message: copy.waitingToSync,
+        detail: isOnline.value ? copy.syncPreparing : copy.syncOfflineDetail
       }
   }
 })
 
 const syncProgressLabel = computed(() => `${Math.round(syncProgress.value)}%`)
+const syncProgressStyle = computed(() => {
+  const color = activeTheme.value.hex
+  return {
+    width: `${syncProgress.value}%`,
+    backgroundImage: `linear-gradient(90deg, ${hexToRgba(color, 0.95)} 0%, ${hexToRgba(color, 0.7)} 55%, ${hexToRgba(color, 1)} 100%)`
+  }
+})
+const syncProgressShimmerStyle = computed(() => {
+  const color = activeTheme.value.hex
+  return {
+    backgroundImage: `linear-gradient(90deg, transparent 0%, ${hexToRgba(color, 0.24)} 50%, transparent 100%)`
+  }
+})
 const internetStatusCopy = computed(() => {
   if (selectedLanguage.value === 'lo') {
     return {
@@ -1324,16 +1411,15 @@ const internetStatusCopy = computed(() => {
 
               <div class="flex items-end gap-0.5" :aria-label="internetStatusCopy.signal">
                 <span
+                  v-for="(heightClass, index) in ['h-2', 'h-3', 'h-4', 'h-5']"
+                  :key="index"
                   class="block w-1 rounded-full transition-all"
-                  :class="isOnline ? 'h-2.5 bg-emerald-500' : 'h-1.5 bg-rose-400'"
-                />
-                <span
-                  class="block w-1 rounded-full transition-all"
-                  :class="isOnline ? 'h-4 bg-emerald-500/90' : 'h-2.5 bg-rose-400/80'"
-                />
-                <span
-                  class="block w-1 rounded-full transition-all"
-                  :class="isOnline ? 'h-5 bg-emerald-500' : 'h-3.5 bg-rose-400/60'"
+                  :class="[
+                    heightClass,
+                    isOnline && networkSignalLevel >= index + 1
+                      ? 'bg-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.12)]'
+                      : 'bg-slate-300 dark:bg-slate-700'
+                  ]"
                 />
               </div>
             </div>
@@ -1371,31 +1457,25 @@ const internetStatusCopy = computed(() => {
           <div class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-white px-3 py-3 dark:border-slate-800 dark:bg-slate-950">
             <div class="flex items-center justify-between gap-3">
               <p class="text-xs font-bold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.uploadProgress }}</p>
-              <UBadge v-if="syncStatus === 'syncing'" color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
+              <UBadge color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
                 {{ syncProgressLabel }}
-              </UBadge>
-              <UBadge v-else color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
-                {{ syncStatus === 'synced' ? syncStateCopy.badge : syncStateCopy.badge }}
               </UBadge>
             </div>
 
-            <div v-if="syncStatus === 'syncing'" class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div class="sync-progress-shell mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" :style="{ '--sync-progress-color': activeTheme.hex }">
               <div
-                class="h-full rounded-full bg-gradient-to-r from-sky-500 via-blue-500 to-cyan-400 transition-all duration-300"
-                :style="{ width: `${syncProgress}%` }"
+                class="sync-progress-fill h-full rounded-full transition-all duration-300"
+                :style="syncProgressStyle"
+              />
+              <div
+                v-if="syncStatus === 'syncing' || syncStatus === 'waiting'"
+                class="sync-progress-shimmer"
+                :style="syncProgressShimmerStyle"
               />
             </div>
 
             <p class="mt-2 text-[11px] leading-5 text-muted">
-              {{
-                syncStatus === 'synced'
-                  ? (lastSyncedAt ? `${settingsCopy.cloudSyncReady} ${new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(lastSyncedAt))}.` : settingsCopy.syncedAll)
-                  : syncStatus === 'syncing'
-                    ? settingsCopy.syncingUpload
-                    : syncStatus === 'offline'
-                      ? settingsCopy.waitingUpload
-                      : settingsCopy.pendingUpload
-              }}
+              {{ syncStateCopy.detail }}
             </p>
           </div>
         </template>
@@ -2336,5 +2416,34 @@ const internetStatusCopy = computed(() => {
   border-radius: 9999px;
   background: #fff;
   box-shadow: 0 10px 20px rgba(244, 63, 94, 0.22);
+}
+
+.sync-progress-shell {
+  position: relative;
+}
+
+.sync-progress-fill {
+  position: relative;
+  z-index: 1;
+}
+
+.sync-progress-shimmer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 40%;
+  border-radius: inherit;
+  animation: sync-progress-shimmer 1.25s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes sync-progress-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(260%);
+  }
 }
 </style>

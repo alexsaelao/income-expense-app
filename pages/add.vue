@@ -5,8 +5,8 @@ import { useMoneyNote } from '~/composables/useMoneyNote'
 const router = useRouter()
 const { addTransaction } = useMoneyNote()
 
-function handleSubmit(payload: TransactionInput) {
-  addTransaction(payload)
+async function handleSubmit(payload: TransactionInput) {
+  await addTransaction(payload)
   router.push('/transactions')
 }
 </script>

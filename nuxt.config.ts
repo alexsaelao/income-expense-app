@@ -1,6 +1,7 @@
 export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@vite-pwa/nuxt'],
   css: ['~/assets/css/main.css'],
+  devtools: { enabled: false },
   runtimeConfig: {
     tursoDatabaseUrl: process.env.TURSO_DATABASE_URL ?? '',
     tursoAuthToken: process.env.TURSO_AUTH_TOKEN ?? '',

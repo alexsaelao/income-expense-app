@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "python3 -m http.server 4173",
-    "build": "node ../node_modules/vite/bin/vite.js build",
-    "preview": "python3 -m http.server 4173"
+    "dev": "../node_modules/.bin/nuxt dev --host 0.0.0.0 --port 4173",
+    "build": "npx nuxi generate && node ./scripts/copy-static.mjs",
+    "preview": "python3 -m http.server 4173 -d dist"
   }
 }

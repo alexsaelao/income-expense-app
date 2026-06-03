@@ -63,6 +63,10 @@ const currencyLabel = computed(() => {
   return currencySymbols[form.currency]
 })
 
+function fallbackCategoryForType(type: TransactionType) {
+  return categoryOptionsFor(type)[0] ?? 'Other'
+}
+
 function formatWalletLabel(wallet: { emoji?: string; name: string; currency: CurrencyCode }) {
   return `${String(wallet.emoji ?? '💳')} ${String(wallet.name)} (${String(wallet.currency)})`
 }
@@ -233,7 +237,7 @@ const moveDestinationHint = computed(() => {
 const canSubmit = computed(() => Boolean(
   form.walletId
   && form.amount
-  && (!showCategoryField.value || form.category)
+  && (!showCategoryField.value || form.category || fallbackCategoryForType(form.type))
   && (!showDestination.value || form.toWalletId)
   && (!needsExchangeRate.value || (form.exchangeRate && Number(form.exchangeRate) > 0))
 ))
@@ -308,9 +312,7 @@ function applyCreateDefaults(type: TransactionType = form.type) {
   }
 
   const category = preferredCategoryForCreate(type)
-  if (category) {
-    form.category = category
-  }
+  form.category = category || fallbackCategoryForType(type)
 
   if (type === 'income') {
     const currentCompanyValid = companyItems.value.some(item => item.value === form.company)
@@ -432,7 +434,7 @@ watch(
   (items) => {
     if (!items.length) {
       if (props.mode === 'create') {
-        form.category = ''
+        form.category = fallbackCategoryForType(form.type)
       }
       return
     }
@@ -497,11 +499,16 @@ watch(
 )
 
 function handleSubmit() {
-  if (!form.walletId || !form.amount || !form.category) return
+  if (!form.walletId || !form.amount) return
   if (showDestination.value && !form.toWalletId) return
   if (needsExchangeRate.value && (!form.exchangeRate || Number(form.exchangeRate) <= 0)) return
 
   const exchangeRate = needsExchangeRate.value ? Number(form.exchangeRate) : undefined
+  const category = showDestination.value
+    ? 'Transfer'
+    : showLoanFields.value
+      ? 'Loan'
+      : form.category || fallbackCategoryForType(form.type)
 
   emit('submit', {
     type: form.type,
@@ -510,7 +517,7 @@ function handleSubmit() {
     currency: form.currency,
     amount: Number(form.amount),
     exchangeRate: exchangeRate && exchangeRate > 0 ? exchangeRate : undefined,
-    category: showDestination.value ? 'Transfer' : form.category,
+    category,
     note: form.note,
     date: form.date,
     company: showCompanyField.value ? form.company : undefined,
@@ -901,7 +908,7 @@ function handleAmountKeydown(event: KeyboardEvent) {
       </div>
     </UCard>
 
-    <div class="fixed inset-x-0 z-20 border-t border-white/60 bg-white/92 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90" style="bottom: calc(env(safe-area-inset-bottom) + 4.3rem);">
+    <div class="fixed inset-x-0 z-50 border-t border-white/60 bg-white/92 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90" style="bottom: calc(env(safe-area-inset-bottom) + 6.25rem); pointer-events: auto; touch-action: manipulation;">
       <div class="mx-auto grid max-w-md gap-2">
         <UButton
           type="submit"
