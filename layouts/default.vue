@@ -1,10 +1,10 @@
 <script setup lang="ts">
 const route = useRoute()
-const router = useRouter()
 const { selectedLanguage } = useAppLanguage()
 const { authReady, isAuthenticated, hydrateAuth } = useDeviceAuth()
 
 const isAuthPage = computed(() => route.path === '/login' || route.path === '/register')
+const showProtectedShell = computed(() => authReady.value && isAuthenticated.value)
 
 useHead(() => ({
   htmlAttrs: {
@@ -18,17 +18,16 @@ onMounted(() => {
   hydrateAuth()
 })
 
-watchEffect(() => {
-  if (!authReady.value) return
+watch([authReady, isAuthenticated, isAuthPage], ([ready, authenticated, authPage]) => {
+  if (!ready) return
 
-  if (!isAuthenticated.value && !isAuthPage.value) {
-    router.replace('/login')
+  if (!authenticated && !authPage) {
+    navigateTo('/login', { replace: true })
     return
   }
 
-  if (isAuthenticated.value && isAuthPage.value) {
-    router.replace('/')
-    return
+  if (authenticated && authPage) {
+    navigateTo('/', { replace: true })
   }
 })
 </script>
@@ -36,6 +35,7 @@ watchEffect(() => {
 <template>
   <div class="app-shell relative overflow-x-hidden">
     <main
+      v-if="isAuthPage || showProtectedShell"
       class="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-4"
       :class="isAuthPage
         ? 'justify-center pb-8 pt-6'
@@ -45,7 +45,15 @@ watchEffect(() => {
       <slot />
     </main>
 
-    <AppBottomNav v-if="!isAuthPage" />
-    <AppFloatingAction v-if="!isAuthPage" />
+    <div v-else class="flex min-h-screen items-center justify-center px-4">
+      <div class="flex flex-col items-center gap-4 text-center">
+        <div class="flex size-16 items-center justify-center rounded-[1.4rem] bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)] animate-pulse">
+          <UIcon name="i-lucide-wallet-cards" class="size-8" />
+        </div>
+      </div>
+    </div>
+
+    <AppBottomNav v-if="showProtectedShell" />
+    <AppFloatingAction v-if="showProtectedShell" />
   </div>
 </template>

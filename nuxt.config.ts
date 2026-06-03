@@ -6,7 +6,8 @@ export default defineNuxtConfig({
     tursoAuthToken: process.env.TURSO_AUTH_TOKEN ?? '',
     adminLoginIdentifier: process.env.ADMIN_LOGIN_IDENTIFIER ?? process.env.ADMIN_LOGIN_EMAIL ?? 'admin@local',
     adminLoginPin: process.env.ADMIN_LOGIN_PIN ?? '123456',
-    adminSessionSecret: process.env.ADMIN_SESSION_SECRET ?? 'wallet-codesabai-admin-secret'
+    adminSessionSecret: process.env.ADMIN_SESSION_SECRET ?? 'wallet-codesabai-admin-secret',
+    userSessionSecret: process.env.USER_SESSION_SECRET ?? 'wallet-codesabai-user-secret'
   },
   app: {
     head: {

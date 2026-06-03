@@ -8,6 +8,7 @@ import {
   normalizeRedeemCode,
   PRO_REDEEM_TABLE
 } from '~/server/utils/turso'
+import { readUserSession, setUserSession } from '~/server/utils/auth-session'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -34,6 +35,7 @@ export default defineEventHandler(async (event) => {
   const normalizedIdentifier = normalizeAuthIdentifier(identifier)
   const normalizedKey = normalizeRedeemCode(key)
   const now = new Date().toISOString()
+  const currentSession = readUserSession(event, config.userSessionSecret ?? 'wallet-codesabai-user-secret')
 
   if (!normalizedKey) {
     throw createError({ statusCode: 400, statusMessage: 'Missing redeem key' })
@@ -66,6 +68,10 @@ export default defineEventHandler(async (event) => {
         `,
         args: [now, now, normalizedIdentifier]
       })
+    }
+
+    if (currentSession?.identifier === normalizedIdentifier) {
+      setUserSession(event, normalizedIdentifier, 'pro', config.userSessionSecret ?? 'wallet-codesabai-user-secret', true)
     }
 
     return {
@@ -125,6 +131,10 @@ export default defineEventHandler(async (event) => {
     `,
     args: [normalizedIdentifier, now, now, normalizedKey]
   })
+
+  if (currentSession?.identifier === normalizedIdentifier) {
+    setUserSession(event, normalizedIdentifier, 'pro', config.userSessionSecret ?? 'wallet-codesabai-user-secret', true)
+  }
 
   return {
     ok: true,

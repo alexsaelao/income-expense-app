@@ -770,7 +770,7 @@ async function submitProRedeem() {
     })
 
     if (result.account?.plan === 'pro') {
-      setSessionPlan('pro')
+      await setSessionPlan('pro')
       proRedeemModalOpen.value = false
       return
     }
@@ -876,9 +876,9 @@ function handleLogout() {
   logoutConfirmModalOpen.value = true
 }
 
-function confirmLogout() {
+async function confirmLogout() {
   logoutConfirmModalOpen.value = false
-  signOut()
+  await signOut()
   router.replace('/login')
 }
 

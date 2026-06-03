@@ -1,5 +1,16 @@
 export type ProfileAvatarType = 'emoji' | 'icon'
 
+export const AUTH_SERVER_SESSION_STATE_KEY = 'income-expense-note-auth-server-session'
+
+export type ServerAuthSessionSnapshot = {
+  loaded: boolean
+  authenticated: boolean
+  session: {
+    identifier: string
+    plan: 'free' | 'pro'
+  } | null
+}
+
 type AuthProfile = {
   identifier: string
   pin: string
@@ -20,6 +31,14 @@ type AuthSession = {
 
 const REMEMBER_KEY = 'income-expense-note-auth-remember-v1'
 const SESSION_KEY = 'income-expense-note-auth-session-v1'
+
+function createServerAuthSnapshot(): ServerAuthSessionSnapshot {
+  return {
+    loaded: false,
+    authenticated: false,
+    session: null
+  }
+}
 
 function normalizeAvatarValue(avatarType: ProfileAvatarType | undefined, avatarValue: string | undefined) {
   const normalizedAvatarValue = avatarValue?.trim() ?? ''
@@ -85,29 +104,97 @@ function writeSession<T>(key: string, value: T | null) {
 export function useDeviceAuth() {
   const authReady = useState('income-expense-note-auth-ready', () => false)
   const hydrated = useState('income-expense-note-auth-hydrated', () => false)
+  const hydrating = useState('income-expense-note-auth-hydrating', () => false)
   const rememberedProfile = useState<AuthProfile | null>('income-expense-note-auth-remembered', () => null)
   const sessionProfile = useState<AuthSession | null>('income-expense-note-auth-session', () => null)
+  const serverAuthSession = useState<ServerAuthSessionSnapshot>(AUTH_SERVER_SESSION_STATE_KEY, createServerAuthSnapshot)
 
-  function hydrateAuth() {
-    if (hydrated.value || import.meta.server) return
-
+  if (!import.meta.server && !rememberedProfile.value) {
     const storedRememberedProfile = readStorage<AuthProfile>(REMEMBER_KEY)
-    const storedSessionProfile = readSession<AuthSession>(SESSION_KEY)
-
     rememberedProfile.value = storedRememberedProfile
       ? {
           ...storedRememberedProfile,
           avatarValue: normalizeAvatarValue(storedRememberedProfile.avatarType, storedRememberedProfile.avatarValue)
         }
       : null
-    sessionProfile.value = storedSessionProfile
-      ? {
-          ...storedSessionProfile,
-          avatarValue: normalizeAvatarValue(storedSessionProfile.avatarType, storedSessionProfile.avatarValue)
-        }
-      : null
-    hydrated.value = true
+  }
+
+  if (serverAuthSession.value.loaded) {
+    applyServerAuthSession(serverAuthSession.value, rememberedProfile.value)
     authReady.value = true
+  }
+
+  function applyServerAuthSession(session: ServerAuthSessionSnapshot, remembered: AuthProfile | null) {
+    if (!session.authenticated || !session.session) {
+      sessionProfile.value = null
+      writeSession<AuthSession>(SESSION_KEY, null)
+      return
+    }
+
+    const storedSessionProfile = readSession<AuthSession>(SESSION_KEY)
+    const avatarSource = remembered?.identifier === session.session.identifier
+      ? remembered
+      : storedSessionProfile?.identifier === session.session.identifier
+        ? storedSessionProfile
+        : null
+
+    sessionProfile.value = {
+      identifier: session.session.identifier,
+      signedInAt: storedSessionProfile?.identifier === session.session.identifier
+        ? storedSessionProfile.signedInAt
+        : new Date().toISOString(),
+      plan: session.session.plan,
+      avatarType: avatarSource?.avatarType,
+      avatarValue: normalizeAvatarValue(avatarSource?.avatarType, avatarSource?.avatarValue) || undefined
+    }
+    writeSession(SESSION_KEY, sessionProfile.value)
+  }
+
+  async function hydrateAuth() {
+    if (hydrated.value || hydrating.value || import.meta.server) return
+
+    hydrating.value = true
+
+    try {
+      const storedRememberedProfile = readStorage<AuthProfile>(REMEMBER_KEY)
+
+      rememberedProfile.value = storedRememberedProfile
+        ? {
+            ...storedRememberedProfile,
+            avatarValue: normalizeAvatarValue(storedRememberedProfile.avatarType, storedRememberedProfile.avatarValue)
+          }
+        : null
+
+      if (!serverAuthSession.value.loaded) {
+        const serverSession = await $fetch<{ authenticated: boolean; session: { identifier: string; plan: 'free' | 'pro' } | null }>('/api/auth/me')
+        serverAuthSession.value = {
+          loaded: true,
+          authenticated: Boolean(serverSession.authenticated && serverSession.session),
+          session: serverSession.authenticated && serverSession.session
+            ? {
+                identifier: serverSession.session.identifier,
+                plan: serverSession.session.plan
+              }
+            : null
+        }
+      }
+
+      applyServerAuthSession(serverAuthSession.value, rememberedProfile.value)
+    }
+    catch {
+      serverAuthSession.value = {
+        loaded: true,
+        authenticated: false,
+        session: null
+      }
+      sessionProfile.value = null
+      writeSession<AuthSession>(SESSION_KEY, null)
+    }
+    finally {
+      hydrated.value = true
+      authReady.value = true
+      hydrating.value = false
+    }
   }
 
   function ensureHydrated() {
@@ -177,6 +264,14 @@ export function useDeviceAuth() {
 
     sessionProfile.value = session
     writeSession(SESSION_KEY, session)
+    serverAuthSession.value = {
+      loaded: true,
+      authenticated: true,
+      session: {
+        identifier: normalizedIdentifier,
+        plan
+      }
+    }
   }
 
   function setSessionPlan(plan: 'free' | 'pro') {
@@ -188,6 +283,14 @@ export function useDeviceAuth() {
     }
 
     writeSession(SESSION_KEY, sessionProfile.value)
+    serverAuthSession.value = {
+      loaded: true,
+      authenticated: true,
+      session: {
+        identifier: sessionProfile.value.identifier,
+        plan
+      }
+    }
   }
 
   function setProfileAvatar(avatarType: ProfileAvatarType, avatarValue: string) {
@@ -213,9 +316,23 @@ export function useDeviceAuth() {
     }
   }
 
-  function signOut() {
+  async function signOut() {
     sessionProfile.value = null
+    serverAuthSession.value = {
+      loaded: true,
+      authenticated: false,
+      session: null
+    }
     writeSession<AuthSession>(SESSION_KEY, null)
+
+    try {
+      await $fetch('/api/auth/logout', {
+        method: 'POST'
+      })
+    }
+    catch {
+      // Ignore logout transport failures and keep the local session cleared.
+    }
   }
 
   const isAuthenticated = computed(() => Boolean(sessionProfile.value))

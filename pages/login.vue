@@ -198,7 +198,8 @@ async function submitLogin() {
       method: 'POST',
       body: {
         identifier: normalizedIdentifier,
-        pin: pinValue.value
+        pin: pinValue.value,
+        remember: rememberDevice.value
       }
     })
 

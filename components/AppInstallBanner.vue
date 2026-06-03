@@ -15,9 +15,10 @@ const installButtonStyle = computed(() => ({
 
 const installAvailable = computed(() => Boolean($pwa?.showInstallPrompt?.value))
 const installHelpOpen = ref(false)
-const bannerDismissed = ref(import.meta.client ? sessionStorage.getItem('money-note-install-banner-dismissed') === '1' : false)
+const bannerDismissed = ref(false)
+const bannerReady = ref(false)
 const installLabel = computed(() => (installAvailable.value ? 'Install app' : 'How to install'))
-const bannerVisible = computed(() => !isStandalone.value && !bannerDismissed.value)
+const bannerVisible = computed(() => bannerReady.value && !isStandalone.value && !bannerDismissed.value)
 const appName = 'Wallet Code Sabai'
 
 async function installApp() {
@@ -38,10 +39,11 @@ async function installApp() {
 function dismissBanner() {
   bannerDismissed.value = true
   installHelpOpen.value = false
-  sessionStorage.setItem('money-note-install-banner-dismissed', '1')
 }
 
 onMounted(() => {
+  bannerReady.value = true
+
   const pendingInstall = sessionStorage.getItem('money-note-install-after-home')
   if (pendingInstall) {
     sessionStorage.removeItem('money-note-install-after-home')

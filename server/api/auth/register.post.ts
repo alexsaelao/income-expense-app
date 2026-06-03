@@ -8,6 +8,7 @@ import {
   normalizeAuthIdentifier,
   AUTH_ACCOUNT_TABLE
 } from '~/server/utils/turso'
+import { setUserSession } from '~/server/utils/auth-session'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -81,6 +82,14 @@ export default defineEventHandler(async (event) => {
       now
     ]
   })
+
+  setUserSession(
+    event,
+    identifier,
+    'free',
+    config.userSessionSecret ?? 'wallet-codesabai-user-secret',
+    remember
+  )
 
   return {
     ok: true,

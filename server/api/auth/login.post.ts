@@ -6,6 +6,7 @@ import {
   normalizeAuthIdentifier,
   AUTH_ACCOUNT_TABLE
 } from '~/server/utils/turso'
+import { setUserSession } from '~/server/utils/auth-session'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -14,9 +15,10 @@ export default defineEventHandler(async (event) => {
     tursoAuthToken: config.tursoAuthToken
   })
 
-  const body = await readBody<{ identifier?: string; pin?: string }>(event)
+  const body = await readBody<{ identifier?: string; pin?: string; remember?: boolean }>(event)
   const identifier = body?.identifier?.trim()
   const pin = body?.pin?.trim()
+  const remember = Boolean(body?.remember ?? true)
 
   if (!db) {
     throw createError({ statusCode: 503, statusMessage: 'Database not configured' })
@@ -60,6 +62,14 @@ export default defineEventHandler(async (event) => {
   if (nextHash !== row.pin_hash) {
     throw createError({ statusCode: 401, statusMessage: 'PIN is not correct' })
   }
+
+  setUserSession(
+    event,
+    row.identifier ?? identifier,
+    row.plan === 'pro' ? 'pro' : 'free',
+    config.userSessionSecret ?? 'wallet-codesabai-user-secret',
+    remember
+  )
 
   return {
     ok: true,
