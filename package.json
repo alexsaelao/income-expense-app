@@ -3,10 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev --host 0.0.0.0 --port 3002",
+    "dev": "nuxt dev",
+    "dev:landing": "npm --prefix landing run dev",
     "build": "nuxt build",
+    "build:landing": "npm --prefix landing run build",
     "generate": "nuxt generate",
+    "generate:landing": "npm --prefix landing run generate",
     "preview": "nuxt preview",
+    "preview:landing": "npm --prefix landing run preview",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {

@@ -2,6 +2,30 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@vite-pwa/nuxt'],
   css: ['~/assets/css/main.css'],
   devtools: { enabled: false },
+  ignore: [
+    'landing',
+    'landing/**',
+    '3002',
+    '3002/**'
+  ],
+  experimental: {
+    watcher: 'parcel'
+  },
+  vite: {
+    server: {
+      watch: {
+        ignored: [
+          '**/node_modules/**',
+          '**/.git/**',
+          '**/.nuxt/**',
+          '**/.output/**',
+          '**/dist/**',
+          '**/3002/**',
+          '**/landing/**'
+        ]
+      }
+    }
+  },
   runtimeConfig: {
     tursoDatabaseUrl: process.env.TURSO_DATABASE_URL ?? '',
     tursoAuthToken: process.env.TURSO_AUTH_TOKEN ?? '',
@@ -26,8 +50,7 @@ export default defineNuxtConfig({
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
         { rel: 'icon', type: 'image/svg+xml', href: '/wallet-codesabai-mark.svg' },
-        { rel: 'icon', type: 'image/png', href: '/pwa-192x192.png' },
-        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' }
+        { rel: 'apple-touch-icon', href: '/wallet-codesabai-mark.svg', type: 'image/svg+xml' }
       ]
     },
     pageTransition: { name: 'page', mode: 'out-in' },
@@ -43,7 +66,7 @@ export default defineNuxtConfig({
     client: {
       installPrompt: true
     },
-    includeAssets: ['offline.html', 'wallet-codesabai-mark.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png'],
+    includeAssets: ['offline.html', 'wallet-codesabai-mark.svg'],
     manifest: {
       id: '/',
       name: 'Wallet Code Sabai',
@@ -67,24 +90,6 @@ export default defineNuxtConfig({
           sizes: 'any',
           type: 'image/svg+xml',
           purpose: 'any'
-        },
-        {
-          src: '/pwa-192x192.png',
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: '/pwa-512x512.png',
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: '/pwa-maskable-512x512.png',
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'maskable'
         }
       ]
     },

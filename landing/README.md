@@ -9,6 +9,8 @@ cd landing
 npm run dev
 ```
 
+Nuxt will use its default local binding. If the port is busy, pass `--port <number>` after `npm run dev`.
+
 ## Build
 
 ```bash

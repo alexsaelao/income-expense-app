@@ -73,7 +73,7 @@ onMounted(() => {
           <aside class="hidden md:sticky md:top-6 md:flex md:w-[19rem] md:flex-col md:gap-4">
             <div class="overflow-hidden rounded-[1.6rem] bg-white/90 p-4 shadow-[0_22px_60px_-32px_rgba(15,23,42,0.2)] dark:bg-slate-950/80">
               <div class="flex size-14 items-center justify-center overflow-hidden rounded-[1.4rem] bg-transparent">
-                <img src="/wallet-codesabai-mark-plain.svg" alt="" class="h-full w-full object-contain" />
+                <img src="/wallet-codesabai-mark.svg" alt="" class="h-full w-full object-contain" />
               </div>
               <p class="mt-3 text-[10px] font-semibold uppercase tracking-[0.28em] text-muted">Wallet Code Sabai</p>
               <h1 class="mt-1 text-xl font-black tracking-tight text-default">Super Admin</h1>

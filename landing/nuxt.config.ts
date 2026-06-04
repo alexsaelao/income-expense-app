@@ -3,6 +3,28 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
+  ignore: [
+    'dist',
+    'dist/**',
+    '.output',
+    '.output/**'
+  ],
+  experimental: {
+    watcher: 'parcel'
+  },
+  vite: {
+    server: {
+      watch: {
+        ignored: [
+          '**/node_modules/**',
+          '**/.git/**',
+          '**/.nuxt/**',
+          '**/.output/**',
+          '**/dist/**'
+        ]
+      }
+    }
+  },
   app: {
     head: {
       title: 'Wallet Code Sabai',
@@ -12,7 +34,7 @@ export default defineNuxtConfig({
       ],
       link: [
         { rel: 'icon', href: './wallet-codesabai-mark.svg', type: 'image/svg+xml' },
-        { rel: 'apple-touch-icon', href: './apple-touch-icon.png' },
+        { rel: 'apple-touch-icon', href: './wallet-codesabai-mark.svg', type: 'image/svg+xml' },
       ],
     },
   },

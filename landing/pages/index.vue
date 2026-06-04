@@ -344,7 +344,7 @@ const themeIcon = computed(() => (theme.value === 'dark' ? sunIcon : moonIcon))
 const themeButtonLabel = computed(() => copy.value.theme)
 const themeModeLabel = computed(() => (theme.value === 'dark' ? 'Dark' : 'Light'))
 const languageCode = computed(() => (language.value === 'en' ? 'EN' : 'ລາວ'))
-const walletInstallHref = 'http://localhost:3002/install'
+const walletInstallHref = '/install'
 
 const featureCards = computed(() => [
   {
@@ -672,7 +672,7 @@ useHead(() => ({
 
           <div class="mt-6 flex flex-wrap gap-3">
             <a
-              href="http://localhost:3002"
+              href="/"
               target="_blank"
               rel="noreferrer"
               class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-600 via-blue-600 to-cyan-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_26px_-18px_rgba(14,165,233,.7)] transition hover:-translate-y-0.5 hover:from-sky-500 hover:via-blue-500 hover:to-cyan-400 dark:bg-gradient-to-r dark:from-sky-500 dark:via-blue-500 dark:to-cyan-400 dark:text-slate-950"
@@ -722,12 +722,18 @@ useHead(() => ({
               <div class="absolute top-2 left-1/2 z-20 h-[22px] w-[90px] -translate-x-1/2 rounded-full bg-zinc-900"></div>
               <div class="pointer-events-none absolute -inset-px rounded-[37px] border-[3px] border-zinc-700 border-opacity-40"></div>
 
-              <div class="relative h-full w-full overflow-hidden rounded-[37px] bg-white">
-                <img
-                  src="/IMG_3844.PNG"
-                  alt="Wallet app preview"
-                  class="h-full w-full object-cover object-top"
-                />
+              <div class="relative flex h-full w-full flex-col items-center justify-center overflow-hidden rounded-[37px] bg-white px-6 text-center">
+                <div class="flex h-28 w-28 items-center justify-center rounded-[32px] bg-slate-50 shadow-[0_18px_40px_-24px_rgba(15,23,42,.35)] ring-1 ring-slate-200/80">
+                  <img
+                    src="/wallet-codesabai-mark.svg?v=2"
+                    alt="Wallet Code Sabai"
+                    class="h-16 w-16 object-contain"
+                  />
+                </div>
+                <p class="mt-6 text-lg font-black tracking-tight text-slate-950">Wallet Code Sabai</p>
+                <p class="mt-2 max-w-[210px] text-sm leading-6 text-slate-500">
+                  {{ copy.hero.body }}
+                </p>
                 <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.12),transparent_18%,transparent_72%,rgba(15,23,42,.03)_100%)] dark:bg-[linear-gradient(180deg,rgba(255,255,255,.08),transparent_18%,transparent_72%,rgba(15,23,42,.03)_100%)]"></div>
               </div>
 

@@ -30,3 +30,6 @@ coverage/
 
 # Project-local generated folders
 3002/
+landing/.nuxt/
+landing/.output/
+landing/dist/
