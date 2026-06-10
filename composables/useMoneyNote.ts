@@ -439,6 +439,34 @@ function normalizeState(state?: Partial<MoneyNoteState> | null): MoneyNoteState 
   })
 }
 
+function isPristineState(state: MoneyNoteState) {
+  const wallet = state.wallets[0]
+  const company = state.companies[0]
+
+  return state.transactions.length === 0
+    && state.categories.length === 0
+    && state.wallets.length === 1
+    && Boolean(wallet)
+    && wallet.id === 'wallet-cash'
+    && wallet.name === 'Cash'
+    && wallet.currency === 'LAK'
+    && wallet.openingBalance === 0
+    && wallet.balance === 0
+    && wallet.color === 'sky'
+    && wallet.emoji === '💳'
+    && state.companies.length === 1
+    && Boolean(company)
+    && company.id === 'company-default-other'
+    && company.name === 'Other'
+    && company.enabled === true
+    && state.pinnedWalletKeys.length === 0
+    && state.pinnedCategoryKeys.income.length === 0
+    && state.pinnedCategoryKeys.expense.length === 0
+    && state.pinnedCompanyKeys.length === 0
+    && state.disabledDefaultCategories.length === 0
+    && state.disabledDefaultCompanies.length === 0
+}
+
 function mergeMoneyNoteState(localState: MoneyNoteState, remoteState: MoneyNoteState): MoneyNoteState {
   const local = normalizeState(localState)
   const remote = normalizeState(remoteState)
@@ -797,6 +825,9 @@ export function useMoneyNote() {
   )
   const hydrated = useState('money-note-hydrated', () => false)
   const hydratedAccountKey = useState('money-note-hydrated-account-key', () => '')
+  const hydratedCloudSyncEnabled = useState('money-note-hydrated-cloud-sync-enabled', () => false)
+  const hydratedSnapshotWasPristine = useState('money-note-hydrated-snapshot-pristine', () => true)
+  const lastSyncSource = useState<'cloud' | 'local' | 'unknown'>('money-note-last-sync-source', () => 'unknown')
   const hydrating = useState('money-note-hydrating', () => false)
   const autoSyncReady = useState('money-note-auto-sync-ready', () => false)
   const initialHydratedSignature = useState('money-note-initial-hydrated-signature', () => '')
@@ -806,12 +837,12 @@ export function useMoneyNote() {
   const { selectedLanguage } = useAppLanguage()
   const { authReady, sessionProfile } = useDeviceAuth()
   const { isOnline } = useConnectivity()
-  const nuxtApp = useNuxtApp()
   let localSaveTimer: ReturnType<typeof setTimeout> | null = null
   let remoteSaveTimer: ReturnType<typeof setTimeout> | null = null
   const syncStatus = useState<'offline' | 'syncing' | 'synced' | 'waiting'>('money-note-sync-status', () => 'waiting')
   const lastSyncedAt = useState('money-note-last-synced-at', () => '')
   const syncProgress = useState('money-note-sync-progress', () => 0)
+  const syncError = useState('money-note-sync-error', () => '')
   const defaultCategoriesEnabled = computed(() => store.value.disabledDefaultCategories.length === 0)
 
   const activeAccountIdentifier = computed(() => sessionProfile.value?.identifier ?? '')
@@ -889,14 +920,39 @@ export function useMoneyNote() {
     ).catch(() => {})
   }
 
-  function pushCloudState(identifier: string, state: MoneyNoteState) {
-    void $fetch('/api/app-state', {
+  async function pushCloudState(identifier: string, state: MoneyNoteState, updatedAt?: string) {
+    await $fetch('/api/app-state', {
       method: 'POST',
       body: {
         identifier,
-        state
+        state,
+        updatedAt
       }
-    }).catch(() => {})
+    })
+  }
+
+  function resolveSyncErrorMessage(error: unknown) {
+    if (!error) return 'Unknown sync error'
+
+    if (typeof error === 'string') {
+      return error.trim() || 'Unknown sync error'
+    }
+
+    if (error instanceof Error) {
+      return error.message || 'Unknown sync error'
+    }
+
+    const maybeResponse = error as {
+      data?: { statusMessage?: string; message?: string }
+      message?: string
+      statusMessage?: string
+    }
+
+    return maybeResponse.data?.statusMessage
+      || maybeResponse.data?.message
+      || maybeResponse.statusMessage
+      || maybeResponse.message
+      || 'Unknown sync error'
   }
 
   function compareSnapshotTimes(localUpdatedAt?: string | null, remoteUpdatedAt?: string | null) {
@@ -921,6 +977,7 @@ export function useMoneyNote() {
     }
 
     localDirty.value = true
+    hydratedSnapshotWasPristine.value = false
     localSaveTimer = setTimeout(() => {
       localSaveTimer = null
       void persistLocalSnapshot()
@@ -990,15 +1047,20 @@ export function useMoneyNote() {
     hydrated.value = false
 
     try {
+      syncError.value = ''
       store.value = importedState
       selectedCurrency.value = importedCurrency
       currencySupport.value = importedCurrencySupport
+      lastSyncSource.value = 'local'
 
       hydratedAccountKey.value = accountKey
+      hydratedCloudSyncEnabled.value = isCloudSyncEnabled.value
       hydrated.value = true
+      const importedSnapshot = buildLocalSnapshot()
       initialHydratedSignature.value = buildLocalSnapshotSignature()
+      hydratedSnapshotWasPristine.value = false
 
-      await writeMoneyNoteLocalSnapshot(accountKey, buildLocalSnapshot())
+      await writeMoneyNoteLocalSnapshot(accountKey, importedSnapshot)
       await nextTick()
 
       if (!isCloudSyncEnabled.value) {
@@ -1022,7 +1084,7 @@ export function useMoneyNote() {
       syncStatus.value = 'syncing'
       syncProgress.value = 72
 
-      pushCloudState(identifier, store.value)
+      await pushCloudState(identifier, store.value, importedSnapshot.updatedAt)
 
       syncStatus.value = 'synced'
       syncProgress.value = 100
@@ -1030,6 +1092,9 @@ export function useMoneyNote() {
       initialHydratedSignature.value = buildLocalSnapshotSignature()
     }
     catch (error) {
+      const message = resolveSyncErrorMessage(error)
+      console.error('[money-note] import sync failed', error)
+      syncError.value = message
       syncStatus.value = isOnline.value ? 'waiting' : 'offline'
       syncProgress.value = isOnline.value ? 35 : 0
       throw error
@@ -1044,12 +1109,14 @@ export function useMoneyNote() {
     if (!import.meta.client || !authReady.value || hydrating.value || !autoSyncReady.value) return false
 
     if (!isCloudSyncEnabled.value) {
+      syncError.value = ''
       syncStatus.value = 'waiting'
       syncProgress.value = 0
       return false
     }
 
     if (!isOnline.value) {
+      syncError.value = ''
       syncStatus.value = 'offline'
       syncProgress.value = 0
       return false
@@ -1058,6 +1125,7 @@ export function useMoneyNote() {
     const identifier = activeAccountIdentifier.value.trim()
     const accountKey = activeAccountKey.value
     if (!identifier || accountKey === 'guest') {
+      syncError.value = ''
       syncStatus.value = 'waiting'
       syncProgress.value = 0
       return false
@@ -1075,6 +1143,7 @@ export function useMoneyNote() {
     }
 
     try {
+      syncError.value = ''
       if (remoteSaveTimer) {
         clearTimeout(remoteSaveTimer)
         remoteSaveTimer = null
@@ -1089,66 +1158,81 @@ export function useMoneyNote() {
       syncStatus.value = 'syncing'
       syncProgress.value = 72
 
-      const remote = await nuxtApp.$fetch<{ state: Partial<MoneyNoteState> | null; updatedAt?: string | null }>('/api/app-state', {
+      const remote = await $fetch<{ state: Partial<MoneyNoteState> | null; updatedAt?: string | null }>('/api/app-state', {
         query: { identifier }
       })
 
-      const localSnapshot = await readMoneyNoteLocalSnapshot(accountKey)
-      const localSnapshotParsed = parseSnapshotState(localSnapshot ?? buildLocalSnapshot())
+      const liveLocalSnapshot = buildLocalSnapshot()
+      // If we have unsaved changes in memory, sync against the live state instead of the older
+      // IndexedDB snapshot so a forced refresh cannot drop the latest edits.
+      const localSnapshot = localDirty.value
+        ? liveLocalSnapshot
+        : await readMoneyNoteLocalSnapshot(accountKey)
+      const localSnapshotParsed = parseSnapshotState(localSnapshot ?? liveLocalSnapshot)
       const currentSignature = buildLocalSnapshotSignature()
       const remoteState = remote?.state ? normalizeState(remote.state) : null
       const remoteSignature = remoteState
         ? buildStateSignature(remoteState, localSnapshotParsed.selectedCurrency, localSnapshotParsed.currencySupport)
         : ''
-      const mergedState = remoteState ? mergeMoneyNoteState(localSnapshotParsed.state, remoteState) : localSnapshotParsed.state
-      const mergedSignature = buildStateSignature(
-        mergedState,
-        localSnapshotParsed.selectedCurrency,
-        localSnapshotParsed.currencySupport
-      )
-      const mergedSnapshotUpdatedAt = localDirty.value || !remoteState || remoteSignature !== mergedSignature
-        ? new Date().toISOString()
-        : remote?.updatedAt ?? localSnapshotParsed.updatedAt ?? new Date().toISOString()
+      const comparison = compareSnapshotTimes(localSnapshotParsed.updatedAt, remote?.updatedAt)
+      const remoteWins = Boolean(remoteState) && (hydratedSnapshotWasPristine.value || comparison.remoteIsNewer)
 
       hydrating.value = true
       selectedCurrency.value = localSnapshotParsed.selectedCurrency
       currencySupport.value = localSnapshotParsed.currencySupport
-      store.value = mergedState
+      store.value = remoteWins && remoteState ? remoteState : localSnapshotParsed.state
+      lastSyncSource.value = remoteWins && remoteState ? 'cloud' : 'local'
       hydratedAccountKey.value = accountKey
+      hydratedCloudSyncEnabled.value = isCloudSyncEnabled.value
       hydrated.value = true
 
-      if (currentSignature !== mergedSignature || !localSnapshot) {
+      if (remoteWins && remoteState) {
         await writeMoneyNoteLocalSnapshot(
           accountKey,
           buildLocalSnapshot(
-            mergedSnapshotUpdatedAt,
-            mergedState,
+            remote?.updatedAt ?? new Date().toISOString(),
+            remoteState,
+            localSnapshotParsed.selectedCurrency,
+            localSnapshotParsed.currencySupport
+          )
+        )
+      }
+      else if (!localSnapshot) {
+        await writeMoneyNoteLocalSnapshot(
+          accountKey,
+          buildLocalSnapshot(
+            localSnapshotParsed.updatedAt,
+            localSnapshotParsed.state,
             localSnapshotParsed.selectedCurrency,
             localSnapshotParsed.currencySupport
           )
         )
       }
 
-      const shouldPushRemote = !remoteState || remoteSignature !== mergedSignature || localDirty.value
+      const shouldPushRemote = !remoteState || (!remoteWins && currentSignature !== remoteSignature)
 
       if (shouldPushRemote) {
         syncProgress.value = 88
-        pushCloudState(identifier, mergedState)
+        await pushCloudState(identifier, store.value, localSnapshotParsed.updatedAt)
       }
 
       localDirty.value = false
+      hydratedSnapshotWasPristine.value = false
       syncStatus.value = 'synced'
       syncProgress.value = 100
       lastSyncedAt.value = new Date().toISOString()
       initialHydratedSignature.value = buildStateSignature(
-        mergedState,
+        store.value,
         localSnapshotParsed.selectedCurrency,
         localSnapshotParsed.currencySupport
       )
 
-      return Boolean(remote?.state)
+      return true
     }
-    catch {
+    catch (error) {
+      const message = resolveSyncErrorMessage(error)
+      console.error('[money-note] cloud sync failed', error)
+      syncError.value = message
       syncStatus.value = isOnline.value ? 'waiting' : 'offline'
       syncProgress.value = isOnline.value ? 35 : 0
       return false
@@ -1171,7 +1255,11 @@ export function useMoneyNote() {
     if (!import.meta.client || !authReady.value) return
 
     const accountKey = activeAccountKey.value
-    if (hydrated.value && hydratedAccountKey.value === accountKey) return
+    if (
+      hydrated.value
+      && hydratedAccountKey.value === accountKey
+      && hydratedCloudSyncEnabled.value === isCloudSyncEnabled.value
+    ) return
 
     autoSyncReady.value = false
     hydrating.value = true
@@ -1181,10 +1269,13 @@ export function useMoneyNote() {
       const localSnapshot = await readMoneyNoteLocalSnapshot(accountKey)
       const localSnapshotParsed = parseSnapshotState(localSnapshot)
 
+      hydratedSnapshotWasPristine.value = !localSnapshot || isPristineState(localSnapshotParsed.state)
       store.value = localSnapshotParsed.state
       selectedCurrency.value = localSnapshotParsed.selectedCurrency
       currencySupport.value = localSnapshotParsed.currencySupport
+      lastSyncSource.value = 'local'
       localDirty.value = false
+      syncError.value = ''
 
       hydratedAccountKey.value = accountKey
       hydrated.value = true
@@ -1206,12 +1297,14 @@ export function useMoneyNote() {
     }
 
     if (!isCloudSyncEnabled.value) {
+      syncError.value = ''
       syncStatus.value = 'waiting'
       syncProgress.value = 0
       return
     }
 
     if (!isOnline.value) {
+      syncError.value = ''
       syncStatus.value = 'offline'
       syncProgress.value = 0
       return
@@ -1221,7 +1314,7 @@ export function useMoneyNote() {
   }
 
   watch(
-    [authReady, activeAccountIdentifier],
+    [authReady, activeAccountIdentifier, isCloudSyncEnabled],
     () => {
       void loadState()
     },
@@ -2175,7 +2268,9 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
     isCloudSyncEnabled,
     syncStatus,
     lastSyncedAt,
+    lastSyncSource,
     syncProgress,
+    syncError,
     isOnline,
     refreshCloudState,
     isCurrencyEnabled,

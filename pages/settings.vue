@@ -18,7 +18,9 @@ const {
   isCloudSyncEnabled,
   syncStatus,
   lastSyncedAt,
+  lastSyncSource,
   syncProgress,
+  syncError,
   isOnline
 } = useMoneyNote()
 const { signOut, sessionProfile, rememberedProfile, authReady, setSessionPlan, setProfileAvatar } = useDeviceAuth()
@@ -51,6 +53,7 @@ const storageNotice = ref('')
 const clearDataConfirmModalOpen = ref(false)
 const isClearingData = ref(false)
 const clearDataError = ref('')
+const copiedSyncError = ref(false)
 const clearDataSlideValue = ref(0)
 const clearDataSlideTrackRef = ref<HTMLElement | null>(null)
 const clearDataSlideDragging = ref(false)
@@ -62,6 +65,14 @@ const clearDataModalStartX = ref(0)
 const clearDataModalStartY = ref(0)
 const clearDataModalDragOffset = ref(0)
 const networkSignalLevel = ref(4)
+let syncErrorCopyTimer: ReturnType<typeof setTimeout> | null = null
+const centeredSettingsModalUi = {
+  content: '!fixed !inset-auto !top-1/2 !left-1/2 flex !max-h-[calc(100dvh-2rem)] !w-[calc(100vw-2rem)] !max-w-[42rem] !-translate-x-1/2 !-translate-y-1/2 flex-col !overflow-hidden !rounded-[1.5rem] !border !border-slate-200/80 !bg-white !shadow-[0_24px_80px_-28px_rgba(15,23,42,0.35)] !ring-1 !ring-slate-200/60 focus:outline-none dark:!border-slate-800 dark:!bg-slate-950 dark:!ring-slate-800 sm:!max-h-[calc(100dvh-4rem)]',
+  body: 'p-0',
+  header: 'p-0',
+  footer: 'p-0',
+  overlay: 'fixed inset-0 bg-elevated/75 backdrop-blur-[2px]'
+}
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -97,6 +108,27 @@ function hexToRgba(hex: string, alpha: number) {
   const blue = Number.parseInt(normalized.slice(4, 6), 16)
 
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`
+}
+
+async function copySyncError() {
+  if (!import.meta.client || !syncError.value || !navigator.clipboard?.writeText) return
+
+  try {
+    await navigator.clipboard.writeText(syncError.value)
+    copiedSyncError.value = true
+
+    if (syncErrorCopyTimer) {
+      clearTimeout(syncErrorCopyTimer)
+    }
+
+    syncErrorCopyTimer = setTimeout(() => {
+      copiedSyncError.value = false
+      syncErrorCopyTimer = null
+    }, 1600)
+  }
+  catch {
+    copiedSyncError.value = false
+  }
 }
 
 function updateClearDataSlideValue(clientX: number) {
@@ -339,6 +371,9 @@ const settingsCopy = computed(() => {
       waiting: 'ລໍຖ້າ',
       uploadProgress: 'ຄວາມຄືບໜ້າການຊິງ',
       syncedAll: 'ຂໍ້ມູນໃນເຄື່ອງນີ້ກົງກັບຄລາວແລ້ວ.',
+      copyError: 'ຄັດລອກ error',
+      copied: 'ສຳເນົາແລ້ວ',
+      syncError: 'ຂໍ້ຜິດພາດການຊິງ',
       syncingUpload: 'ກຳລັງອັບໂຫຼດການປ່ຽນແປງຂຶ້ນຄລາວ.',
       waitingUpload: 'ບັນທຶກໄວ້ໃນເຄື່ອງແລ້ວ ກຳລັງລໍສັນຍານ.',
       pendingUpload: 'ການປ່ຽນແປງໃນເຄື່ອງກຳລັງລໍອັບໂຫຼດ.',
@@ -490,6 +525,9 @@ const settingsCopy = computed(() => {
     waiting: 'Waiting',
     uploadProgress: 'Sync progress',
     syncedAll: 'Everything on this device matches the cloud.',
+    copyError: 'Copy error',
+    copied: 'Copied',
+    syncError: 'Sync error',
     syncingUpload: 'Uploading changes to cloud now.',
     waitingUpload: 'Saved locally. Waiting for connection to upload.',
     pendingUpload: 'Local changes are waiting to be uploaded.',
@@ -936,6 +974,10 @@ watch(clearDataConfirmModalOpen, (open) => {
 onBeforeUnmount(() => {
   stopClearDataSlideDrag()
   stopClearDataModalDrag()
+  if (syncErrorCopyTimer) {
+    clearTimeout(syncErrorCopyTimer)
+    syncErrorCopyTimer = null
+  }
 })
 
 function handleLogout() {
@@ -1293,6 +1335,26 @@ const syncStateCopy = computed(() => {
   }
 })
 
+const syncSourceCopy = computed(() => {
+  switch (lastSyncSource.value) {
+    case 'cloud':
+      return {
+        label: 'Loaded from cloud',
+        tone: 'emerald'
+      }
+    case 'local':
+      return {
+        label: 'Loaded from local',
+        tone: 'sky'
+      }
+    default:
+      return {
+        label: 'Sync source unknown',
+        tone: 'neutral'
+      }
+  }
+})
+
 const syncProgressLabel = computed(() => `${Math.round(syncProgress.value)}%`)
 const syncProgressStyle = computed(() => {
   const color = activeTheme.value.hex
@@ -1454,6 +1516,13 @@ const internetStatusCopy = computed(() => {
             </div>
           </div>
 
+          <div class="mt-2 flex items-center gap-2 px-1">
+            <UBadge color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
+              Debug
+            </UBadge>
+            <p class="text-[11px] leading-5 text-muted">{{ syncSourceCopy.label }}</p>
+          </div>
+
           <div class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-white px-3 py-3 dark:border-slate-800 dark:bg-slate-950">
             <div class="flex items-center justify-between gap-3">
               <p class="text-xs font-bold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.uploadProgress }}</p>
@@ -1477,6 +1546,30 @@ const internetStatusCopy = computed(() => {
             <p class="mt-2 text-[11px] leading-5 text-muted">
               {{ syncStateCopy.detail }}
             </p>
+          </div>
+
+          <div v-if="syncError" class="mt-3 flex items-start gap-3 rounded-[1.1rem] border border-rose-200 bg-rose-50 px-3 py-3 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-400 text-white shadow-lg">
+              <UIcon name="i-lucide-alert-triangle" class="size-4" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-sm font-bold">{{ settingsCopy.syncError }}</p>
+                  <p class="mt-1 text-xs leading-5 opacity-90">{{ syncError }}</p>
+                </div>
+                <UButton
+                  size="xs"
+                  variant="soft"
+                  color="neutral"
+                  class="shrink-0 rounded-full"
+                  :icon="copiedSyncError ? 'i-lucide-check' : 'i-lucide-copy'"
+                  @click="copySyncError"
+                >
+                  {{ copiedSyncError ? settingsCopy.copied : settingsCopy.copyError }}
+                </UButton>
+              </div>
+            </div>
           </div>
         </template>
         <div v-else-if="authReady" class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 opacity-90 dark:border-slate-800 dark:bg-slate-900">
@@ -1814,6 +1907,13 @@ const internetStatusCopy = computed(() => {
       v-model:open="logoutConfirmModalOpen"
       :title="settingsCopy.logoutConfirmTitle"
       :description="settingsCopy.logoutConfirmDesc"
+      :ui="{
+        content: '!fixed !inset-auto !top-1/2 !left-1/2 flex !max-h-[calc(100dvh-2rem)] !w-[calc(100vw-2rem)] !max-w-lg !-translate-x-1/2 !-translate-y-1/2 flex-col !overflow-hidden !rounded-[1.5rem] !border !border-slate-200/80 !bg-white !shadow-[0_24px_80px_-28px_rgba(15,23,42,0.35)] !ring-1 !ring-slate-200/60 focus:outline-none dark:!border-slate-800 dark:!bg-slate-950 dark:!ring-slate-800 sm:!max-h-[calc(100dvh-4rem)]',
+        body: 'flex-1 overflow-y-auto p-4 sm:p-6',
+        footer: 'flex items-center gap-1.5 p-4 sm:px-6',
+        header: 'flex items-center gap-1.5 p-4 sm:px-6 min-h-16',
+        overlay: 'fixed inset-0 bg-elevated/75 backdrop-blur-[2px]'
+      }"
     >
       <template #body>
         <div class="space-y-4">
@@ -1847,15 +1947,15 @@ const internetStatusCopy = computed(() => {
       </template>
     </UModal>
 
-    <USlideover
+    <UModal
       v-model:open="clearDataConfirmModalOpen"
-      side="bottom"
       :close="false"
       :ui="{
-        content: 'w-full overflow-hidden rounded-t-[1.5rem] border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] md:mx-auto md:mb-4 md:w-[min(42rem,calc(100%-2rem))] md:rounded-[1.5rem]',
-        body: 'p-0',
-        header: 'p-0',
-        footer: 'p-0'
+        content: '!fixed !inset-auto !top-1/2 !left-1/2 flex !max-h-[calc(100dvh-2rem)] !w-[calc(100vw-2rem)] !max-w-lg !-translate-x-1/2 !-translate-y-1/2 flex-col !overflow-hidden !rounded-[1.5rem] !border !border-slate-200/80 !bg-white !shadow-[0_24px_80px_-28px_rgba(15,23,42,0.35)] !ring-1 !ring-slate-200/60 focus:outline-none dark:!border-slate-800 dark:!bg-slate-950 dark:!ring-slate-800 sm:!max-h-[calc(100dvh-4rem)]',
+        body: 'flex-1 overflow-y-auto p-0',
+        footer: 'flex items-center gap-1.5 p-0',
+        header: 'flex items-center gap-1.5 p-0 min-h-16',
+        overlay: 'fixed inset-0 bg-elevated/75 backdrop-blur-[2px]'
       }"
     >
       <template #content="{ close }">
@@ -1989,18 +2089,12 @@ const internetStatusCopy = computed(() => {
           </div>
         </div>
       </template>
-    </USlideover>
+    </UModal>
 
-    <USlideover
+    <UModal
       v-model:open="profileAvatarModalOpen"
-      side="bottom"
       :close="false"
-      :ui="{
-        content: 'w-full overflow-hidden rounded-t-[1.5rem] border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] md:mx-auto md:mb-4 md:w-[min(42rem,calc(100%-2rem))] md:rounded-[1.5rem]',
-        body: 'p-0',
-        header: 'p-0',
-        footer: 'p-0'
-      }"
+      :ui="centeredSettingsModalUi"
     >
       <template #content="{ close }">
         <div class="flex max-h-[86svh] flex-col overflow-hidden">
@@ -2098,7 +2192,7 @@ const internetStatusCopy = computed(() => {
           </div>
         </div>
       </template>
-    </USlideover>
+    </UModal>
 
     <UModal
       v-model:open="proRedeemModalOpen"
@@ -2177,16 +2271,10 @@ const internetStatusCopy = computed(() => {
       </template>
     </UModal>
 
-    <USlideover
+    <UModal
       v-model:open="storageExportModalOpen"
-      side="bottom"
       :close="false"
-      :ui="{
-        content: 'w-full overflow-hidden rounded-t-[1.5rem] border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950 data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] md:mx-auto md:mb-4 md:w-[min(42rem,calc(100%-2rem))] md:rounded-[1.5rem]',
-        body: 'p-0',
-        header: 'p-0',
-        footer: 'p-0'
-      }"
+      :ui="centeredSettingsModalUi"
     >
       <template #content="{ close }">
         <div class="flex max-h-[86svh] flex-col overflow-hidden">
@@ -2300,7 +2388,7 @@ const internetStatusCopy = computed(() => {
           </div>
         </div>
       </template>
-    </USlideover>
+    </UModal>
 
     <UModal
       v-model:open="storageImportModalOpen"

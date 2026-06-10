@@ -63,9 +63,6 @@ export default defineNuxtConfig({
   },
   pwa: {
     registerType: 'autoUpdate',
-    client: {
-      installPrompt: true
-    },
     includeAssets: ['offline.html', 'wallet-codesabai-mark.svg'],
     manifest: {
       id: '/',

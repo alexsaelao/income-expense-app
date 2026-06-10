@@ -11,6 +11,8 @@ const props = defineProps<{
   mode: 'create' | 'edit'
   initialTransaction?: Transaction | null
   submitLabel?: string
+  formId?: string
+  showActions?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -241,6 +243,9 @@ const canSubmit = computed(() => Boolean(
   && (!showDestination.value || form.toWalletId)
   && (!needsExchangeRate.value || (form.exchangeRate && Number(form.exchangeRate) > 0))
 ))
+defineExpose({
+  canSubmit
+})
 const walletLabel = computed(() => (showDestination.value ? 'Source wallet' : 'Wallet'))
 const destinationLabel = computed(() => 'Destination wallet')
 const selectMenuUi = {
@@ -569,7 +574,7 @@ function handleAmountKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <form class="space-y-4 pb-24 sm:pb-20" @submit.prevent="handleSubmit">
+  <form :id="props.formId" class="space-y-4 pb-24 sm:pb-20" @submit.prevent="handleSubmit">
     <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
       <template #header>
         <div class="flex items-start justify-between gap-3">
@@ -908,7 +913,11 @@ function handleAmountKeydown(event: KeyboardEvent) {
       </div>
     </UCard>
 
-    <div class="fixed inset-x-0 z-50 border-t border-white/60 bg-white/92 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90" style="bottom: calc(env(safe-area-inset-bottom) + 6.25rem); pointer-events: auto; touch-action: manipulation;">
+    <div
+      v-if="props.showActions !== false"
+      class="fixed inset-x-0 z-50 border-t border-white/60 bg-white/92 px-4 py-3 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90"
+      style="bottom: calc(env(safe-area-inset-bottom) + 6.25rem); pointer-events: auto; touch-action: manipulation;"
+    >
       <div class="mx-auto grid max-w-md gap-2">
         <UButton
           type="submit"

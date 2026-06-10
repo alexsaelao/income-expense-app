@@ -1,6 +1,7 @@
 const ROUTES_TO_SYNC = [
   /^\/$/,
   /^\/add(?:\/|$)/,
+  /^\/settings(?:\/|$)/,
   /^\/transactions(?:\/|$)/,
   /^\/wallets(?:\/|$)/,
   /^\/reports(?:\/|$)/
@@ -13,7 +14,7 @@ function shouldSyncRoute(path: string) {
 export default defineNuxtPlugin(() => {
   const route = useRoute()
   const { authReady, sessionProfile } = useDeviceAuth()
-  const { refreshCloudState, autoSyncReady } = useMoneyNote()
+  const { refreshCloudState, autoSyncReady, isCloudSyncEnabled } = useMoneyNote()
   let routeSyncTimer: ReturnType<typeof setInterval> | null = null
   let lastTriggeredAt = 0
 
@@ -57,10 +58,11 @@ export default defineNuxtPlugin(() => {
   }
 
   watch(
-    [authReady, autoSyncReady, () => route.path, () => sessionProfile.value?.identifier],
-    ([ready, syncReady, path, identifier]) => {
+    [authReady, autoSyncReady, isCloudSyncEnabled, () => route.path, () => sessionProfile.value?.identifier, () => sessionProfile.value?.plan],
+    ([ready, syncReady, cloudSyncEnabled, path, identifier]) => {
       if (!ready) return
       if (!syncReady) return
+      if (!cloudSyncEnabled) return
       if (!shouldSyncRoute(path)) return
       if (!identifier) return
       triggerSync()

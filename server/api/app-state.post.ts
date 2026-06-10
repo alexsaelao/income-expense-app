@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     return { ok: false, connected: false }
   }
 
-  const body = await readBody<{ identifier?: string; state?: unknown }>(event)
+  const body = await readBody<{ identifier?: string; state?: unknown; updatedAt?: string }>(event)
   const identifier = body?.identifier?.trim()
   if (!identifier) {
     throw createError({ statusCode: 400, statusMessage: 'Missing identifier' })
@@ -24,7 +24,9 @@ export default defineEventHandler(async (event) => {
   }
 
   await ensureStateTable(db)
-  const now = new Date().toISOString()
+  const updatedAt = typeof body.updatedAt === 'string' && body.updatedAt.trim()
+    ? body.updatedAt.trim()
+    : new Date().toISOString()
   await db.execute({
     sql: `
       INSERT INTO app_state (state_key, state_json, updated_at)
@@ -33,7 +35,7 @@ export default defineEventHandler(async (event) => {
         state_json = excluded.state_json,
         updated_at = excluded.updated_at
     `,
-    args: [stateKeyForIdentifier(identifier), JSON.stringify(body.state), now]
+    args: [stateKeyForIdentifier(identifier), JSON.stringify(body.state), updatedAt]
   })
 
   return { ok: true, connected: true }

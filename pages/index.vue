@@ -19,6 +19,7 @@ const {
   isCloudSyncEnabled,
   syncStatus,
   lastSyncedAt,
+  syncError,
   isOnline
 } = useMoneyNote()
 
@@ -38,6 +39,9 @@ const currencyAccents: Record<CurrencyCode, string> = {
   USD: 'from-amber-500 to-orange-400'
 }
 
+const copiedSyncError = ref(false)
+let syncErrorCopyTimer: ReturnType<typeof setTimeout> | null = null
+
 const homeCopy = computed(() => {
   if (selectedLanguage.value === 'lo') {
     return {
@@ -51,6 +55,9 @@ const homeCopy = computed(() => {
       syncingBadge: 'ຊິງຄລາວ',
       syncedBadge: 'ຊິງແລ້ວ',
       waitingBadge: 'ລໍຖ້າ',
+      syncError: 'ຂໍ້ຜິດພາດການຊິງ',
+      copyError: 'ຄັດລອກ error',
+      copied: 'ສຳເນົາແລ້ວ',
       offlineMessage: 'ສາມາດໃຊ້ແອັບຕໍ່ໄດ້. ການປ່ຽນແປງຈະບັນທຶກໄວ້ໃນເຄື່ອງນີ້ແລະຈະຊິງຄືນເມື່ອມີສັນຍານ.',
       syncingMessage: 'ກຳລັງບັນທຶກການປ່ຽນແປງລ່າສຸດຂຶ້ນຄລາວ.',
       syncedMessage: 'ຂໍ້ມູນຂອງທ່ານຊິງກັບຄລາວແລ້ວ.',
@@ -95,6 +102,9 @@ const homeCopy = computed(() => {
     syncingBadge: 'Syncing',
     syncedBadge: 'Synced',
     waitingBadge: 'Waiting',
+    syncError: 'Sync error',
+    copyError: 'Copy error',
+    copied: 'Copied',
     offlineMessage: 'You can keep using the app. Changes save on this device and sync when the connection returns.',
     syncingMessage: 'Saving your latest changes to the cloud.',
     syncedMessage: 'Your data is synced with the cloud.',
@@ -182,6 +192,34 @@ const syncStateCopy = computed(() => {
   }
 })
 
+async function copySyncError() {
+  if (!import.meta.client || !syncError.value || !navigator.clipboard?.writeText) return
+
+  try {
+    await navigator.clipboard.writeText(syncError.value)
+    copiedSyncError.value = true
+
+    if (syncErrorCopyTimer) {
+      clearTimeout(syncErrorCopyTimer)
+    }
+
+    syncErrorCopyTimer = setTimeout(() => {
+      copiedSyncError.value = false
+      syncErrorCopyTimer = null
+    }, 1600)
+  }
+  catch {
+    copiedSyncError.value = false
+  }
+}
+
+onBeforeUnmount(() => {
+  if (syncErrorCopyTimer) {
+    clearTimeout(syncErrorCopyTimer)
+    syncErrorCopyTimer = null
+  }
+})
+
 </script>
 
 <template>
@@ -223,6 +261,30 @@ const syncStateCopy = computed(() => {
           <UBadge color="neutral" variant="soft" class="shrink-0 rounded-full text-[9px] font-bold uppercase tracking-[0.14em]">
             {{ syncStateCopy.badge }}
           </UBadge>
+        </div>
+      </div>
+
+      <div v-if="syncError && isCloudSyncEnabled" class="mt-3 flex items-start gap-3 rounded-[1.1rem] border border-rose-200 bg-rose-50 px-3 py-3 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
+        <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-400 text-white shadow-lg">
+          <UIcon name="i-lucide-alert-triangle" class="size-4" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-xs font-bold uppercase tracking-[0.16em]">{{ homeCopy.syncError }}</p>
+              <p class="mt-1 text-xs leading-5 opacity-90">{{ syncError }}</p>
+            </div>
+            <UButton
+              size="xs"
+              variant="soft"
+              color="neutral"
+              class="shrink-0 rounded-full"
+              :icon="copiedSyncError ? 'i-lucide-check' : 'i-lucide-copy'"
+              @click="copySyncError"
+            >
+              {{ copiedSyncError ? homeCopy.copied : homeCopy.copyError }}
+            </UButton>
+          </div>
         </div>
       </div>
 

@@ -539,7 +539,7 @@ useHead({
     >
       <div
         v-if="deleteKeyOpen"
-        class="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 px-0 py-0 sm:px-4 sm:py-4"
+        class="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 px-0 py-0 sm:px-4 sm:py-4 md:items-center md:px-6 md:py-6"
         @click.self="closeDeleteKeySheet"
       >
         <Transition
@@ -551,7 +551,7 @@ useHead({
           leave-to-class="translate-y-[110%] opacity-0"
         >
           <div
-            class="w-full overflow-hidden rounded-t-[1.6rem] border border-slate-200/80 bg-white shadow-[0_-24px_60px_-36px_rgba(15,23,42,0.4)] dark:border-slate-800 dark:bg-slate-950 sm:max-w-lg sm:rounded-[1.6rem]"
+            class="w-full overflow-hidden rounded-t-[1.6rem] border border-slate-200/80 bg-white shadow-[0_-24px_60px_-36px_rgba(15,23,42,0.4)] dark:border-slate-800 dark:bg-slate-950 md:w-[min(30rem,calc(100%-2rem))] md:rounded-[1.6rem] md:shadow-[0_24px_80px_-28px_rgba(15,23,42,0.35)]"
             :style="{ transform: `translateY(${deleteSheetDragY}px)`, transition: deleteSheetDragging ? 'none' : 'transform 180ms ease-out' }"
           >
             <div class="px-4 pt-3">

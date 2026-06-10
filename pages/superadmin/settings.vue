@@ -280,6 +280,13 @@ useHead({
       v-model:open="logoutConfirmModalOpen"
       :title="copy.logoutConfirmTitle"
       :description="copy.logoutConfirmDesc"
+      :ui="{
+        content: '!fixed !inset-auto !top-1/2 !left-1/2 flex !max-h-[calc(100dvh-2rem)] !w-[calc(100vw-2rem)] !max-w-lg !-translate-x-1/2 !-translate-y-1/2 flex-col !overflow-hidden !rounded-[1.5rem] !border !border-slate-200/80 !bg-white !shadow-[0_24px_80px_-28px_rgba(15,23,42,0.35)] !ring-1 !ring-slate-200/60 focus:outline-none dark:!border-slate-800 dark:!bg-slate-950 dark:!ring-slate-800 sm:!max-h-[calc(100dvh-4rem)]',
+        body: 'flex-1 overflow-y-auto p-4 sm:p-6',
+        footer: 'flex items-center gap-1.5 p-4 sm:px-6',
+        header: 'flex items-center gap-1.5 p-4 sm:px-6 min-h-16',
+        overlay: 'fixed inset-0 bg-elevated/75 backdrop-blur-[2px]'
+      }"
     >
       <template #body>
         <div class="space-y-4">
