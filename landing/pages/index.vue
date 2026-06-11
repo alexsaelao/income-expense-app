@@ -344,7 +344,7 @@ const themeIcon = computed(() => (theme.value === 'dark' ? sunIcon : moonIcon))
 const themeButtonLabel = computed(() => copy.value.theme)
 const themeModeLabel = computed(() => (theme.value === 'dark' ? 'Dark' : 'Light'))
 const languageCode = computed(() => (language.value === 'en' ? 'EN' : 'ລາວ'))
-const walletInstallHref = 'https://appwallet.codesabai.com/install'
+const walletInstallHref = 'https://app.wallet.codesabai.com/install'
 
 const featureCards = computed(() => [
   {

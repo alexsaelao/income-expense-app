@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev --host 0.0.0.0",
+    "dev": "TMPDIR=/tmp nuxt dev --host 0.0.0.0",
     "dev:landing": "npm --prefix landing run dev",
     "build": "nuxt build",
     "build:landing": "npm --prefix landing run build",

@@ -7,7 +7,7 @@
     "nuxt": "^4.1.1"
   },
   "scripts": {
-    "dev": "nuxt dev --host 0.0.0.0",
+    "dev": "TMPDIR=/tmp nuxt dev --host 0.0.0.0",
     "generate": "nuxt generate",
     "build": "nuxt generate && node ./scripts/copy-static.mjs",
     "preview": "python3 -m http.server -d dist"

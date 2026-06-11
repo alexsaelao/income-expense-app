@@ -59,6 +59,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!serverAuthSession.value.authenticated && !isAuthPage) {
-    return navigateTo('/login', { replace: true })
+    return navigateTo('/install', { replace: true })
   }
 })

@@ -30,7 +30,7 @@ watch([authReady, isAuthenticated, isAuthPage, isPublicInstallPage], ([ready, au
   if (publicInstallPage) return
 
   if (!authenticated && !authPage) {
-    navigateTo('/login', { replace: true })
+    navigateTo('/install', { replace: true })
     return
   }
 
