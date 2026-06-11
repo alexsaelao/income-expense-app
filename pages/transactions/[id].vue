@@ -4,7 +4,7 @@ import { useMoneyNote } from '~/composables/useMoneyNote'
 
 const route = useRoute()
 const router = useRouter()
-const { getTransaction, updateTransaction, removeTransaction } = useMoneyNote()
+const { getTransaction, updateTransaction, removeTransaction, canEditMoneyData } = useMoneyNote()
 
 const transaction = computed(() => getTransaction(String(route.params.id)))
 
@@ -41,21 +41,37 @@ function handleDelete() {
     </section>
 
     <UCard v-if="transaction" class="overflow-hidden border border-white/60 bg-white/85 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-slate-950/80">
-      <div class="mb-5 flex items-center justify-between rounded-[1.5rem] bg-slate-100 p-4 dark:bg-slate-900">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted">Transaction ID</p>
-          <p class="mt-1 font-mono text-sm text-default">{{ transaction.id }}</p>
+      <template v-if="canEditMoneyData">
+        <div class="mb-5 flex items-center justify-between rounded-[1.5rem] bg-slate-100 p-4 dark:bg-slate-900">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted">Transaction ID</p>
+            <p class="mt-1 font-mono text-sm text-default">{{ transaction.id }}</p>
+          </div>
+          <UBadge color="primary" variant="soft" class="rounded-full">{{ transaction.currency }}</UBadge>
         </div>
-        <UBadge color="primary" variant="soft" class="rounded-full">{{ transaction.currency }}</UBadge>
-      </div>
 
-      <TransactionForm
-        mode="edit"
-        :initial-transaction="transaction"
-        submit-label="Save changes"
-        @submit="handleSubmit"
-        @delete="handleDelete"
-      />
+        <TransactionForm
+          mode="edit"
+          :initial-transaction="transaction"
+          submit-label="Save changes"
+          @submit="handleSubmit"
+          @delete="handleDelete"
+        />
+      </template>
+
+      <div v-else class="rounded-[1.5rem] border border-amber-200 bg-amber-50/80 p-5 dark:border-amber-900/50 dark:bg-amber-950/25">
+        <div class="flex items-start gap-3">
+          <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg">
+            <UIcon name="i-lucide-lock" class="size-5" />
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-black text-default">View only</p>
+            <p class="mt-1 text-sm leading-6 text-muted">
+              Upgrade to Pro to edit or delete transactions.
+            </p>
+          </div>
+        </div>
+      </div>
     </UCard>
 
     <UCard v-else class="border border-dashed border-slate-300 bg-white/70 p-8 text-center dark:border-slate-700 dark:bg-slate-950/70">

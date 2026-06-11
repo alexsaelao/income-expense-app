@@ -13,13 +13,19 @@ export default defineEventHandler(async (event) => {
     return { ok: false, connected: false }
   }
 
-  const body = await readBody<{ identifier?: string; state?: unknown; updatedAt?: string }>(event)
+  const body = await readBody<{
+    identifier?: string
+    snapshot?: unknown
+    state?: unknown
+    updatedAt?: string
+  }>(event)
   const identifier = body?.identifier?.trim()
   if (!identifier) {
     throw createError({ statusCode: 400, statusMessage: 'Missing identifier' })
   }
 
-  if (!body?.state) {
+  const payload = body?.snapshot ?? body?.state
+  if (!payload) {
     throw createError({ statusCode: 400, statusMessage: 'Missing state payload' })
   }
 
@@ -27,6 +33,11 @@ export default defineEventHandler(async (event) => {
   const updatedAt = typeof body.updatedAt === 'string' && body.updatedAt.trim()
     ? body.updatedAt.trim()
     : new Date().toISOString()
+  const snapshot = body?.snapshot ?? {
+    state: body?.state,
+    selectedCurrency: 'LAK',
+    currencySupport: { LAK: true, THB: true, USD: true }
+  }
   await db.execute({
     sql: `
       INSERT INTO app_state (state_key, state_json, updated_at)
@@ -35,7 +46,7 @@ export default defineEventHandler(async (event) => {
         state_json = excluded.state_json,
         updated_at = excluded.updated_at
     `,
-    args: [stateKeyForIdentifier(identifier), JSON.stringify(body.state), updatedAt]
+    args: [stateKeyForIdentifier(identifier), JSON.stringify(snapshot), updatedAt]
   })
 
   return { ok: true, connected: true }

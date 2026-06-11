@@ -1,7 +1,7 @@
 {
   "name": "Wallet Code Sabai",
   "short_name": "WCS",
-  "description": "A smart wallet PWA for tracking money, syncing across devices, and restoring data safely.",
+  "description": "A smart wallet app for tracking money online, syncing through the cloud, and restoring data safely.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

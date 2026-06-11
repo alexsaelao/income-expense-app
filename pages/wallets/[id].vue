@@ -20,7 +20,8 @@ const {
   typeIcon,
   typeTint,
   updateWallet,
-  removeWallet
+  removeWallet,
+  canEditMoneyData
 } = useMoneyNote()
 
 const wallet = computed(() => getWallet(String(route.params.id)))
@@ -99,7 +100,7 @@ const walletCopy = computed(() => {
 })
 
 function openWalletManager() {
-  if (!wallet.value) return
+  if (!wallet.value || !canEditMoneyData.value) return
 
   walletForm.name = wallet.value.name
   walletForm.emoji = wallet.value.emoji
@@ -128,7 +129,7 @@ function closeDeleteWalletConfirm() {
 }
 
 function submitWalletUpdate() {
-  if (!wallet.value) return
+  if (!wallet.value || !canEditMoneyData.value) return
 
   const nextName = walletForm.name.trim()
   if (!nextName) {
@@ -153,7 +154,7 @@ function submitWalletUpdate() {
 }
 
 function confirmDeleteWallet() {
-  if (!wallet.value) return
+  if (!wallet.value || !canEditMoneyData.value) return
 
   removeWallet(wallet.value.id)
   closeDeleteWalletConfirm()
@@ -184,6 +185,7 @@ function confirmDeleteWallet() {
             </div>
 
             <UButton
+              v-if="canEditMoneyData"
               icon="i-lucide-pencil-line"
               size="sm"
               :class="['h-9 shrink-0 rounded-full bg-gradient-to-r px-3 text-xs font-bold text-white shadow-[0_14px_28px_-18px_rgba(14,165,233,0.65)] transition active:scale-95', activeTheme.accent]"
@@ -191,6 +193,9 @@ function confirmDeleteWallet() {
             >
               {{ walletCopy.manageWallet }}
             </UButton>
+            <UBadge v-else color="neutral" variant="soft" class="rounded-full px-3">
+              View only
+            </UBadge>
           </div>
 
           <p class="mt-2 text-sm text-muted">{{ wallet.note }}</p>
@@ -348,6 +353,7 @@ function confirmDeleteWallet() {
           <div class="border-t border-slate-200/80 bg-white/92 px-4 py-3 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
             <div class="grid gap-2">
               <UButton
+                v-if="canEditMoneyData"
                 :class="['h-12 justify-center rounded-full bg-gradient-to-r text-center text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98]', activeTheme.accent]"
                 icon="i-lucide-check"
                 @click="submitWalletUpdate"
@@ -356,6 +362,7 @@ function confirmDeleteWallet() {
               </UButton>
 
               <UButton
+                v-if="canEditMoneyData"
                 color="rose"
                 variant="soft"
                 class="h-12 justify-center rounded-full text-center text-sm font-bold"

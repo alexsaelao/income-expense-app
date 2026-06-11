@@ -17,7 +17,8 @@ const {
   hasCurrencyTransactions,
   hasWalletTransactions,
   setWalletPinned,
-  moveWallet
+  moveWallet,
+  canEditMoneyData
 } = useMoneyNote()
 const currencySymbols: Record<CurrencyCode, string> = {
   LAK: '₭',
@@ -121,6 +122,7 @@ watch(
 )
 
 function submitWallet() {
+  if (!canEditMoneyData.value) return
   if (!form.name || !form.openingBalance) return
   addWallet({
     name: form.name,
@@ -225,6 +227,8 @@ function onSheetPointerCancel() {
       <UButton
         icon="i-lucide-plus"
         size="lg"
+        :disabled="!canEditMoneyData"
+        :to="canEditMoneyData ? undefined : '/settings'"
         :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
         @click="walletModalOpen = true"
       >

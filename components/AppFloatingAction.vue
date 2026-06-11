@@ -1,8 +1,9 @@
 <script setup lang="ts">
 const route = useRoute()
 const { activeTheme } = useAppThemeColor()
-const { refreshCloudState, autoSyncReady, isCloudSyncEnabled } = useMoneyNote()
+const { refreshCloudState, autoSyncReady, isCloudSyncEnabled, canEditMoneyData } = useMoneyNote()
 const isAddPage = computed(() => route.path === '/add')
+const addTarget = computed(() => (canEditMoneyData.value ? '/add' : '/settings'))
 
 function syncOnNavigate() {
   if (!autoSyncReady.value || !isCloudSyncEnabled.value) return
@@ -13,7 +14,7 @@ function syncOnNavigate() {
 <template>
   <NuxtLink
     v-if="!isAddPage"
-    to="/add"
+    :to="addTarget"
     class="hidden"
     aria-label="Add transaction"
     @click="syncOnNavigate"

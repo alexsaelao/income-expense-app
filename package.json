@@ -17,7 +17,6 @@
     "@libsql/client": "^0.17.3",
     "@nuxt/ui": "^3.3.3",
     "@vite-pwa/nuxt": "^1.0.4",
-    "dexie": "^4.4.3",
     "nuxt": "^4.1.1"
   },
   "devDependencies": {

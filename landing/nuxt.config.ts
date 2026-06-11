@@ -29,7 +29,7 @@ export default defineNuxtConfig({
     head: {
       title: 'Wallet Code Sabai',
       meta: [
-        { name: 'description', content: 'Wallet Code Sabai is a clean, offline-first landing page for a modern finance app.' },
+        { name: 'description', content: 'Wallet Code Sabai is a clean, cloud-connected landing page for a modern finance app.' },
         { name: 'theme-color', content: '#f8fafc' },
       ],
       link: [

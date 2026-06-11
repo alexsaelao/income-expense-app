@@ -13,7 +13,8 @@ const {
   setDefaultCompanyEnabled,
   setCustomCompanyEnabled,
   setCompanyPinned,
-  moveCompany
+  moveCompany,
+  canEditMoneyData
 } = useMoneyNote()
 
 const companyModalOpen = ref(false)
@@ -198,6 +199,7 @@ function companyKeyForItem(item: any) {
 }
 
 function openCompanyManager(item: any) {
+  if (!canEditMoneyData.value) return
   selectedCompany.value = item
   manageCompanyOpen.value = true
 }
@@ -209,6 +211,7 @@ function closeCompanyManager() {
 }
 
 function openCompanyEditor(item: any) {
+  if (!canEditMoneyData.value) return
   selectedCompany.value = item
   editingCompanyId.value = item.id
   form.name = item.name
@@ -275,6 +278,7 @@ function onSheetPointerCancel() {
 }
 
 function submitCompany() {
+  if (!canEditMoneyData.value) return
   if (editingCompanyId.value && selectedCompany.value && !selectedCompany.value.isDefault) {
     const updated = updateCompany(editingCompanyId.value, {
       name: form.name,
@@ -326,6 +330,7 @@ function toggleEnabled(item: any) {
 }
 
 function confirmDeleteCompany() {
+  if (!canEditMoneyData.value) return
   if (!selectedCompany.value) return
 
   if (selectedCompany.value.isDefault) {
@@ -372,6 +377,7 @@ function onCompanyDragEnd() {
       </div>
 
       <UButton
+        v-if="canEditMoneyData"
         size="lg"
         :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
         @click="companyModalOpen = true"

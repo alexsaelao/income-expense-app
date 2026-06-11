@@ -19,11 +19,7 @@ const {
   walletSeries,
   currencyBalances,
   enabledCurrencyOptions,
-  isCloudSyncEnabled,
-  syncStatus,
-  lastSyncedAt,
-  syncError,
-  isOnline
+  canEditMoneyData
 } = useMoneyNote()
 
 const activeCurrency = computed(() => selectedCurrency.value)
@@ -42,33 +38,10 @@ const currencyAccents: Record<CurrencyCode, string> = {
   USD: 'from-amber-500 to-orange-400'
 }
 
-const copiedSyncError = ref(false)
-let syncErrorCopyTimer: ReturnType<typeof setTimeout> | null = null
-
 const homeCopy = computed(() => {
   if (selectedLanguage.value === 'lo') {
     return {
       displayCurrency: 'ເງິນຕາທີ່ແສດງ',
-      syncStatus: 'ສະຖານະຊິງຄລາວ',
-      offlineMode: 'ໂໝດອອຟລາຍ',
-      syncingNow: 'ກຳລັງຊິງຄລາວ',
-      cloudSyncReady: 'ຊິງຄລາວເເລ້ວ',
-      waitingToSync: 'ລໍຖ້າຊິງຄລາວ',
-      offlineBadge: 'ອອຟລາຍ',
-      syncingBadge: 'ຊິງຄລາວ',
-      syncedBadge: 'ຊິງແລ້ວ',
-      waitingBadge: 'ລໍຖ້າ',
-      syncError: 'ຂໍ້ຜິດພາດການຊິງ',
-      copyError: 'ຄັດລອກ error',
-      copied: 'ສຳເນົາແລ້ວ',
-      offlineMessage: 'ສາມາດໃຊ້ແອັບຕໍ່ໄດ້. ການປ່ຽນແປງຈະບັນທຶກໄວ້ໃນເຄື່ອງນີ້ແລະຈະຊິງຄືນເມື່ອມີສັນຍານ.',
-      syncingMessage: 'ກຳລັງບັນທຶກການປ່ຽນແປງລ່າສຸດຂຶ້ນຄລາວ.',
-      syncedMessage: 'ຂໍ້ມູນຂອງທ່ານຊິງກັບຄລາວແລ້ວ.',
-      waitingMessage: 'ການປ່ຽນແປງຖືກບັນທຶກໄວ້ຢ່າງປອດໄພ ແອັບຈະຊິງອີກຄັ້ງເມື່ອເນັດກັບມາ.',
-      syncPreparing: 'Checking cloud backup and preparing sync.',
-      syncComparing: 'Comparing cloud and local data.',
-      syncApplying: 'Applying the latest changes.',
-      lastSyncedPrefix: 'ຊິງຄັ້ງລ່າສຸດ',
       totalBalance: 'ຍອດລວມ',
       acrossWallets: (count: number) => `ທັງໝົດ ${count} ກະເປົ໋າ`,
       net: 'ສຸດທິ',
@@ -96,26 +69,6 @@ const homeCopy = computed(() => {
 
   return {
     displayCurrency: 'Display currency',
-    syncStatus: 'Sync status',
-    offlineMode: 'Offline mode',
-    syncingNow: 'Syncing now',
-    cloudSyncReady: 'Cloud sync ready',
-    waitingToSync: 'Waiting to sync',
-    offlineBadge: 'Offline',
-    syncingBadge: 'Syncing',
-    syncedBadge: 'Synced',
-    waitingBadge: 'Waiting',
-    syncError: 'Sync error',
-    copyError: 'Copy error',
-    copied: 'Copied',
-    offlineMessage: 'You can keep using the app. Changes save on this device and sync when the connection returns.',
-    syncingMessage: 'Saving your latest changes to the cloud.',
-    syncedMessage: 'Your data is synced with the cloud.',
-    waitingMessage: 'Local changes are safe. The app will sync again once the network is available.',
-    syncPreparing: 'Checking cloud backup and preparing sync.',
-    syncComparing: 'Comparing cloud and local data.',
-    syncApplying: 'Applying the latest changes.',
-    lastSyncedPrefix: 'Last synced',
     totalBalance: 'Total balance',
     acrossWallets: (count: number) => `Across ${count} wallets`,
     net: 'Net',
@@ -142,86 +95,11 @@ const homeCopy = computed(() => {
 })
 
 const quickActions = computed(() => [
-  { label: homeCopy.value.add, icon: 'i-lucide-plus', to: '/add', color: 'primary', subtitle: homeCopy.value.newTransaction },
+  { label: homeCopy.value.add, icon: 'i-lucide-plus', to: canEditMoneyData.value ? '/add' : '/settings', color: 'primary', subtitle: homeCopy.value.newTransaction },
   { label: homeCopy.value.history, icon: 'i-lucide-list-restart', to: '/transactions', color: 'sky', subtitle: homeCopy.value.browseEntries },
   { label: homeCopy.value.wallets, icon: 'i-lucide-wallet', to: '/wallets', color: 'emerald', subtitle: homeCopy.value.balancesAndWallets },
   { label: homeCopy.value.reports, icon: 'i-lucide-chart-column', to: '/reports', color: 'amber', subtitle: homeCopy.value.chartsAndSummaries }
 ])
-
-const syncStateCopy = computed(() => {
-  switch (syncStatus.value) {
-    case 'offline':
-      return {
-        label: homeCopy.value.offlineMode,
-        badge: homeCopy.value.offlineBadge,
-        icon: 'i-lucide-wifi-off',
-        tone: 'rose',
-        message: homeCopy.value.offlineMessage,
-        detail: homeCopy.value.syncPreparing,
-        meta: ''
-      }
-    case 'syncing':
-      return {
-        label: homeCopy.value.syncingNow,
-        badge: homeCopy.value.syncingBadge,
-        icon: 'i-lucide-refresh-cw',
-        tone: 'sky',
-        message: homeCopy.value.syncingMessage,
-        detail: `${homeCopy.value.syncPreparing} ${homeCopy.value.syncComparing} ${homeCopy.value.syncApplying}`,
-        meta: ''
-      }
-    case 'synced':
-      return {
-        label: homeCopy.value.cloudSyncReady,
-        badge: homeCopy.value.syncedBadge,
-        icon: 'i-lucide-cloud-check',
-        tone: 'emerald',
-        message: homeCopy.value.syncedMessage,
-        detail: homeCopy.value.syncComparing,
-        meta: lastSyncedAt.value
-          ? `${homeCopy.value.lastSyncedPrefix} ${new Intl.DateTimeFormat(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(lastSyncedAt.value))}.`
-          : ''
-      }
-    default:
-      return {
-        label: homeCopy.value.waitingToSync,
-        badge: isOnline.value ? homeCopy.value.waitingBadge : homeCopy.value.offlineBadge,
-        icon: isOnline.value ? 'i-lucide-cloud-upload' : 'i-lucide-wifi-off',
-        tone: isOnline.value ? 'amber' : 'rose',
-        message: homeCopy.value.waitingMessage,
-        detail: homeCopy.value.syncPreparing,
-        meta: ''
-      }
-  }
-})
-
-async function copySyncError() {
-  if (!import.meta.client || !syncError.value || !navigator.clipboard?.writeText) return
-
-  try {
-    await navigator.clipboard.writeText(syncError.value)
-    copiedSyncError.value = true
-
-    if (syncErrorCopyTimer) {
-      clearTimeout(syncErrorCopyTimer)
-    }
-
-    syncErrorCopyTimer = setTimeout(() => {
-      copiedSyncError.value = false
-      syncErrorCopyTimer = null
-    }, 1600)
-  }
-  catch {
-    copiedSyncError.value = false
-  }
-}
-
-onBeforeUnmount(() => {
-  if (syncErrorCopyTimer) {
-    clearTimeout(syncErrorCopyTimer)
-    syncErrorCopyTimer = null
-  }
-})
 
 </script>
 
@@ -246,48 +124,6 @@ onBeforeUnmount(() => {
           >
             {{ option.label }}
           </button>
-        </div>
-      </div>
-
-      <div v-if="isCloudSyncEnabled" class="rounded-[1.2rem] border border-slate-200/80 bg-white px-3 py-2.5 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/80">
-        <div class="flex items-start gap-3">
-          <div :class="['flex size-9 shrink-0 items-center justify-center rounded-full text-white shadow-lg', syncStateCopy.tone === 'emerald' ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : syncStateCopy.tone === 'sky' ? `bg-gradient-to-br ${activeTheme.accent}` : syncStateCopy.tone === 'amber' ? 'bg-gradient-to-br from-amber-500 to-orange-400' : 'bg-gradient-to-br from-rose-500 to-pink-400']">
-            <UIcon :name="syncStateCopy.icon" class="size-3.5" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ homeCopy.syncStatus }}</p>
-            <p class="truncate text-xs font-black text-default">{{ syncStateCopy.label }}</p>
-            <p v-if="syncStateCopy.meta" class="mt-0.5 truncate text-[10px] text-muted">{{ syncStateCopy.meta }}</p>
-            <p class="mt-0.5 truncate text-[10px] text-muted">{{ syncStateCopy.message }}</p>
-            <p class="mt-0.5 truncate text-[10px] text-muted/90">{{ syncStateCopy.detail }}</p>
-          </div>
-          <UBadge color="neutral" variant="soft" class="shrink-0 rounded-full text-[9px] font-bold uppercase tracking-[0.14em]">
-            {{ syncStateCopy.badge }}
-          </UBadge>
-        </div>
-      </div>
-
-      <div v-if="syncError && isCloudSyncEnabled" class="mt-3 flex items-start gap-3 rounded-[1.1rem] border border-rose-200 bg-rose-50 px-3 py-3 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
-        <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-400 text-white shadow-lg">
-          <UIcon name="i-lucide-alert-triangle" class="size-4" />
-        </div>
-        <div class="min-w-0 flex-1">
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <p class="text-xs font-bold uppercase tracking-[0.16em]">{{ homeCopy.syncError }}</p>
-              <p class="mt-1 text-xs leading-5 opacity-90">{{ syncError }}</p>
-            </div>
-            <UButton
-              size="xs"
-              variant="soft"
-              color="neutral"
-              class="shrink-0 rounded-full"
-              :icon="copiedSyncError ? 'i-lucide-check' : 'i-lucide-copy'"
-              @click="copySyncError"
-            >
-              {{ copiedSyncError ? homeCopy.copied : homeCopy.copyError }}
-            </UButton>
-          </div>
         </div>
       </div>
 

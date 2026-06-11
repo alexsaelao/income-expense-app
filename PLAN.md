@@ -2,7 +2,7 @@
 
 ## Current direction
 
-This app is built as a mobile-first Nuxt PWA with offline-first local storage and optional cloud sync.
+This app is built as a mobile-first Nuxt PWA with cloud-first account data and lightweight local preferences.
 
 ## Auth flow
 
@@ -14,22 +14,22 @@ This app is built as a mobile-first Nuxt PWA with offline-first local storage an
 
 ## Data flow
 
-- Local-first data is stored in Dexie/IndexedDB.
-- Wallets, transactions, categories, currency settings, and UI preferences are available offline.
-- When the device is online, changes sync back to Turso in the background.
-- Cloud data is used as backup and cross-device restore.
+- Wallets, transactions, categories, currency settings, and account state are stored in Turso.
+- UI preferences like theme and language can stay on the device for convenience.
+- When the device is online, changes sync to Turso automatically.
+- Cloud data is the source of truth for the account.
 
 ## Free vs Pro
 
-- Free users keep data local on one device.
-- Pro users can enable cloud sync and restore their data on new devices.
+- Free users use the same cloud-backed account model with a locked cloud-sync flow.
+- Pro users can unlock cloud sync and restore their data on new devices.
 - Cloud sync is tied to the account, not to the device.
 
 ## Offline UX
 
-- Users can keep using the app without internet after the first sign-in.
-- Changes are saved locally first.
-- Sync status is shown in the UI as Offline, Waiting to sync, Syncing, or Synced.
+- Users can keep using the app shell without internet, but account data is centered on cloud state.
+- UI can still show online/offline status for connection feedback.
+- Sync status is shown in the UI as Connected, Locked, or Offline where relevant.
 
 ## Next steps
 

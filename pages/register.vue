@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  layout: 'auth'
+})
+
 const router = useRouter()
 const { selectedLanguage } = useAppLanguage()
 const { activeTheme } = useAppThemeColor()

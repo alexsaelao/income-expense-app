@@ -4,7 +4,7 @@ import type { CurrencyCode, Transaction } from '~/composables/useMoneyNote'
 
 const { selectedLanguage } = useAppLanguage()
 const { activeTheme } = useAppThemeColor()
-const { wallets, filterTransactions, groupTransactions, removeTransaction, enabledCurrencyOptions, formatCurrency } = useMoneyNote()
+const { wallets, filterTransactions, groupTransactions, removeTransaction, enabledCurrencyOptions, formatCurrency, canEditMoneyData } = useMoneyNote()
 
 const searchDraft = ref('')
 const appliedSearch = ref('')
@@ -489,7 +489,8 @@ function closeDeleteConfirm() {
                 color="neutral"
                 variant="soft"
                 icon="i-lucide-pencil"
-                :to="`/transactions/${transaction.id}`"
+                :to="canEditMoneyData ? `/transactions/${transaction.id}` : '/settings'"
+                :disabled="!canEditMoneyData"
               >
                 {{ transactionsCopy.edit }}
               </UButton>
@@ -498,6 +499,7 @@ function closeDeleteConfirm() {
                 color="rose"
                 variant="soft"
                 icon="i-lucide-trash-2"
+                :disabled="!canEditMoneyData"
                 @click="openDeleteConfirm(transaction)"
               >
                 {{ transactionsCopy.delete }}

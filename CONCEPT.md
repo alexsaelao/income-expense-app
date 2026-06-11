@@ -8,7 +8,7 @@ Wallet Code Sabai is a native-like mobile PWA for tracking money across wallets,
 
 - Mobile-first UI
 - Works offline
-- Syncs in the background when online
+- Syncs account data to the cloud when online
 - Feels like a native app on iPhone and Android
 - Simple login with email or phone + PIN
 
@@ -21,10 +21,9 @@ Wallet Code Sabai is a native-like mobile PWA for tracking money across wallets,
 
 ## Data concept
 
-- Local data is the primary source for the current device.
-- Cloud data is the backup and cross-device sync layer.
-- Dexie/IndexedDB stores data locally.
 - Turso stores account and sync data in the cloud.
+- The browser keeps only lightweight preferences such as theme, language, and remembered login.
+- Cloud data is the source of truth for wallets, transactions, categories, and currency state.
 
 ## Free and Pro concept
 

@@ -16,16 +16,6 @@ const {
   toggleCurrencyEnabled,
   clearLocalAccountState,
   isCloudSyncEnabled,
-  syncStatus,
-  lastSyncedAt,
-  lastSyncSource,
-  syncProgress,
-  syncError,
-  syncDebugLocalSnapshot,
-  syncDebugCloudSnapshot,
-  syncDebugLoading,
-  syncDebugError,
-  refreshSyncDebugData,
   isOnline
 } = useMoneyNote()
 const { signOut, sessionProfile, rememberedProfile, authReady, setSessionPlan, setProfileAvatar } = useDeviceAuth()
@@ -58,7 +48,6 @@ const storageNotice = ref('')
 const clearDataConfirmModalOpen = ref(false)
 const isClearingData = ref(false)
 const clearDataError = ref('')
-const copiedSyncError = ref(false)
 const clearDataSlideValue = ref(0)
 const clearDataSlideTrackRef = ref<HTMLElement | null>(null)
 const clearDataSlideDragging = ref(false)
@@ -70,69 +59,12 @@ const clearDataModalStartX = ref(0)
 const clearDataModalStartY = ref(0)
 const clearDataModalDragOffset = ref(0)
 const networkSignalLevel = ref(4)
-const syncDebugExpanded = ref(false)
-let syncErrorCopyTimer: ReturnType<typeof setTimeout> | null = null
-
-function formatDebugJson(value: unknown) {
-  if (value === null || value === undefined) return '—'
-
-  try {
-    return JSON.stringify(value, null, 2)
-  }
-  catch {
-    return String(value)
-  }
-}
-
-function formatDebugUpdatedAt(value?: string | null) {
-  if (!value) return '—'
-
-  return new Intl.DateTimeFormat(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(new Date(value))
-}
-
-function summarizeSnapshotState(state?: { wallets?: Array<unknown>; transactions?: Array<unknown>; categories?: Array<unknown>; companies?: Array<unknown> } | null) {
-  return {
-    wallets: state?.wallets?.length ?? 0,
-    transactions: state?.transactions?.length ?? 0,
-    categories: state?.categories?.length ?? 0,
-    companies: state?.companies?.length ?? 0
-  }
-}
-
-const syncDebugLocalCounts = computed(() => summarizeSnapshotState(syncDebugLocalSnapshot.value?.state))
-const syncDebugCloudCounts = computed(() => summarizeSnapshotState(syncDebugCloudSnapshot.value?.state))
-
-function toggleSyncDebugExpanded() {
-  syncDebugExpanded.value = !syncDebugExpanded.value
-}
-
-watch(
-  [authReady, isCloudSyncEnabled],
-  () => {
-    if (!authReady.value) return
-    void refreshSyncDebugData()
-  },
-  { immediate: true }
-)
-
-watch(
-  [authReady, isCloudSyncEnabled, lastSyncedAt],
-  () => {
-    if (!authReady.value) return
-    if (!isCloudSyncEnabled.value) return
-    if (!lastSyncedAt.value) return
-    void refreshSyncDebugData()
-  }
-)
 const centeredSettingsModalUi = {
-  content: '!fixed !inset-auto !top-1/2 !left-1/2 flex !max-h-[calc(100dvh-2rem)] !w-[calc(100vw-2rem)] !max-w-[42rem] !-translate-x-1/2 !-translate-y-1/2 flex-col !overflow-hidden !rounded-[1.5rem] !border !border-slate-200/80 !bg-white !shadow-[0_24px_80px_-28px_rgba(15,23,42,0.35)] !ring-1 !ring-slate-200/60 focus:outline-none dark:!border-slate-800 dark:!bg-slate-950 dark:!ring-slate-800 sm:!max-h-[calc(100dvh-4rem)]',
+  content: '!fixed !inset-auto !top-1/2 !left-1/2 flex !max-h-[calc(100dvh-2rem)] !w-[calc(100vw-2rem)] !max-w-[40rem] !-translate-x-1/2 !-translate-y-1/2 flex-col !overflow-hidden !rounded-[1.75rem] !border !border-slate-200/70 !bg-white !shadow-[0_30px_90px_-36px_rgba(15,23,42,0.42)] !ring-1 !ring-slate-200/60 focus:outline-none dark:!border-slate-800 dark:!bg-slate-950 dark:!ring-slate-800 sm:!max-h-[calc(100dvh-4rem)]',
   body: 'p-0',
   header: 'p-0',
   footer: 'p-0',
-  overlay: 'fixed inset-0 bg-elevated/75 backdrop-blur-[2px]'
+  overlay: 'fixed inset-0 bg-slate-950/45 backdrop-blur-[10px]'
 }
 
 function clampNumber(value: number, min: number, max: number) {
@@ -158,38 +90,6 @@ function getNetworkSignalLevel() {
   }
 
   return 4
-}
-
-function hexToRgba(hex: string, alpha: number) {
-  const normalized = hex.replace('#', '').trim()
-  if (normalized.length !== 6) return `rgba(14, 165, 233, ${alpha})`
-
-  const red = Number.parseInt(normalized.slice(0, 2), 16)
-  const green = Number.parseInt(normalized.slice(2, 4), 16)
-  const blue = Number.parseInt(normalized.slice(4, 6), 16)
-
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
-}
-
-async function copySyncError() {
-  if (!import.meta.client || !syncError.value || !navigator.clipboard?.writeText) return
-
-  try {
-    await navigator.clipboard.writeText(syncError.value)
-    copiedSyncError.value = true
-
-    if (syncErrorCopyTimer) {
-      clearTimeout(syncErrorCopyTimer)
-    }
-
-    syncErrorCopyTimer = setTimeout(() => {
-      copiedSyncError.value = false
-      syncErrorCopyTimer = null
-    }, 1600)
-  }
-  catch {
-    copiedSyncError.value = false
-  }
 }
 
 function updateClearDataSlideValue(clientX: number) {
@@ -420,36 +320,12 @@ const settingsCopy = computed(() => {
       currencyDesc: 'ເປີດໃຊ້ເງິນຕາທີ່ຕ້ອງການ.',
       disabled: 'ປິດໃຊ້ງານ',
       sync: 'ຊິງຄລາວ',
-      syncDesc: 'ໃຊ້ງານແບບອອຟລາຍກ່ອນ ແລ້ວຄ່ອຍສຳຮອງຂຶ້ນຄລາວ.',
+      syncDesc: 'ສະຖານະການເຊື່ອມຄລາວຂອງບັນຊີນີ້.',
       internet: 'ເນັດ',
       internetConnected: 'ເຊື່ອມຕໍ່ແລ້ວ',
       internetDisconnected: 'ບໍ່ມີເນັດ',
       signal: 'ສັນຍານ',
-      offlineMode: 'ໂໝດອອຟລາຍ',
-      syncingNow: 'ກຳລັງຊິງ',
-      cloudSyncReady: 'ຊິງຄລາວເເລ້ວ',
-      waitingToSync: 'ລໍຖ້າຊິງ',
-      waiting: 'ລໍຖ້າ',
-      uploadProgress: 'ຄວາມຄືບໜ້າການຊິງ',
-      syncedAll: 'ຂໍ້ມູນໃນເຄື່ອງນີ້ກົງກັບຄລາວແລ້ວ.',
-      copyError: 'ຄັດລອກ error',
-      copied: 'ສຳເນົາແລ້ວ',
-      syncError: 'ຂໍ້ຜິດພາດການຊິງ',
-      syncingUpload: 'ກຳລັງອັບໂຫຼດການປ່ຽນແປງຂຶ້ນຄລາວ.',
-      waitingUpload: 'ບັນທຶກໄວ້ໃນເຄື່ອງແລ້ວ ກຳລັງລໍສັນຍານ.',
-      pendingUpload: 'ການປ່ຽນແປງໃນເຄື່ອງກຳລັງລໍອັບໂຫຼດ.',
-      syncPreparing: 'ກຳລັງກວດຄລາວ ແລະກຽມຊິງຂໍ້ມູນ.',
-      syncComparing: 'ກຳລັງທຽບຂໍ້ມູນທ້ອງຖິ່ນກັບຄລາວ.',
-      syncApplying: 'ກຳລັງອັບເດດຂໍ້ມູນລ່າສຸດ.',
-      syncOfflineDetail: 'ບໍ່ມີເນັດຕອນນີ້ ການປ່ຽນແປງຈະຊິງເມື່ອກັບອອນລາຍ.',
-      syncLastSyncedAt: 'ຊິງຄັ້ງລ່າສຸດ',
-      syncDebugTitle: 'ຂໍ້ມູນ debug',
-      syncDebugDesc: 'ເບິ່ງ local ແລະ cloud snapshot ແບບຂະໜານ.',
-      syncDebugRefresh: 'ອັບເດດ debug',
-      syncDebugLocal: 'Local snapshot',
-      syncDebugCloud: 'Cloud snapshot',
-      syncDebugNoCloud: 'ບໍ່ພົບ cloud snapshot',
-      syncDebugError: 'ບໍ່ສາມາດໂຫຼດຂໍ້ມູນ debug ໄດ້',
+      cloudSyncReady: 'ຄລາວພ້ອມແລ້ວ',
       storage: 'ສຳຮອງຂໍ້ມູນ',
       storageDesc: 'ສົ່ງອອກແລະນຳເຂົ້າ backup ແບບ JSON ໄດ້.',
       backupRecommended: 'ແນະນຳ JSON',
@@ -494,17 +370,15 @@ const settingsCopy = computed(() => {
       dangerZone: 'ເຂດອັນຕະລາຍ',
       dangerDesc: 'ລ້າງຂໍ້ມູນທົດລອງ ຫຼືອອກຈາກເຄື່ອງນີ້.',
       clearData: 'ລ້າງຂໍ້ມູນ',
-      clearDataDesc: 'ລຶບ local ແລະ cloud data ຂອງບັນຊີນີ້ ແລະກັບໄປ starter data.',
+      clearDataDesc: 'ລຶບ cloud data ຂອງບັນຊີນີ້ ແລະກັບໄປ starter data.',
       clearDataButton: 'ລ້າງຂໍ້ມູນ',
       clearDataModalTitle: 'ຢືນຢັນການລ້າງຂໍ້ມູນ',
-      clearDataModalDesc: 'ການກະທຳນີ້ຈະລຶບຂໍ້ມູນທັງ local ແລະ cloud ຂອງບັນຊີນີ້.',
+      clearDataModalDesc: 'ການກະທຳນີ້ຈະລຶບ cloud data ຂອງບັນຊີນີ້.',
       clearDataWarning: 'ຫຼັງຈາກລ້າງ ແອັບຈະໂຫຼດ starter data ຂຶ້ນໃໝ່.',
       clearDataSlideLabel: 'ເລື່ອນເພື່ອຢືນຢັນ',
       clearDataSlideHint: 'ເລື່ອນໄປສຸດຂວາເພື່ອເປີດປຸ່ມລ້າງຂໍ້ມູນ.',
       clearDataSlideUnlocked: 'ພ້ອມແລ້ວ',
       clearDataSlideRequired: 'ກະລຸນາເລື່ອນໃຫ້ສຸດກ່ອນ.',
-      clearDataLocalLabel: 'ຂໍ້ມູນທ້ອງຖິ່ນ',
-      clearDataLocalDesc: 'ກະເປົາເງິນ, ລາຍການທຸລະກຳ, ໝວດໝູ່, ບໍລິສັດ, ແລະ ຂໍ້ມູນສຳຮອງທ້ອງຖິ່ນ.',
       clearDataCloudLabel: 'ຂໍ້ມູນຄລາວ',
       clearDataCloudDesc: 'ຖ້າເປີດໃຊ້ງານຊິງຄລາວ ຂໍ້ມູນຢູ່ເຊີບເວີຂອງບັນຊີນີ້ຈະຖືກລຶບອອກດ້ວຍ.',
       clearDataFailed: 'ບໍ່ສາມາດລ້າງຂໍ້ມູນໄດ້.',
@@ -581,36 +455,12 @@ const settingsCopy = computed(() => {
     currencyDesc: 'Enable the currencies you want to use.',
     disabled: 'Disabled',
     sync: 'Sync',
-    syncDesc: 'Offline-first, cloud backup later.',
+    syncDesc: 'Cloud status for this account.',
     internet: 'Internet',
     internetConnected: 'Connected',
     internetDisconnected: 'Offline',
     signal: 'Signal',
-    offlineMode: 'Offline mode',
-    syncingNow: 'Syncing now',
-    cloudSyncReady: 'Cloud sync ready',
-    waitingToSync: 'Waiting to sync',
-    waiting: 'Waiting',
-    uploadProgress: 'Sync progress',
-    syncedAll: 'Everything on this device matches the cloud.',
-    copyError: 'Copy error',
-    copied: 'Copied',
-    syncError: 'Sync error',
-    syncingUpload: 'Uploading changes to cloud now.',
-    waitingUpload: 'Saved locally. Waiting for connection to upload.',
-    pendingUpload: 'Local changes are waiting to be uploaded.',
-    syncPreparing: 'Checking cloud backup and preparing sync.',
-    syncComparing: 'Comparing cloud and local data.',
-    syncApplying: 'Applying the latest changes.',
-    syncOfflineDetail: 'No connection right now. Changes will sync when online.',
-    syncLastSyncedAt: 'Last synced at',
-    syncDebugTitle: 'Debug data',
-    syncDebugDesc: 'View local and cloud snapshots side by side.',
-    syncDebugRefresh: 'Refresh debug',
-    syncDebugLocal: 'Local snapshot',
-    syncDebugCloud: 'Cloud snapshot',
-    syncDebugNoCloud: 'No cloud snapshot found',
-    syncDebugError: 'Could not load debug data',
+    cloudSyncReady: 'Cloud connected',
     storage: 'Storage',
     storageDesc: 'Export a JSON backup or restore it later.',
     backupRecommended: 'JSON recommended',
@@ -635,9 +485,9 @@ const settingsCopy = computed(() => {
     exportCsvInclude: 'Columns included',
     exportCsvDownload: 'Download CSV',
     importData: 'Import backup',
-    importHint: 'Importing will replace the current local data for this account.',
+    importHint: 'Importing will replace the current data for this account.',
     importModalTitle: 'Restore backup',
-    importModalDesc: 'This will replace the current local data for this account.',
+    importModalDesc: 'This will replace the current data for this account.',
     importSelectedFile: 'Selected file',
     importExportedAt: 'Exported at',
     importIncludedData: 'Included data',
@@ -653,19 +503,17 @@ const settingsCopy = computed(() => {
     invalidBackupFile: 'This file is not a valid backup.',
     unsupportedBackupFile: 'This backup format is not supported yet.',
     dangerZone: 'Danger zone',
-    dangerDesc: 'Reset demo data or sign out from this device.',
+    dangerDesc: 'Reset cloud data or sign out from this device.',
     clearData: 'Clear data',
-    clearDataDesc: 'Delete local and cloud data for this account, then restore starter data.',
+    clearDataDesc: 'Delete this account’s cloud data, then restore starter data.',
     clearDataButton: 'Clear data',
     clearDataModalTitle: 'Confirm data clear',
-    clearDataModalDesc: 'This will remove the local and cloud data for this account.',
+    clearDataModalDesc: 'This will remove the cloud data for this account.',
     clearDataWarning: 'After clearing, the app will reload with starter data.',
     clearDataSlideLabel: 'Slide to confirm',
     clearDataSlideHint: 'Slide all the way to the right to unlock the clear button.',
     clearDataSlideUnlocked: 'Ready',
     clearDataSlideRequired: 'Please slide all the way to confirm.',
-    clearDataLocalLabel: 'Local data',
-    clearDataLocalDesc: 'Wallets, transactions, categories, companies, and local snapshots.',
     clearDataCloudLabel: 'Cloud data',
     clearDataCloudDesc: 'If cloud sync is active, the server state for this account will also be deleted.',
     clearDataFailed: 'Could not clear the data right now.',
@@ -899,6 +747,13 @@ function openProRedeemModal() {
   proRedeemModalOpen.value = true
 }
 
+function openUpgradeForProAction() {
+  if (isProAccount.value) return false
+
+  openProRedeemModal()
+  return true
+}
+
 async function pasteProRedeemKey() {
   if (isPastingProKey.value) return
   if (!navigator.clipboard?.readText) return
@@ -987,6 +842,8 @@ function setLanguage(language: 'en' | 'lo') {
 }
 
 function openClearDataConfirmModal() {
+  if (openUpgradeForProAction()) return
+
   clearDataError.value = ''
   clearDataSlideValue.value = 0
   stopClearDataSlideDrag()
@@ -1049,10 +906,6 @@ watch(clearDataConfirmModalOpen, (open) => {
 onBeforeUnmount(() => {
   stopClearDataSlideDrag()
   stopClearDataModalDrag()
-  if (syncErrorCopyTimer) {
-    clearTimeout(syncErrorCopyTimer)
-    syncErrorCopyTimer = null
-  }
 })
 
 function handleLogout() {
@@ -1062,7 +915,7 @@ function handleLogout() {
 async function confirmLogout() {
   logoutConfirmModalOpen.value = false
   await signOut()
-  router.replace('/login')
+  window.location.replace('/login')
 }
 
 function formatBackupDate(value?: string) {
@@ -1123,6 +976,8 @@ function resetStorageExportState() {
 }
 
 function triggerStorageImportPicker() {
+  if (openUpgradeForProAction()) return
+
   storageNotice.value = ''
   storageImportError.value = ''
   storageImportInputRef.value?.click()
@@ -1206,6 +1061,8 @@ function downloadCsvText(text: string, fileName: string) {
 }
 
 function openStorageExportModal() {
+  if (openUpgradeForProAction()) return
+
   storageNotice.value = ''
   storageExportError.value = ''
   storageExportPending.value = buildMoneyNoteBackupFile()
@@ -1362,93 +1219,6 @@ async function confirmStorageImport() {
   }
 }
 
-const syncStateCopy = computed(() => {
-  const copy = settingsCopy.value
-  const syncedTime = lastSyncedAt.value
-    ? new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(lastSyncedAt.value))
-    : ''
-
-  switch (syncStatus.value) {
-    case 'offline':
-      return {
-        label: copy.offlineMode,
-        badge: copy.waiting,
-        icon: 'i-lucide-wifi-off',
-        tone: 'rose',
-        message: copy.offlineMode,
-        detail: copy.syncOfflineDetail
-      }
-    case 'syncing':
-      return {
-        label: copy.syncingNow,
-        badge: copy.syncingNow,
-        icon: 'i-lucide-refresh-cw',
-        tone: 'sky',
-        message: copy.syncingNow,
-        detail: `${copy.syncPreparing} ${copy.syncComparing} ${copy.syncApplying}`
-      }
-    case 'synced':
-      return {
-        label: copy.cloudSyncReady,
-        badge: copy.pro,
-        icon: 'i-lucide-cloud-check',
-        tone: 'emerald',
-        message: copy.cloudSyncReady,
-        detail: syncedTime
-          ? `${copy.syncLastSyncedAt} ${syncedTime}.`
-          : copy.syncedAll
-      }
-    default:
-      return {
-        label: copy.waitingToSync,
-        badge: isOnline.value ? copy.waiting : copy.free,
-        icon: isOnline.value ? 'i-lucide-cloud-upload' : 'i-lucide-wifi-off',
-        tone: isOnline.value ? 'amber' : 'rose',
-        message: copy.waitingToSync,
-        detail: isOnline.value ? copy.syncPreparing : copy.syncOfflineDetail
-      }
-  }
-})
-
-const syncSourceCopy = computed(() => {
-  switch (lastSyncSource.value) {
-    case 'cloud':
-      return {
-        label: 'Loaded from cloud',
-        tone: 'emerald'
-      }
-    case 'local':
-      return {
-        label: 'Loaded from local',
-        tone: 'sky'
-      }
-    case 'merged':
-      return {
-        label: 'Merged from local + cloud',
-        tone: 'violet'
-      }
-    default:
-      return {
-        label: 'Sync source unknown',
-        tone: 'neutral'
-      }
-  }
-})
-
-const syncProgressLabel = computed(() => `${Math.round(syncProgress.value)}%`)
-const syncProgressStyle = computed(() => {
-  const color = activeTheme.value.hex
-  return {
-    width: `${syncProgress.value}%`,
-    backgroundImage: `linear-gradient(90deg, ${hexToRgba(color, 0.95)} 0%, ${hexToRgba(color, 0.7)} 55%, ${hexToRgba(color, 1)} 100%)`
-  }
-})
-const syncProgressShimmerStyle = computed(() => {
-  const color = activeTheme.value.hex
-  return {
-    backgroundImage: `linear-gradient(90deg, transparent 0%, ${hexToRgba(color, 0.24)} 50%, transparent 100%)`
-  }
-})
 const internetStatusCopy = computed(() => {
   if (selectedLanguage.value === 'lo') {
     return {
@@ -1573,10 +1343,7 @@ const internetStatusCopy = computed(() => {
             <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.sync }}</h2>
             <p class="text-xs text-muted">{{ settingsCopy.syncDesc }}</p>
           </div>
-          <UBadge v-if="authReady && isCloudSyncEnabled" color="neutral" variant="soft" class="rounded-full">
-            {{ syncStateCopy.badge }}
-          </UBadge>
-          <UBadge v-else-if="authReady" color="neutral" variant="soft" icon="i-lucide-key-round" class="min-w-max whitespace-nowrap rounded-full px-3">
+          <UBadge v-if="authReady && !isCloudSyncEnabled" color="neutral" variant="soft" icon="i-lucide-key-round" class="min-w-max whitespace-nowrap rounded-full px-3">
             {{ settingsCopy.cloudSyncLocked }}
           </UBadge>
           <UBadge v-else color="neutral" variant="soft" class="rounded-full px-3 opacity-70">
@@ -1585,70 +1352,14 @@ const internetStatusCopy = computed(() => {
         </div>
 
         <template v-if="authReady && isCloudSyncEnabled">
-          <div class="mt-3 flex items-center gap-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
-            <div :class="['flex size-10 shrink-0 items-center justify-center rounded-full text-white shadow-lg', syncStateCopy.tone === 'emerald' ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : syncStateCopy.tone === 'sky' ? 'bg-gradient-to-br from-sky-500 to-cyan-400' : syncStateCopy.tone === 'amber' ? 'bg-gradient-to-br from-amber-500 to-orange-400' : 'bg-gradient-to-br from-rose-500 to-pink-400']">
-              <UIcon :name="syncStateCopy.icon" class="size-4" />
+          <div class="mt-3 flex items-center gap-3 rounded-[1.1rem] border border-emerald-200/80 bg-emerald-50 px-3 py-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+            <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg">
+              <UIcon name="i-lucide-cloud-check" class="size-4" />
             </div>
 
             <div class="min-w-0">
-              <p class="text-sm font-bold text-default">{{ syncStateCopy.label }}</p>
-              <p class="text-xs leading-5 text-muted">{{ syncStateCopy.message }}</p>
-            </div>
-          </div>
-
-          <div class="mt-2 flex items-center gap-2 px-1">
-            <UBadge color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
-              Debug
-            </UBadge>
-            <p class="text-[11px] leading-5 text-muted">{{ syncSourceCopy.label }}</p>
-          </div>
-
-          <div class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-white px-3 py-3 dark:border-slate-800 dark:bg-slate-950">
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-xs font-bold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.uploadProgress }}</p>
-              <UBadge color="neutral" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
-                {{ syncProgressLabel }}
-              </UBadge>
-            </div>
-
-            <div class="sync-progress-shell mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" :style="{ '--sync-progress-color': activeTheme.hex }">
-              <div
-                class="sync-progress-fill h-full rounded-full transition-all duration-300"
-                :style="syncProgressStyle"
-              />
-              <div
-                v-if="syncStatus === 'syncing' || syncStatus === 'waiting'"
-                class="sync-progress-shimmer"
-                :style="syncProgressShimmerStyle"
-              />
-            </div>
-
-            <p class="mt-2 text-[11px] leading-5 text-muted">
-              {{ syncStateCopy.detail }}
-            </p>
-          </div>
-
-          <div v-if="syncError" class="mt-3 flex items-start gap-3 rounded-[1.1rem] border border-rose-200 bg-rose-50 px-3 py-3 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-400 text-white shadow-lg">
-              <UIcon name="i-lucide-alert-triangle" class="size-4" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="text-sm font-bold">{{ settingsCopy.syncError }}</p>
-                  <p class="mt-1 text-xs leading-5 opacity-90">{{ syncError }}</p>
-                </div>
-                <UButton
-                  size="xs"
-                  variant="soft"
-                  color="neutral"
-                  class="shrink-0 rounded-full"
-                  :icon="copiedSyncError ? 'i-lucide-check' : 'i-lucide-copy'"
-                  @click="copySyncError"
-                >
-                  {{ copiedSyncError ? settingsCopy.copied : settingsCopy.copyError }}
-                </UButton>
-              </div>
+              <p class="text-sm font-bold text-emerald-700 dark:text-emerald-200">{{ settingsCopy.cloudSyncReady }}</p>
+              <p class="text-xs leading-5 text-emerald-700/80 dark:text-emerald-200/80">{{ settingsCopy.cloudSyncActiveDesc }}</p>
             </div>
           </div>
         </template>
@@ -1946,129 +1657,6 @@ const internetStatusCopy = computed(() => {
       </div>
     </section>
 
-    <div v-if="authReady" class="rounded-[1.25rem] border border-slate-200/80 bg-white/90 px-4 py-4 shadow-[0_12px_40px_-30px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/85">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <button
-          type="button"
-          class="flex min-w-0 flex-1 items-start gap-3 rounded-[1rem] text-left transition hover:bg-slate-50/80 dark:hover:bg-slate-900/40"
-          :aria-expanded="syncDebugExpanded"
-          @click="toggleSyncDebugExpanded"
-        >
-          <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
-            <UIcon name="i-lucide-bug-play" class="size-4" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <h3 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.syncDebugTitle }}</h3>
-            <p class="text-xs leading-5 text-muted">{{ settingsCopy.syncDebugDesc }}</p>
-          </div>
-          <div class="flex size-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-muted shadow-sm transition-transform dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300" :class="syncDebugExpanded ? 'rotate-180' : ''">
-            <UIcon name="i-lucide-chevron-down" class="size-4" />
-          </div>
-        </button>
-
-        <UButton
-          size="sm"
-          color="neutral"
-          variant="soft"
-          class="w-fit shrink-0 self-start rounded-full"
-          :loading="syncDebugLoading"
-          icon="i-lucide-refresh-cw"
-          @click="refreshSyncDebugData"
-        >
-          {{ settingsCopy.syncDebugRefresh }}
-        </UButton>
-      </div>
-
-      <div v-show="syncDebugExpanded">
-        <div v-if="syncDebugError" class="mt-3 flex items-start gap-3 rounded-[1rem] border border-rose-200 bg-rose-50 px-3 py-3 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
-          <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-400 text-white shadow-lg">
-            <UIcon name="i-lucide-bug-play" class="size-4" />
-          </div>
-          <div class="min-w-0">
-            <p class="text-sm font-bold">{{ settingsCopy.syncDebugError }}</p>
-            <p class="mt-1 text-xs leading-5 opacity-90">{{ syncDebugError }}</p>
-          </div>
-        </div>
-
-        <div class="mt-4 grid gap-3 lg:grid-cols-2">
-          <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div class="min-w-0">
-                <p class="text-xs font-bold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.syncDebugLocal }}</p>
-                <p class="mt-1 text-[11px] leading-5 text-muted">{{ formatDebugUpdatedAt(syncDebugLocalSnapshot?.updatedAt) }}</p>
-              </div>
-              <UBadge color="neutral" variant="soft" class="w-fit rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
-                {{ syncDebugLocalCounts.transactions }} tx
-              </UBadge>
-            </div>
-
-            <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
-                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.wallets }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ syncDebugLocalCounts.wallets }}</p>
-              </div>
-              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
-                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.transactionsLabel }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ syncDebugLocalCounts.transactions }}</p>
-              </div>
-              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
-                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.categoriesLabel }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ syncDebugLocalCounts.categories }}</p>
-              </div>
-              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
-                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.companiesLabel }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ syncDebugLocalCounts.companies }}</p>
-              </div>
-            </div>
-
-            <pre class="mt-3 max-h-56 overflow-auto rounded-[0.95rem] bg-slate-950 px-3 py-3 text-[10px] leading-5 whitespace-pre-wrap break-words text-slate-100 sm:max-h-72 sm:text-[11px]">{{ formatDebugJson(syncDebugLocalSnapshot) }}</pre>
-          </div>
-
-          <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div class="min-w-0">
-                <p class="text-xs font-bold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.syncDebugCloud }}</p>
-                <p class="mt-1 text-[11px] leading-5 text-muted">
-                  {{ syncDebugCloudSnapshot?.state ? formatDebugUpdatedAt(syncDebugCloudSnapshot.updatedAt) : settingsCopy.syncDebugNoCloud }}
-                </p>
-              </div>
-              <UBadge
-                :color="syncDebugCloudSnapshot?.state ? 'emerald' : 'neutral'"
-                variant="soft"
-                class="w-fit rounded-full text-[10px] font-bold uppercase tracking-[0.16em]"
-              >
-                {{ syncDebugCloudSnapshot?.state ? `${syncDebugCloudCounts.transactions} tx` : settingsCopy.syncDebugNoCloud }}
-              </UBadge>
-            </div>
-
-            <div v-if="syncDebugCloudSnapshot?.state" class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
-                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.wallets }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ syncDebugCloudCounts.wallets }}</p>
-              </div>
-              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
-                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.transactionsLabel }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ syncDebugCloudCounts.transactions }}</p>
-              </div>
-              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
-                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.categoriesLabel }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ syncDebugCloudCounts.categories }}</p>
-              </div>
-              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
-                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.companiesLabel }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ syncDebugCloudCounts.companies }}</p>
-              </div>
-            </div>
-            <div v-else class="mt-3 rounded-[0.95rem] border border-dashed border-slate-300 bg-white px-3 py-3 text-sm text-muted dark:border-slate-700 dark:bg-slate-950/80">
-              {{ settingsCopy.syncDebugNoCloud }}
-            </div>
-
-            <pre class="mt-3 max-h-56 overflow-auto rounded-[0.95rem] bg-slate-950 px-3 py-3 text-[10px] leading-5 whitespace-pre-wrap break-words text-slate-100 sm:max-h-72 sm:text-[11px]">{{ formatDebugJson(syncDebugCloudSnapshot) }}</pre>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
       <div class="px-4 py-4">
         <div class="min-w-0">
@@ -2200,12 +1788,7 @@ const internetStatusCopy = computed(() => {
                 <p class="mt-1 text-xs leading-5 opacity-90">{{ settingsCopy.clearDataModalDesc }}</p>
               </div>
 
-              <div class="grid gap-3 sm:grid-cols-2">
-                <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
-                  <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.clearDataLocalLabel }}</p>
-                  <p class="mt-1 text-sm font-bold text-default">{{ settingsCopy.clearDataLocalDesc }}</p>
-                </div>
-
+              <div class="grid gap-3 sm:grid-cols-1">
                 <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
                   <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.clearDataCloudLabel }}</p>
                   <p class="mt-1 text-sm font-bold text-default">{{ settingsCopy.clearDataCloudDesc }}</p>
@@ -2402,60 +1985,68 @@ const internetStatusCopy = computed(() => {
       v-model:open="proRedeemModalOpen"
       :title="settingsCopy.upgradeModalTitle"
       :description="settingsCopy.upgradeModalDesc"
+      :ui="centeredSettingsModalUi"
     >
       <template #body>
-        <div class="space-y-4">
-          <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ settingsCopy.account }}</p>
-            <p class="mt-1 break-all text-sm font-black text-default">{{ sessionProfile?.identifier }}</p>
-            <p class="mt-1 text-xs text-muted">{{ settingsCopy.keyActivate }}</p>
+        <div class="px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
+          <div class="mx-auto mb-4 flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-100">
+            <UIcon name="i-lucide-badge-check" class="size-4" />
+            <span class="text-[10px] font-semibold uppercase tracking-[0.22em]">{{ settingsCopy.upgradeToPro }}</span>
           </div>
 
-          <div class="space-y-2">
-            <p class="text-sm font-bold text-default">{{ settingsCopy.redeemKey }}</p>
-            <UInput
-              ref="proRedeemInputRef"
-              v-model="proRedeemKey"
-              :placeholder="settingsCopy.redeemPlaceholder"
-              variant="none"
-              inputmode="text"
-              autocomplete="off"
-              autocapitalize="characters"
-              autocorrect="off"
-              spellcheck="false"
-              class="w-full"
-              :ui="{
-                root: 'w-full',
-                base: 'h-12 w-full rounded-full border border-slate-200/80 bg-white ps-4 pe-24 text-sm font-semibold text-default shadow-sm outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50',
-                trailing: 'absolute inset-y-0 end-0 flex items-center pe-1.5',
-                trailingIcon: 'size-5'
-              }"
-              @keyup.enter="submitProRedeem"
-            >
-              <template #trailing>
-                <UButton
-                  type="button"
-                  variant="soft"
-                  color="neutral"
-                  :loading="isPastingProKey"
-                  icon="i-lucide-clipboard-paste"
-                  class="me-1.5 h-9 rounded-full border border-slate-200 bg-slate-100 px-3 text-xs font-bold text-default shadow-none hover:bg-slate-200/70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-                  @click="pasteProRedeemKey"
-                >
-                  {{ settingsCopy.paste }}
-                </UButton>
-              </template>
-            </UInput>
-          </div>
+          <div class="space-y-4">
+            <div class="rounded-[1.1rem] border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:to-slate-950">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ settingsCopy.account }}</p>
+              <p class="mt-1 break-all text-base font-black text-default">{{ sessionProfile?.identifier }}</p>
+              <p class="mt-1 text-xs leading-5 text-muted">{{ settingsCopy.keyActivate }}</p>
+            </div>
 
-          <p v-if="proRedeemError" class="text-sm font-semibold text-rose-600 dark:text-rose-300">
-            {{ proRedeemError }}
-          </p>
+            <div class="space-y-2">
+              <p class="text-sm font-bold text-default">{{ settingsCopy.redeemKey }}</p>
+              <UInput
+                ref="proRedeemInputRef"
+                v-model="proRedeemKey"
+                :placeholder="settingsCopy.redeemPlaceholder"
+                variant="none"
+                inputmode="text"
+                autocomplete="off"
+                autocapitalize="characters"
+                autocorrect="off"
+                spellcheck="false"
+                class="w-full"
+                :ui="{
+                  root: 'w-full',
+                  base: 'h-12 w-full rounded-full border border-slate-200/80 bg-white ps-4 pe-24 text-sm font-semibold text-default shadow-sm outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50',
+                  trailing: 'absolute inset-y-0 end-0 flex items-center pe-1.5',
+                  trailingIcon: 'size-5'
+                }"
+                @keyup.enter="submitProRedeem"
+              >
+                <template #trailing>
+                  <UButton
+                    type="button"
+                    variant="soft"
+                    color="neutral"
+                    :loading="isPastingProKey"
+                    icon="i-lucide-clipboard-paste"
+                    class="me-1.5 h-9 rounded-full border border-slate-200 bg-slate-100 px-3 text-xs font-bold text-default shadow-none hover:bg-slate-200/70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                    @click="pasteProRedeemKey"
+                  >
+                    {{ settingsCopy.paste }}
+                  </UButton>
+                </template>
+              </UInput>
+            </div>
+
+            <p v-if="proRedeemError" class="rounded-[0.9rem] border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-600 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+              {{ proRedeemError }}
+            </p>
+          </div>
         </div>
       </template>
 
       <template #footer>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-2 gap-3 border-t border-slate-200/80 bg-white/96 px-4 pb-[calc(env(safe-area-inset-bottom)+0.8rem)] pt-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/96 sm:px-5">
           <UButton
             class="h-12 w-full justify-center rounded-full border border-slate-200 bg-white px-4 text-sm font-bold text-default shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
             variant="soft"

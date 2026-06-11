@@ -1,7 +1,10 @@
 import { AUTH_SERVER_SESSION_STATE_KEY, type ServerAuthSessionSnapshot } from '~/composables/useDeviceAuth'
 
 const AUTH_PAGES = new Set(['/login', '/register'])
-const PUBLIC_PAGES = new Set(['/offline'])
+
+function isPublicPage(path: string) {
+  return path === '/offline' || path === '/install' || path.startsWith('/install/')
+}
 
 function createEmptyServerAuthSession(): ServerAuthSessionSnapshot {
   return {
@@ -16,7 +19,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
-  if (PUBLIC_PAGES.has(to.path)) {
+  if (isPublicPage(to.path)) {
     return
   }
 

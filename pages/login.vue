@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  layout: 'auth'
+})
+
 const router = useRouter()
 const { selectedLanguage } = useAppLanguage()
 const { activeTheme } = useAppThemeColor()
@@ -73,7 +77,7 @@ const loginCopy = computed(() => selectedLanguage.value === 'lo'
     })
 
 const pinSlots = computed(() => Array.from({ length: 6 }, (_, index) => pinValue.value[index] ?? ''))
-const canContinue = computed(() => identifier.value.trim().length >= 3)
+const canContinue = computed(() => identifier.value.trim().length >= 3 || hasSavedAccount.value)
 const hasSavedAccount = computed(() => Boolean(rememberedProfile.value?.identifier))
 const nextButtonLabel = computed(() => step.value === 'account' ? loginCopy.value.next : loginCopy.value.unlock)
 
@@ -118,13 +122,14 @@ function clearSavedAccount() {
 }
 
 async function goToPin() {
-  const normalized = identifier.value.trim()
+  const normalized = identifier.value.trim() || rememberedProfile.value?.identifier?.trim() || ''
   if (!normalized) {
     errorMessage.value = loginCopy.value.enterAccount
     focusIdentifier()
     return
   }
 
+  identifier.value = normalized
   isCheckingAccount.value = true
   errorMessage.value = ''
 
@@ -342,7 +347,7 @@ onMounted(() => {
 
           <UButton
             type="submit"
-            :disabled="!canContinue || isSubmitting || isCheckingAccount"
+            :disabled="isSubmitting || isCheckingAccount"
             :class="['h-12 w-full rounded-full bg-gradient-to-r text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:text-base', activeTheme.accent]"
           >
             <span class="flex w-full items-center justify-center gap-2 text-center">

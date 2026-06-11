@@ -12,7 +12,8 @@ const {
   setDefaultCategoryEnabled,
   setCategoryPinned,
   setCustomCategoryEnabled,
-  moveCategory
+  moveCategory,
+  canEditMoneyData
 } = useMoneyNote()
 
 const categoryModalOpen = ref(false)
@@ -214,6 +215,7 @@ function categoryKeyForItem(item: any) {
 }
 
 function openCategoryManager(item: any) {
+  if (!canEditMoneyData.value) return
   selectedCategory.value = item
   manageCategoryOpen.value = true
 }
@@ -225,6 +227,7 @@ function closeCategoryManager() {
 }
 
 function openCategoryEditor(item: any) {
+  if (!canEditMoneyData.value) return
   selectedCategory.value = item
   editingCategoryId.value = item.id
   form.name = item.name
@@ -296,6 +299,7 @@ function resetForm() {
 }
 
 function submitCategory() {
+  if (!canEditMoneyData.value) return
   if (editingCategoryId.value && selectedCategory.value && !selectedCategory.value.isDefault) {
     const updated = updateCategory(editingCategoryId.value, {
       name: form.name,
@@ -331,6 +335,7 @@ function submitCategory() {
 }
 
 function confirmDeleteCategory() {
+  if (!canEditMoneyData.value) return
   if (!selectedCategory.value || selectedCategory.value.isDefault) return
 
   removeCategory(selectedCategory.value.id)
@@ -393,6 +398,7 @@ function onSheetPointerCancel() {
       </div>
 
       <UButton
+        v-if="canEditMoneyData"
         icon="i-lucide-plus"
         size="lg"
         :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"

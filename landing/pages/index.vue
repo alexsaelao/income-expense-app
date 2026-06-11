@@ -109,7 +109,7 @@ const exportIcon = `
 const translations = {
   en: {
     pageTitle: 'Wallet Code Sabai',
-    description: 'A clean, mobile-first landing page for a wallet app.',
+    description: 'A clean, mobile-first landing page for a cloud-connected wallet app.',
     nav: {
       home: 'Home',
       features: 'Features',
@@ -121,22 +121,22 @@ const translations = {
     getPro: 'Get Pro',
     theme: 'Theme',
     hero: {
-      kicker: 'Offline-first money control',
+      kicker: 'Cloud-first money control',
       badge: 'Dark/Light',
       titleTop: 'Modern finance for',
       titleAccent: 'fast mobile money tracking.',
       body:
-        'Track wallets, move money, and unlock cloud sync when you are ready.',
-      stat1Label: 'Offline',
-      stat1Body: 'Works without signal',
+        'Track wallets, move money, and keep everything synced in the cloud.',
+      stat1Label: 'Cloud',
+      stat1Body: 'Always online and synced',
       stat2Label: 'Pro',
-      stat2Body: 'Cloud backup later',
+      stat2Body: 'Cloud backup and restore',
       stat3Label: 'Language',
       stat3Body: 'EN / ລາວ',
     },
     preview: {
-      ready: 'PWA ready',
-      localFirst: 'Local first',
+      ready: 'Cloud ready',
+      localFirst: 'Cloud synced',
       balanceLabel: 'Current balance',
       balanceBody: 'Cash, wallet, and bank in one clean view.',
       entryTitle: 'Fast entry',
@@ -144,14 +144,14 @@ const translations = {
       historyTitle: 'Clean history',
       historyBody: 'Read every move without noise.',
       cloudTitle: 'Cloud restore',
-      cloudBody: 'Bring data back on Pro devices.',
+      cloudBody: 'Bring data back on any signed-in device.',
     },
     features: {
       kicker: 'Features',
       title: 'Everything kept simple',
       body: 'Explain the product fast. Keep it polished and clear.',
-      offlineTitle: 'Offline-first PWA',
-      offlineBody: 'Open fast, keep using it offline, and return later without losing your flow.',
+      cloudTitle: 'Cloud-connected app',
+      cloudBody: 'Stay online, sync every change, and pick up on any device.',
       walletTitle: 'Wallets and categories',
       walletBody: 'Keep balances clear, budgets tidy, and expenses organized the way people work.',
       historyTitle: 'Transactions with history',
@@ -159,7 +159,7 @@ const translations = {
       backupTitle: 'Backup and restore',
       backupBody: 'Export JSON for safe restore and use CSV for spreadsheet analysis.',
       plansTitle: 'Free and Pro',
-      plansBody: 'Keep a free local-first plan, then unlock cloud sync and restore on Pro.',
+      plansBody: 'Keep a free cloud-backed plan, then unlock full sync and restore on Pro.',
       upgradeTitle: 'Simple upgrade path',
       upgradeBody: 'Redeem codes or entitlement-based Pro activation can unlock the app cleanly.',
     },
@@ -171,9 +171,9 @@ const translations = {
       label: 'Highlight',
       freeBadge: 'Free',
       freeTitle: 'Start without paying',
-      freeBody: 'Personal tracking, offline use, and easy exports.',
+      freeBody: 'Personal tracking, cloud sync, and easy exports.',
       freeTerm: '/ forever',
-      freeChips: ['Local data', 'Offline-first', 'Export JSON', 'Export CSV'],
+      freeChips: ['Cloud sync', 'Online access', 'Export JSON', 'Export CSV'],
       proBadge: 'Pro',
       proTitle: 'Cloud sync and restore',
       proBody: 'Best for people who use more than one device.',
@@ -188,7 +188,7 @@ const translations = {
       items: [
         {
           q: 'Is the app free?',
-          a: 'Yes. The free plan is free forever for local tracking, offline use, and exporting your data anytime.',
+          a: 'Yes. The free plan is free forever for cloud-backed tracking and exporting your data anytime.',
         },
         {
           q: 'What does Pro unlock?',
@@ -215,7 +215,7 @@ const translations = {
   },
   lo: {
     pageTitle: 'Wallet Code Sabai',
-    description: 'ໜ້າ landing ສະອາດ ແລະໃຊ້ງ່າຍສຳລັບແອັບການເງິນ.',
+    description: 'ໜ້າ landing ສະອາດ ແລະໃຊ້ງ່າຍສຳລັບແອັບການເງິນທີ່ພ້ອມຊິງຄຄລາວ.',
     nav: {
       home: 'ໜ້າຫຼັກ',
       features: 'ຟີຈເຈີ',
@@ -227,22 +227,22 @@ const translations = {
     getPro: 'ເອົາ Pro',
     theme: 'ຮູບແບບ',
     hero: {
-      kicker: 'ການເງິນແບບອອບລາຍກ່ອນ',
+      kicker: 'ການເງິນແບບຄລາວກ່ອນ',
       badge: 'Dark/Light',
       titleTop: 'ການເງິນທັນສະໄໝສຳລັບ',
       titleAccent: 'ການຕິດຕາມເງິນຜ່ານມືຖືຢ່າງໄວ.',
       body:
-        'ຕິດຕາມ wallet, ຍ້າຍເງິນ, ແລະປົດລັອກຄຣາວເມື່ອທ່ານພ້ອມ.',
-      stat1Label: 'ອອບລາຍ',
-      stat1Body: 'ໃຊ້ໄດ້ບໍ່ຕ້ອງມີເນັດ',
+        'ຕິດຕາມ wallet, ຍ້າຍເງິນ, ແລະໃຫ້ຂໍ້ມູນຊິງຄຢູ່ໃນຄລາວ.',
+      stat1Label: 'ຄລາວ',
+      stat1Body: 'ອອນລາຍ ແລະ ຊິງຄຕະຫຼອດ',
       stat2Label: 'Pro',
-      stat2Body: 'ສຳຮອງຄລາວພາຍຫຼັງ',
+      stat2Body: 'ສຳຮອງ ແລະ ກູ້ຄືນຄລາວ',
       stat3Label: 'ພາສາ',
       stat3Body: 'EN / ລາວ',
     },
     preview: {
-      ready: 'ພ້ອມໃຊ້',
-      localFirst: 'ຂໍ້ມູນທ້ອງຖິ່ນ',
+      ready: 'ພ້ອມຄລາວ',
+      localFirst: 'ຊິງຄຄລາວ',
       balanceLabel: 'ຍອດປັດຈຸບັນ',
       balanceBody: 'ເງິນສົດ, ກະເປົາ, ແລະ ທະນາຄານຢູ່ໃນໜ້າດຽວ.',
       entryTitle: 'ໃສ່ໄວ',
@@ -250,14 +250,14 @@ const translations = {
       historyTitle: 'ປະຫວັດຊັດ',
       historyBody: 'ເບິ່ງທຸກການຍ້າຍເງິນໄດ້ງ່າຍ.',
       cloudTitle: 'ກູ້ຄືນຈາກຄລາວ',
-      cloudBody: 'ກູ້ຂໍ້ມູນຄືນໄດ້ເມື່ອໃຊ້ Pro.',
+      cloudBody: 'ກູ້ຂໍ້ມູນຄືນໄດ້ໃນທຸກເຄື່ອງທີ່ລັອກອິນ.',
     },
     features: {
       kicker: 'ຟີຈເຈີ',
       title: 'ທຸກຢ່າງໃຫ້ງ່າຍໄວ້ກ່ອນ',
       body: 'ອະທິບາຍໄວ ແລະບໍ່ອັດດ້ວຍ card ຊ້ອນ card.',
-      offlineTitle: 'PWA ແບບອອບລາຍກ່ອນ',
-      offlineBody: 'ເປີດໄດ້ໄວ, ໃຊ້ຕໍ່ໄດ້ແມ່ນເວລາບໍ່ມີເນັດ.',
+      cloudTitle: 'ແອັບແບບຊິງຄຄລາວ',
+      cloudBody: 'ເປີດໄວ, ຊິງຄທຸກການປ່ຽນແປງ, ແລະໃຊ້ຕໍ່ໄດ້ໃນທຸກເຄື່ອງ.',
       walletTitle: 'ກະເປົາ ແລະ ໝວດໝູ່',
       walletBody: 'ໃຫ້ຍອດຊັດເຈນ ແລະ ຈັດລາຍຈ່າຍໃຫ້ເປັນລະບຽບ.',
       historyTitle: 'ທຸລະກຳມີປະຫວັດ',
@@ -265,7 +265,7 @@ const translations = {
       backupTitle: 'ສຳຮອງ ແລະ ກູ້ຄືນ',
       backupBody: 'ສົ່ງອອກ JSON ແລະ CSV ເພື່ອກູ້ຄືນ ຫຼື ວິເຄາະ.',
       plansTitle: 'ຟຣີ ແລະ Pro',
-      plansBody: 'ໃຊ້ແຜນຟຣີກ່ອນ ແລ້ວຄ່ອຍເປີດຊິງຄລາວໃນ Pro.',
+      plansBody: 'ໃຊ້ແຜນຟຣີກ່ອນ ແລ້ວຄ່ອຍເປີດຊິງຄແລະກູ້ຄືນຄລາວໃນ Pro.',
       upgradeTitle: 'ອັບເກຣດງ່າຍ',
       upgradeBody: 'redeem code ຫຼື entitlement ສາມາດເປີດ Pro ໄດ້ແບບບໍ່ຊັບຊ້ອນ.',
     },
@@ -277,9 +277,9 @@ const translations = {
       label: 'ຈຸດເດັ່ນ',
       freeBadge: 'ຟຣີ',
       freeTitle: 'ເລີ່ມໃຊ້ໄດ້ທັນທີ',
-      freeBody: 'ເໝາະກັບການຈັດການສ່ວນຕົວ.',
+      freeBody: 'ເໝາະກັບການຈັດການສ່ວນຕົວແບບຊິງຄຄລາວ.',
       freeTerm: '/ ຕະຫຼອດໄປ',
-      freeChips: ['ຂໍ້ມູນທ້ອງຖິ່ນ', 'ອອບລາຍກ່ອນ', 'ສົ່ງອອກ JSON', 'ສົ່ງອອກ CSV'],
+      freeChips: ['ຊິງຄຄລາວ', 'ອອນລາຍຕະຫຼອດ', 'ສົ່ງອອກ JSON', 'ສົ່ງອອກ CSV'],
       proBadge: 'Pro',
       proTitle: 'ຊິງຄລາວ ແລະ ກູ້ຄືນ',
       proBody: 'ເໝາະກັບຄົນທີ່ໃຊ້ຫຼາຍເຄື່ອງ.',
@@ -294,7 +294,7 @@ const translations = {
       items: [
         {
           q: 'ແອັບຟຣີບໍ?',
-          a: 'ແມ່ນ. ແຜນຟຣີໃຊ້ໄດ້ຟຣີຕະຫຼອດໄປ ສຳລັບບັນທຶກແບບທ້ອງຖິ່ນ ແລະອອບລາຍ.',
+          a: 'ແມ່ນ. ແຜນຟຣີໃຊ້ໄດ້ຟຣີຕະຫຼອດໄປ ສຳລັບບັນທຶກແບບຊິງຄຄລາວ ແລະສົ່ງອອກຂໍ້ມູນ.',
         },
         {
           q: 'Pro ໄດ້ຫຍັງແດ່?',
@@ -344,12 +344,12 @@ const themeIcon = computed(() => (theme.value === 'dark' ? sunIcon : moonIcon))
 const themeButtonLabel = computed(() => copy.value.theme)
 const themeModeLabel = computed(() => (theme.value === 'dark' ? 'Dark' : 'Light'))
 const languageCode = computed(() => (language.value === 'en' ? 'EN' : 'ລາວ'))
-const walletInstallHref = '/install'
+const walletInstallHref = 'https://appwallet.codesabai.com/install'
 
 const featureCards = computed(() => [
   {
-    title: copy.value.features.offlineTitle,
-    body: copy.value.features.offlineBody,
+    title: copy.value.features.cloudTitle,
+    body: copy.value.features.cloudBody,
     icon: phoneIcon,
     tone: 'from-sky-500 to-cyan-500',
   },
@@ -672,7 +672,7 @@ useHead(() => ({
 
           <div class="mt-6 flex flex-wrap gap-3">
             <a
-              href="/"
+              :href="walletInstallHref"
               target="_blank"
               rel="noreferrer"
               class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-600 via-blue-600 to-cyan-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_26px_-18px_rgba(14,165,233,.7)] transition hover:-translate-y-0.5 hover:from-sky-500 hover:via-blue-500 hover:to-cyan-400 dark:bg-gradient-to-r dark:from-sky-500 dark:via-blue-500 dark:to-cyan-400 dark:text-slate-950"
