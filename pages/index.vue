@@ -13,6 +13,9 @@ const {
   recentTransactions,
   wallets,
   formatCurrency,
+  formatCurrencyOrDash,
+  hasCurrencyTransactions,
+  hasWalletTransactions,
   walletSeries,
   currencyBalances,
   enabledCurrencyOptions,
@@ -318,7 +321,7 @@ onBeforeUnmount(() => {
                 <UIcon name="i-lucide-wallet" class="size-5" />
               </div>
               <p class="whitespace-nowrap text-[clamp(1.12rem,6.2vw,2.45rem)] font-black leading-none tracking-[-0.06em] tabular-nums text-default">
-                {{ formatCurrency(totalBalance, activeCurrency) }}
+                {{ formatCurrencyOrDash(totalBalance, activeCurrency, hasCurrencyTransactions(activeCurrency), true) }}
               </p>
             </div>
             <p class="mt-1 text-[9px] text-muted sm:text-[10px]">{{ homeCopy.acrossWallets(wallets.filter(wallet => wallet.currency === activeCurrency).length) }}</p>
@@ -395,7 +398,7 @@ onBeforeUnmount(() => {
           v-for="wallet in walletCards"
           :key="wallet.wallet.id"
           :wallet="wallet.wallet"
-          :amount-label="formatCurrency(wallet.value, wallet.wallet.currency)"
+          :amount-label="formatCurrencyOrDash(wallet.value, wallet.wallet.currency, hasWalletTransactions(wallet.wallet.id), true)"
           :detail="wallet.wallet.note"
           compact
           :href="`/wallets/${wallet.wallet.id}`"
@@ -413,7 +416,7 @@ onBeforeUnmount(() => {
           v-for="item in currencySummary"
           :key="item.currency"
           :title="item.currency"
-          :value="formatCurrency(item.balance, item.currency)"
+          :value="formatCurrencyOrDash(item.balance, item.currency, hasCurrencyTransactions(item.currency), true)"
           :detail="homeCopy.allWallets"
           :icon-text="currencySymbols[item.currency]"
           :accent="currencyAccents[item.currency]"

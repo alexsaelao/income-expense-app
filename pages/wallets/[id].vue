@@ -12,6 +12,8 @@ const {
   getWallet,
   walletMonthTotals,
   formatCurrency,
+  formatCurrencyOrDash,
+  hasWalletTransactions,
   transactions,
   formatDate,
   typeLabel,
@@ -27,6 +29,7 @@ const walletTransactions = computed(() =>
   transactions.value.filter(transaction => transaction.walletId === wallet.value?.id || transaction.toWalletId === wallet.value?.id)
 )
 const walletTransactionCount = computed(() => walletTransactions.value.length)
+const walletHasActivity = computed(() => wallet.value ? hasWalletTransactions(wallet.value.id) : false)
 const walletManageOpen = ref(false)
 const walletDeleteOpen = ref(false)
 const walletFormError = ref('')
@@ -177,7 +180,7 @@ function confirmDeleteWallet() {
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <p class="text-xs font-semibold uppercase tracking-[0.26em] text-muted">{{ walletCopy.currentBalance }}</p>
-              <p class="mt-1 text-[clamp(1.4rem,4.6vw,2.05rem)] font-black tracking-tight text-default">{{ formatCurrency(wallet.balance, wallet.currency) }}</p>
+              <p class="mt-1 text-[clamp(1.4rem,4.6vw,2.05rem)] font-black tracking-tight text-default">{{ formatCurrencyOrDash(wallet.balance, wallet.currency, walletHasActivity, true) }}</p>
             </div>
 
             <UButton

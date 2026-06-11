@@ -10,9 +10,12 @@ const {
   currencyBalances,
   walletMonthTotals,
   formatCurrency,
+  formatCurrencyOrDash,
   addWallet,
   enabledCurrencyOptions,
   walletColorOptions,
+  hasCurrencyTransactions,
+  hasWalletTransactions,
   setWalletPinned,
   moveWallet
 } = useMoneyNote()
@@ -242,7 +245,7 @@ function onSheetPointerCancel() {
         v-for="item in currencyCards"
         :key="item.currency"
         :title="item.currency"
-        :value="formatCurrency(item.balance, item.currency)"
+        :value="formatCurrencyOrDash(item.balance, item.currency, hasCurrencyTransactions(item.currency), true)"
         :detail="walletCopy.totalAmount"
         :icon-text="currencySymbols[item.currency]"
         :accent="currencyAccents[item.currency]"
@@ -298,7 +301,7 @@ function onSheetPointerCancel() {
               <div class="mt-2 flex flex-wrap items-center gap-2">
                 <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
                   <span class="uppercase tracking-[0.14em]">{{ walletCopy.total }}</span>
-                  <span class="font-black text-[12px] text-default">{{ formatCurrency(wallet.balance, wallet.currency) }}</span>
+                  <span class="font-black text-[12px] text-default">{{ formatCurrencyOrDash(wallet.balance, wallet.currency, hasWalletTransactions(wallet.id), true) }}</span>
                 </span>
                 <span class="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 dark:bg-sky-950/40 dark:text-sky-200">
                   <span class="uppercase tracking-[0.14em]">{{ walletCopy.net }}</span>

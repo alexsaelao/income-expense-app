@@ -21,6 +21,11 @@ const {
   lastSyncSource,
   syncProgress,
   syncError,
+  syncDebugLocalSnapshot,
+  syncDebugCloudSnapshot,
+  syncDebugLoading,
+  syncDebugError,
+  refreshSyncDebugData,
   isOnline
 } = useMoneyNote()
 const { signOut, sessionProfile, rememberedProfile, authReady, setSessionPlan, setProfileAvatar } = useDeviceAuth()
@@ -65,7 +70,63 @@ const clearDataModalStartX = ref(0)
 const clearDataModalStartY = ref(0)
 const clearDataModalDragOffset = ref(0)
 const networkSignalLevel = ref(4)
+const syncDebugExpanded = ref(false)
 let syncErrorCopyTimer: ReturnType<typeof setTimeout> | null = null
+
+function formatDebugJson(value: unknown) {
+  if (value === null || value === undefined) return '—'
+
+  try {
+    return JSON.stringify(value, null, 2)
+  }
+  catch {
+    return String(value)
+  }
+}
+
+function formatDebugUpdatedAt(value?: string | null) {
+  if (!value) return '—'
+
+  return new Intl.DateTimeFormat(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(new Date(value))
+}
+
+function summarizeSnapshotState(state?: { wallets?: Array<unknown>; transactions?: Array<unknown>; categories?: Array<unknown>; companies?: Array<unknown> } | null) {
+  return {
+    wallets: state?.wallets?.length ?? 0,
+    transactions: state?.transactions?.length ?? 0,
+    categories: state?.categories?.length ?? 0,
+    companies: state?.companies?.length ?? 0
+  }
+}
+
+const syncDebugLocalCounts = computed(() => summarizeSnapshotState(syncDebugLocalSnapshot.value?.state))
+const syncDebugCloudCounts = computed(() => summarizeSnapshotState(syncDebugCloudSnapshot.value?.state))
+
+function toggleSyncDebugExpanded() {
+  syncDebugExpanded.value = !syncDebugExpanded.value
+}
+
+watch(
+  [authReady, isCloudSyncEnabled],
+  () => {
+    if (!authReady.value) return
+    void refreshSyncDebugData()
+  },
+  { immediate: true }
+)
+
+watch(
+  [authReady, isCloudSyncEnabled, lastSyncedAt],
+  () => {
+    if (!authReady.value) return
+    if (!isCloudSyncEnabled.value) return
+    if (!lastSyncedAt.value) return
+    void refreshSyncDebugData()
+  }
+)
 const centeredSettingsModalUi = {
   content: '!fixed !inset-auto !top-1/2 !left-1/2 flex !max-h-[calc(100dvh-2rem)] !w-[calc(100vw-2rem)] !max-w-[42rem] !-translate-x-1/2 !-translate-y-1/2 flex-col !overflow-hidden !rounded-[1.5rem] !border !border-slate-200/80 !bg-white !shadow-[0_24px_80px_-28px_rgba(15,23,42,0.35)] !ring-1 !ring-slate-200/60 focus:outline-none dark:!border-slate-800 dark:!bg-slate-950 dark:!ring-slate-800 sm:!max-h-[calc(100dvh-4rem)]',
   body: 'p-0',
@@ -382,6 +443,13 @@ const settingsCopy = computed(() => {
       syncApplying: 'ກຳລັງອັບເດດຂໍ້ມູນລ່າສຸດ.',
       syncOfflineDetail: 'ບໍ່ມີເນັດຕອນນີ້ ການປ່ຽນແປງຈະຊິງເມື່ອກັບອອນລາຍ.',
       syncLastSyncedAt: 'ຊິງຄັ້ງລ່າສຸດ',
+      syncDebugTitle: 'ຂໍ້ມູນ debug',
+      syncDebugDesc: 'ເບິ່ງ local ແລະ cloud snapshot ແບບຂະໜານ.',
+      syncDebugRefresh: 'ອັບເດດ debug',
+      syncDebugLocal: 'Local snapshot',
+      syncDebugCloud: 'Cloud snapshot',
+      syncDebugNoCloud: 'ບໍ່ພົບ cloud snapshot',
+      syncDebugError: 'ບໍ່ສາມາດໂຫຼດຂໍ້ມູນ debug ໄດ້',
       storage: 'ສຳຮອງຂໍ້ມູນ',
       storageDesc: 'ສົ່ງອອກແລະນຳເຂົ້າ backup ແບບ JSON ໄດ້.',
       backupRecommended: 'ແນະນຳ JSON',
@@ -536,6 +604,13 @@ const settingsCopy = computed(() => {
     syncApplying: 'Applying the latest changes.',
     syncOfflineDetail: 'No connection right now. Changes will sync when online.',
     syncLastSyncedAt: 'Last synced at',
+    syncDebugTitle: 'Debug data',
+    syncDebugDesc: 'View local and cloud snapshots side by side.',
+    syncDebugRefresh: 'Refresh debug',
+    syncDebugLocal: 'Local snapshot',
+    syncDebugCloud: 'Cloud snapshot',
+    syncDebugNoCloud: 'No cloud snapshot found',
+    syncDebugError: 'Could not load debug data',
     storage: 'Storage',
     storageDesc: 'Export a JSON backup or restore it later.',
     backupRecommended: 'JSON recommended',
@@ -1347,6 +1422,11 @@ const syncSourceCopy = computed(() => {
         label: 'Loaded from local',
         tone: 'sky'
       }
+    case 'merged':
+      return {
+        label: 'Merged from local + cloud',
+        tone: 'violet'
+      }
     default:
       return {
         label: 'Sync source unknown',
@@ -1601,6 +1681,7 @@ const internetStatusCopy = computed(() => {
           </div>
           <div class="mt-3 h-10 w-full rounded-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse" />
         </div>
+
       </div>
     </section>
 
@@ -1864,6 +1945,129 @@ const internetStatusCopy = computed(() => {
         >
       </div>
     </section>
+
+    <div v-if="authReady" class="rounded-[1.25rem] border border-slate-200/80 bg-white/90 px-4 py-4 shadow-[0_12px_40px_-30px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/85">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <button
+          type="button"
+          class="flex min-w-0 flex-1 items-start gap-3 rounded-[1rem] text-left transition hover:bg-slate-50/80 dark:hover:bg-slate-900/40"
+          :aria-expanded="syncDebugExpanded"
+          @click="toggleSyncDebugExpanded"
+        >
+          <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+            <UIcon name="i-lucide-bug-play" class="size-4" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <h3 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.syncDebugTitle }}</h3>
+            <p class="text-xs leading-5 text-muted">{{ settingsCopy.syncDebugDesc }}</p>
+          </div>
+          <div class="flex size-9 shrink-0 items-center justify-center rounded-full border border-slate-200/80 bg-white text-muted shadow-sm transition-transform dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300" :class="syncDebugExpanded ? 'rotate-180' : ''">
+            <UIcon name="i-lucide-chevron-down" class="size-4" />
+          </div>
+        </button>
+
+        <UButton
+          size="sm"
+          color="neutral"
+          variant="soft"
+          class="w-fit shrink-0 self-start rounded-full"
+          :loading="syncDebugLoading"
+          icon="i-lucide-refresh-cw"
+          @click="refreshSyncDebugData"
+        >
+          {{ settingsCopy.syncDebugRefresh }}
+        </UButton>
+      </div>
+
+      <div v-show="syncDebugExpanded">
+        <div v-if="syncDebugError" class="mt-3 flex items-start gap-3 rounded-[1rem] border border-rose-200 bg-rose-50 px-3 py-3 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
+          <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-400 text-white shadow-lg">
+            <UIcon name="i-lucide-bug-play" class="size-4" />
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-bold">{{ settingsCopy.syncDebugError }}</p>
+            <p class="mt-1 text-xs leading-5 opacity-90">{{ syncDebugError }}</p>
+          </div>
+        </div>
+
+        <div class="mt-4 grid gap-3 lg:grid-cols-2">
+          <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0">
+                <p class="text-xs font-bold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.syncDebugLocal }}</p>
+                <p class="mt-1 text-[11px] leading-5 text-muted">{{ formatDebugUpdatedAt(syncDebugLocalSnapshot?.updatedAt) }}</p>
+              </div>
+              <UBadge color="neutral" variant="soft" class="w-fit rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
+                {{ syncDebugLocalCounts.transactions }} tx
+              </UBadge>
+            </div>
+
+            <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.wallets }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ syncDebugLocalCounts.wallets }}</p>
+              </div>
+              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.transactionsLabel }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ syncDebugLocalCounts.transactions }}</p>
+              </div>
+              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.categoriesLabel }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ syncDebugLocalCounts.categories }}</p>
+              </div>
+              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.companiesLabel }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ syncDebugLocalCounts.companies }}</p>
+              </div>
+            </div>
+
+            <pre class="mt-3 max-h-56 overflow-auto rounded-[0.95rem] bg-slate-950 px-3 py-3 text-[10px] leading-5 whitespace-pre-wrap break-words text-slate-100 sm:max-h-72 sm:text-[11px]">{{ formatDebugJson(syncDebugLocalSnapshot) }}</pre>
+          </div>
+
+          <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0">
+                <p class="text-xs font-bold uppercase tracking-[0.16em] text-muted">{{ settingsCopy.syncDebugCloud }}</p>
+                <p class="mt-1 text-[11px] leading-5 text-muted">
+                  {{ syncDebugCloudSnapshot?.state ? formatDebugUpdatedAt(syncDebugCloudSnapshot.updatedAt) : settingsCopy.syncDebugNoCloud }}
+                </p>
+              </div>
+              <UBadge
+                :color="syncDebugCloudSnapshot?.state ? 'emerald' : 'neutral'"
+                variant="soft"
+                class="w-fit rounded-full text-[10px] font-bold uppercase tracking-[0.16em]"
+              >
+                {{ syncDebugCloudSnapshot?.state ? `${syncDebugCloudCounts.transactions} tx` : settingsCopy.syncDebugNoCloud }}
+              </UBadge>
+            </div>
+
+            <div v-if="syncDebugCloudSnapshot?.state" class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.wallets }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ syncDebugCloudCounts.wallets }}</p>
+              </div>
+              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.transactionsLabel }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ syncDebugCloudCounts.transactions }}</p>
+              </div>
+              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.categoriesLabel }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ syncDebugCloudCounts.categories }}</p>
+              </div>
+              <div class="rounded-xl bg-white px-3 py-2 text-xs text-muted shadow-sm dark:bg-slate-950/80">
+                <p class="text-[10px] font-bold uppercase tracking-[0.16em]">{{ settingsCopy.companiesLabel }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ syncDebugCloudCounts.companies }}</p>
+              </div>
+            </div>
+            <div v-else class="mt-3 rounded-[0.95rem] border border-dashed border-slate-300 bg-white px-3 py-3 text-sm text-muted dark:border-slate-700 dark:bg-slate-950/80">
+              {{ settingsCopy.syncDebugNoCloud }}
+            </div>
+
+            <pre class="mt-3 max-h-56 overflow-auto rounded-[0.95rem] bg-slate-950 px-3 py-3 text-[10px] leading-5 whitespace-pre-wrap break-words text-slate-100 sm:max-h-72 sm:text-[11px]">{{ formatDebugJson(syncDebugCloudSnapshot) }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
       <div class="px-4 py-4">

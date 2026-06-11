@@ -109,6 +109,23 @@ export interface CompanyItem {
   updatedAt?: string
 }
 
+type SyncSource = 'cloud' | 'local' | 'merged' | 'unknown'
+
+export interface SyncDebugLocalSnapshot {
+  accountKey: string
+  updatedAt: string
+  selectedCurrency: CurrencyCode
+  currencySupport: Record<CurrencyCode, boolean>
+  state: MoneyNoteState
+}
+
+export interface SyncDebugCloudSnapshot {
+  identifier: string
+  updatedAt: string | null
+  connected: boolean
+  state: MoneyNoteState | null
+}
+
 const currencyFormatters: Record<CurrencyCode, Intl.NumberFormat> = {
   LAK: new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }),
   THB: new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -827,7 +844,7 @@ export function useMoneyNote() {
   const hydratedAccountKey = useState('money-note-hydrated-account-key', () => '')
   const hydratedCloudSyncEnabled = useState('money-note-hydrated-cloud-sync-enabled', () => false)
   const hydratedSnapshotWasPristine = useState('money-note-hydrated-snapshot-pristine', () => true)
-  const lastSyncSource = useState<'cloud' | 'local' | 'unknown'>('money-note-last-sync-source', () => 'unknown')
+  const lastSyncSource = useState<SyncSource>('money-note-last-sync-source', () => 'unknown')
   const hydrating = useState('money-note-hydrating', () => false)
   const autoSyncReady = useState('money-note-auto-sync-ready', () => false)
   const initialHydratedSignature = useState('money-note-initial-hydrated-signature', () => '')
@@ -843,6 +860,10 @@ export function useMoneyNote() {
   const lastSyncedAt = useState('money-note-last-synced-at', () => '')
   const syncProgress = useState('money-note-sync-progress', () => 0)
   const syncError = useState('money-note-sync-error', () => '')
+  const syncDebugLocalSnapshot = useState<SyncDebugLocalSnapshot | null>('money-note-sync-debug-local', () => null)
+  const syncDebugCloudSnapshot = useState<SyncDebugCloudSnapshot | null>('money-note-sync-debug-cloud', () => null)
+  const syncDebugLoading = useState('money-note-sync-debug-loading', () => false)
+  const syncDebugError = useState('money-note-sync-debug-error', () => '')
   const defaultCategoriesEnabled = computed(() => store.value.disabledDefaultCategories.length === 0)
 
   const activeAccountIdentifier = computed(() => sessionProfile.value?.identifier ?? '')
@@ -872,6 +893,81 @@ export function useMoneyNote() {
   })
 
   const buildLocalSnapshotSignature = () => buildStateSignature()
+
+  function logSyncDebug(step: string, details?: Record<string, unknown>) {
+    if (!import.meta.client) return
+
+    if (details) {
+      console.debug(`[money-note][sync] ${step}`, details)
+      return
+    }
+
+    console.debug(`[money-note][sync] ${step}`)
+  }
+
+  async function refreshSyncDebugData() {
+    if (!import.meta.client || !authReady.value) return false
+
+    syncDebugLoading.value = true
+    syncDebugError.value = ''
+
+    try {
+      const accountKey = activeAccountKey.value
+      const identifier = activeAccountIdentifier.value.trim()
+
+      const localSnapshot = await readMoneyNoteLocalSnapshot(accountKey)
+      const localSnapshotParsed = parseSnapshotState(localSnapshot)
+      syncDebugLocalSnapshot.value = {
+        accountKey,
+        updatedAt: localSnapshotParsed.updatedAt,
+        selectedCurrency: localSnapshotParsed.selectedCurrency,
+        currencySupport: localSnapshotParsed.currencySupport,
+        state: cloneState(localSnapshotParsed.state)
+      }
+
+      logSyncDebug('debug: read local snapshot', {
+        accountKey,
+        hasLocalSnapshot: Boolean(localSnapshot),
+        localUpdatedAt: localSnapshotParsed.updatedAt
+      })
+
+      if (!identifier || accountKey === 'guest') {
+        syncDebugCloudSnapshot.value = null
+        return true
+      }
+
+      const remote = await $fetch<{ state: Partial<MoneyNoteState> | null; updatedAt?: string | null }>('/api/app-state', {
+        query: { identifier }
+      })
+
+      syncDebugCloudSnapshot.value = {
+        identifier,
+        updatedAt: remote?.updatedAt ?? null,
+        connected: true,
+        state: remote?.state ? normalizeState(remote.state) : null
+      }
+
+      logSyncDebug('debug: read cloud snapshot', {
+        accountKey,
+        identifier,
+        hasRemoteState: Boolean(remote?.state),
+        remoteUpdatedAt: remote?.updatedAt ?? null
+      })
+
+      return true
+    }
+    catch (error) {
+      const message = resolveSyncErrorMessage(error)
+      syncDebugError.value = message
+      logSyncDebug('debug: failed to refresh snapshot data', {
+        error: message
+      })
+      return false
+    }
+    finally {
+      syncDebugLoading.value = false
+    }
+  }
 
   function parseSnapshotState(snapshot?: MoneyNoteLocalSnapshot | null) {
     if (!snapshot) {
@@ -964,6 +1060,13 @@ export function useMoneyNote() {
       remoteTime,
       remoteIsNewer: remoteTime > localTime
     }
+  }
+
+  function latestTimestamp(...values: Array<string | null | undefined>) {
+    const timestamps = values.filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+    if (!timestamps.length) return new Date().toISOString()
+
+    return timestamps.sort((a, b) => new Date(a).getTime() - new Date(b).getTime()).at(-1) ?? new Date().toISOString()
   }
 
   const saveState = (options?: { force?: boolean }) => {
@@ -1162,6 +1265,13 @@ export function useMoneyNote() {
         query: { identifier }
       })
 
+      logSyncDebug('refreshCloudState: fetched cloud snapshot', {
+        accountKey,
+        identifier,
+        hasRemoteState: Boolean(remote?.state),
+        remoteUpdatedAt: remote?.updatedAt ?? null
+      })
+
       const liveLocalSnapshot = buildLocalSnapshot()
       // If we have unsaved changes in memory, sync against the live state instead of the older
       // IndexedDB snapshot so a forced refresh cannot drop the latest edits.
@@ -1169,51 +1279,92 @@ export function useMoneyNote() {
         ? liveLocalSnapshot
         : await readMoneyNoteLocalSnapshot(accountKey)
       const localSnapshotParsed = parseSnapshotState(localSnapshot ?? liveLocalSnapshot)
-      const currentSignature = buildLocalSnapshotSignature()
+      logSyncDebug('refreshCloudState: read local snapshot', {
+        accountKey,
+        hasLocalSnapshot: Boolean(localSnapshot),
+        localUpdatedAt: localSnapshotParsed.updatedAt,
+        localDirty: localDirty.value
+      })
       const remoteState = remote?.state ? normalizeState(remote.state) : null
-      const remoteSignature = remoteState
+      const hasLocalSnapshot = Boolean(localSnapshot)
+      const hasRemoteState = Boolean(remoteState)
+      const localSignature = buildStateSignature(
+        localSnapshotParsed.state,
+        localSnapshotParsed.selectedCurrency,
+        localSnapshotParsed.currencySupport
+      )
+      const remoteSignature = hasRemoteState
         ? buildStateSignature(remoteState, localSnapshotParsed.selectedCurrency, localSnapshotParsed.currencySupport)
         : ''
-      const comparison = compareSnapshotTimes(localSnapshotParsed.updatedAt, remote?.updatedAt)
-      const remoteWins = Boolean(remoteState) && (hydratedSnapshotWasPristine.value || comparison.remoteIsNewer)
+      const resolvedState = hasRemoteState && remoteState
+        ? (hasLocalSnapshot ? mergeMoneyNoteState(localSnapshotParsed.state, remoteState) : remoteState)
+        : localSnapshotParsed.state
+      const resolvedSignature = buildStateSignature(
+        resolvedState,
+        localSnapshotParsed.selectedCurrency,
+        localSnapshotParsed.currencySupport
+      )
+      const resolvedUpdatedAt = hasRemoteState
+        ? hasLocalSnapshot
+          ? latestTimestamp(localSnapshotParsed.updatedAt, remote?.updatedAt)
+          : remote?.updatedAt ?? localSnapshotParsed.updatedAt ?? new Date().toISOString()
+        : localSnapshotParsed.updatedAt ?? new Date().toISOString()
+      const syncSource = hasRemoteState && hasLocalSnapshot
+        ? 'merged'
+        : hasRemoteState
+          ? 'cloud'
+          : 'local'
+
+      if (hasLocalSnapshot && hasRemoteState) {
+        logSyncDebug('refreshCloudState: merge local + cloud', {
+          accountKey,
+          identifier,
+          localUpdatedAt: localSnapshotParsed.updatedAt,
+          remoteUpdatedAt: remote?.updatedAt ?? null,
+          resolvedUpdatedAt,
+          localWallets: localSnapshotParsed.state.wallets.length,
+          remoteWallets: remoteState.wallets.length,
+          resolvedWallets: resolvedState.wallets.length,
+          localTransactions: localSnapshotParsed.state.transactions.length,
+          remoteTransactions: remoteState.transactions.length,
+          resolvedTransactions: resolvedState.transactions.length
+        })
+      }
 
       hydrating.value = true
       selectedCurrency.value = localSnapshotParsed.selectedCurrency
       currencySupport.value = localSnapshotParsed.currencySupport
-      store.value = remoteWins && remoteState ? remoteState : localSnapshotParsed.state
-      lastSyncSource.value = remoteWins && remoteState ? 'cloud' : 'local'
+      store.value = resolvedState
+      lastSyncSource.value = syncSource
       hydratedAccountKey.value = accountKey
       hydratedCloudSyncEnabled.value = isCloudSyncEnabled.value
       hydrated.value = true
 
-      if (remoteWins && remoteState) {
+      if (!hasLocalSnapshot || resolvedSignature !== localSignature) {
+        logSyncDebug('refreshCloudState: write merged state to local', {
+          accountKey,
+          updatedAt: resolvedUpdatedAt
+        })
         await writeMoneyNoteLocalSnapshot(
           accountKey,
           buildLocalSnapshot(
-            remote?.updatedAt ?? new Date().toISOString(),
-            remoteState,
-            localSnapshotParsed.selectedCurrency,
-            localSnapshotParsed.currencySupport
-          )
-        )
-      }
-      else if (!localSnapshot) {
-        await writeMoneyNoteLocalSnapshot(
-          accountKey,
-          buildLocalSnapshot(
-            localSnapshotParsed.updatedAt,
-            localSnapshotParsed.state,
+            resolvedUpdatedAt,
+            resolvedState,
             localSnapshotParsed.selectedCurrency,
             localSnapshotParsed.currencySupport
           )
         )
       }
 
-      const shouldPushRemote = !remoteState || (!remoteWins && currentSignature !== remoteSignature)
+      const shouldPushRemote = !hasRemoteState || resolvedSignature !== remoteSignature
 
       if (shouldPushRemote) {
+        logSyncDebug('refreshCloudState: write merged state to cloud', {
+          identifier,
+          updatedAt: resolvedUpdatedAt
+        })
         syncProgress.value = 88
-        await pushCloudState(identifier, store.value, localSnapshotParsed.updatedAt)
+        await pushCloudState(identifier, resolvedState, resolvedUpdatedAt)
       }
 
       localDirty.value = false
@@ -1222,7 +1373,7 @@ export function useMoneyNote() {
       syncProgress.value = 100
       lastSyncedAt.value = new Date().toISOString()
       initialHydratedSignature.value = buildStateSignature(
-        store.value,
+        resolvedState,
         localSnapshotParsed.selectedCurrency,
         localSnapshotParsed.currencySupport
       )
@@ -1268,6 +1419,12 @@ export function useMoneyNote() {
     try {
       const localSnapshot = await readMoneyNoteLocalSnapshot(accountKey)
       const localSnapshotParsed = parseSnapshotState(localSnapshot)
+
+      logSyncDebug('loadState: read local snapshot', {
+        accountKey,
+        hasLocalSnapshot: Boolean(localSnapshot),
+        updatedAt: localSnapshotParsed.updatedAt
+      })
 
       hydratedSnapshotWasPristine.value = !localSnapshot || isPristineState(localSnapshotParsed.state)
       store.value = localSnapshotParsed.state
@@ -1445,6 +1602,20 @@ export function useMoneyNote() {
 
     if (!signed) return value
     return `${amount >= 0 ? '+' : '-'}${value}`
+  }
+
+  function formatCurrencyOrDash(amount: number, currency: CurrencyCode, hasActivity: boolean, signed = false) {
+    if (amount === 0) return formatCurrency(0, currency)
+
+    return formatCurrency(amount, currency, signed)
+  }
+
+  function hasWalletTransactions(walletId: string) {
+    return transactions.value.some(transaction => transaction.walletId === walletId || transaction.toWalletId === walletId)
+  }
+
+  function hasCurrencyTransactions(currency: CurrencyCode) {
+    return transactions.value.some(transaction => transaction.currency === currency)
   }
 
   function formatLaoDate(value: Date, includeYear = true) {
@@ -1939,13 +2110,11 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
       groups.get(key)!.push(transaction)
     })
 
-    return [...groups.entries()]
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([date, items]) => ({
-        date,
-        label: formatDateGroup(date),
-        items: items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      }))
+    return [...groups.entries()].map(([date, items]) => ({
+      date,
+      label: formatDateGroup(date),
+      items
+    }))
   }
 
   function filterTransactions(filters: {
@@ -1957,7 +2126,8 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
     to?: string
   }) {
     const search = filters.search?.trim().toLowerCase() ?? ''
-    return transactions.value.filter((transaction) => {
+    return transactions.value
+      .filter((transaction) => {
       const matchSearch = !search || [transaction.note, transaction.category, transaction.counterparty, typeLabel(transaction.type)]
         .concat(transaction.company ?? [])
         .filter(Boolean)
@@ -1968,7 +2138,16 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
       const matchDate = matchesDateRange(transaction, filters.from, filters.to)
 
       return matchSearch && matchType && matchWallet && matchCurrency && matchDate
-    })
+      })
+      .sort((a, b) => {
+        const createdDelta = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        if (createdDelta !== 0) return createdDelta
+
+        const updatedDelta = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        if (updatedDelta !== 0) return updatedDelta
+
+        return new Date(b.date).getTime() - new Date(a.date).getTime()
+      })
   }
 
 function applyTransactionPayload(payload: TransactionInput, id?: string) {
@@ -2232,6 +2411,9 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
     walletEntries,
     getTransaction,
     formatCurrency,
+    formatCurrencyOrDash,
+    hasWalletTransactions,
+    hasCurrencyTransactions,
     formatDate,
     formatDateGroup,
     typeLabel,
@@ -2271,8 +2453,13 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
     lastSyncSource,
     syncProgress,
     syncError,
+    syncDebugLocalSnapshot,
+    syncDebugCloudSnapshot,
+    syncDebugLoading,
+    syncDebugError,
     isOnline,
     refreshCloudState,
+    refreshSyncDebugData,
     isCurrencyEnabled,
     setCurrencyEnabled,
     setDefaultCategoryEnabled,

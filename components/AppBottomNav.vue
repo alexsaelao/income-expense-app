@@ -2,6 +2,7 @@
 const route = useRoute()
 const { activeTheme } = useAppThemeColor()
 const { selectedLanguage } = useAppLanguage()
+const { refreshCloudState, autoSyncReady, isCloudSyncEnabled } = useMoneyNote()
 
 const items = computed(() => {
   if (selectedLanguage.value === 'lo') {
@@ -27,6 +28,11 @@ function isActive(path: string) {
   if (path === '/') return route.path === '/'
   return route.path === path || route.path.startsWith(`${path}/`)
 }
+
+function syncOnNavigate() {
+  if (!autoSyncReady.value || !isCloudSyncEnabled.value) return
+  void refreshCloudState({ force: true })
+}
 </script>
 
 <template>
@@ -39,6 +45,7 @@ function isActive(path: string) {
           :to="item.to"
           class="group relative flex flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-center transition active:scale-95"
           :class="isActive(item.to) ? 'text-primary' : 'text-muted'"
+          @click="syncOnNavigate"
         >
           <div
             class="flex size-8 items-center justify-center rounded-2xl transition"
@@ -59,6 +66,7 @@ function isActive(path: string) {
           class="group relative flex flex-col items-center justify-center gap-0 rounded-2xl px-1 py-1 text-center transition active:scale-95"
           :class="isActive(items[2].to) ? 'text-primary' : 'text-muted'"
             :aria-label="items[2].label"
+          @click="syncOnNavigate"
         >
           <div
             :class="[
@@ -82,6 +90,7 @@ function isActive(path: string) {
           :to="item.to"
           class="group relative flex flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-center transition active:scale-95"
           :class="isActive(item.to) ? 'text-primary' : 'text-muted'"
+          @click="syncOnNavigate"
         >
           <div
             class="flex size-8 items-center justify-center rounded-2xl transition"
