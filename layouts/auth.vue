@@ -9,8 +9,8 @@ useHead(() => ({
 </script>
 
 <template>
-  <div class="app-shell relative overflow-x-hidden">
-    <main class="relative mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-6 sm:py-8">
+  <div class="app-shell relative h-[100dvh] overflow-hidden">
+    <main class="relative mx-auto flex h-[100dvh] w-full max-w-md flex-col justify-center overflow-hidden px-4 py-2 sm:py-6">
       <AppOfflineBadge />
       <slot />
     </main>

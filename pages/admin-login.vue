@@ -20,9 +20,9 @@ const pinInput = ref<HTMLInputElement | null>(null)
 
 const copy = computed(() => selectedLanguage.value === 'lo'
   ? {
-      welcomeBack: 'ຍິນດີຕ້ອນຮັບກັບຄືນ',
-      title: 'ເຂົ້າລະບົບ',
-      subtitle: 'ໃຊ້ອີເມວ ຫຼື ເບີໂທ admin ແລ້ວໃສ່ PIN 6 ຫຼັກ.',
+      welcomeBack: 'ພື້ນທີ່ Admin',
+      title: 'Admin login',
+      subtitle: 'ໜ້ານີ້ໃຊ້ເຂົ້າຈັດການລະບົບສຳລັບ admin ເທົ່ານັ້ນ.',
       savedAccount: 'ບັນຊີ admin ທີ່ຈື່ໄວ້',
       savedAccountHint: 'ກົດ Next ເພື່ອເຂົ້າບັນຊີນີ້ ຫຼື X ເພື່ອປ່ຽນບັນຊີ.',
       emailOrPhone: 'ອີເມວ ຫຼື ເບີໂທ',
@@ -47,9 +47,9 @@ const copy = computed(() => selectedLanguage.value === 'lo'
       signInFailed: 'ບໍ່ສາມາດເຂົ້າ admin ໄດ້.',
     }
   : {
-      welcomeBack: 'Welcome back',
-      title: 'Sign in',
-      subtitle: 'Use your admin email or phone number, then enter your 6-digit PIN.',
+      welcomeBack: 'Admin area',
+      title: 'Admin login',
+      subtitle: 'This page is only for admin access to the management console.',
       savedAccount: 'Saved admin account',
       savedAccountHint: 'Tap Next to continue with this account or clear it to use another one.',
       emailOrPhone: 'Email or phone',
@@ -80,34 +80,12 @@ const hasSavedAccount = computed(() => Boolean(rememberedProfile.value?.identifi
 const nextButtonLabel = computed(() => step.value === 'account' ? copy.value.next : copy.value.unlock)
 const adminPortalPath = '/superadmin'
 
-async function hasServerAdminSession() {
-  try {
-    const result = await $fetch<{ authenticated?: boolean }>('/api/admin/me')
-    return Boolean(result.authenticated)
-  }
-  catch {
-    return false
-  }
-}
-
 watch(
   rememberedProfile,
   (profile) => {
     if (profile?.identifier) {
       identifier.value = profile.identifier
       rememberDevice.value = true
-    }
-  },
-  { immediate: true }
-)
-
-watch(
-  authReady,
-  async (ready) => {
-    if (!ready) return
-
-    if (isAuthenticated.value && await hasServerAdminSession()) {
-      router.replace(adminPortalPath)
     }
   },
   { immediate: true }
@@ -283,15 +261,6 @@ watch(pinValue, (value) => {
 onMounted(() => {
   hydrateAuth()
 
-  if (isAuthenticated.value) {
-    void hasServerAdminSession().then((authenticated) => {
-      if (authenticated) {
-        router.replace(adminPortalPath)
-      }
-    })
-    return
-  }
-
   if (rememberedProfile.value?.identifier) {
     identifier.value = rememberedProfile.value.identifier
     rememberDevice.value = true
@@ -302,27 +271,27 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="w-full space-y-6">
-    <section class="space-y-3 text-center">
-      <div :class="['mx-auto flex size-16 items-center justify-center overflow-hidden rounded-[1.4rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)]', activeTheme.accent]">
+  <div class="w-full space-y-3 sm:space-y-4">
+    <section class="space-y-2 text-center">
+      <div :class="['mx-auto flex size-12 items-center justify-center overflow-hidden rounded-[1.25rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)] sm:size-16', activeTheme.accent]">
         <img src="/wallet-codesabai-mark.svg" alt="" class="h-full w-full" />
       </div>
 
-      <div class="space-y-1">
-        <p class="text-[10px] font-semibold uppercase tracking-[0.32em] text-muted">{{ copy.welcomeBack }}</p>
-        <h1 class="text-2xl font-black tracking-tight text-default">{{ copy.title }}</h1>
-        <p class="mx-auto max-w-sm text-sm leading-6 text-muted">{{ copy.subtitle }}</p>
+      <div class="space-y-0.5 sm:space-y-1">
+        <p class="text-[9px] font-semibold uppercase tracking-[0.28em] text-muted sm:text-[10px]">{{ copy.welcomeBack }}</p>
+        <h1 class="text-[1.55rem] font-black tracking-tight text-default sm:text-2xl">{{ copy.title }}</h1>
+        <p class="mx-auto hidden max-w-sm text-[13px] leading-5 text-muted sm:block sm:text-sm sm:leading-6">{{ copy.subtitle }}</p>
       </div>
     </section>
 
     <section class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
-      <form class="space-y-4 px-5 py-5" @submit.prevent="step === 'account' ? goToPin() : submitLogin()">
-        <div v-if="hasSavedAccount" class="mb-5 rounded-[1.2rem] border border-slate-200/80 bg-slate-50 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <form class="space-y-2 px-4 py-3 sm:space-y-3 sm:py-4" @submit.prevent="step === 'account' ? goToPin() : submitLogin()">
+        <div v-if="hasSavedAccount" class="mb-3 rounded-[1.2rem] border border-slate-200/80 bg-slate-50 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:mb-4">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted">{{ copy.savedAccount }}</p>
-              <p class="mt-1 truncate text-base font-black text-default">{{ rememberedProfile?.identifier }}</p>
-              <p class="mt-1 text-xs leading-5 text-muted">{{ copy.savedAccountHint }}</p>
+              <p class="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">{{ copy.savedAccount }}</p>
+              <p class="mt-1 truncate text-sm font-black text-default">{{ rememberedProfile?.identifier }}</p>
+              <p class="mt-1 hidden text-[11px] leading-5 text-muted sm:block">{{ copy.savedAccountHint }}</p>
             </div>
             <button
               type="button"
@@ -335,7 +304,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-if="step === 'account'" class="space-y-4">
+        <div v-if="step === 'account'" class="space-y-3 sm:space-y-4">
           <div v-if="!hasSavedAccount">
             <div class="flex items-center gap-2">
               <div class="flex size-9 items-center justify-center rounded-full bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-200">
@@ -361,15 +330,16 @@ onMounted(() => {
 
           <div
             v-else
-            class="rounded-[1.2rem] border border-slate-200/80 bg-slate-50 px-4 py-3 text-sm text-muted dark:border-slate-800 dark:bg-slate-950"
+            class="rounded-[1.2rem] border border-slate-200/80 bg-slate-50 px-4 py-2.5 text-sm text-muted dark:border-slate-800 dark:bg-slate-950 sm:py-3"
           >
-            {{ copy.savedAccountHint }}
+            <span class="hidden sm:inline">{{ copy.savedAccountHint }}</span>
+            <span class="sm:hidden">{{ copy.next }}</span>
           </div>
 
           <label class="flex items-center justify-between gap-3 rounded-[1.2rem] border border-slate-200/80 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
             <div class="min-w-0">
               <p class="text-sm font-bold text-default">{{ copy.rememberDevice }}</p>
-              <p class="text-xs text-muted">{{ copy.rememberHint }}</p>
+              <p class="hidden text-xs text-muted sm:block">{{ copy.rememberHint }}</p>
             </div>
 
             <button
@@ -386,11 +356,11 @@ onMounted(() => {
           </label>
         </div>
 
-        <div v-else class="space-y-4">
+        <div v-else class="space-y-3 sm:space-y-4">
           <div class="flex items-center justify-between gap-3">
             <button
               type="button"
-              class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 transition active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+              class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-bold text-slate-600 transition active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
               @click="goBackToAccount"
             >
               <UIcon name="i-lucide-arrow-left" class="size-4" />
@@ -402,17 +372,17 @@ onMounted(() => {
             </UBadge>
           </div>
 
-          <div class="space-y-2 text-center">
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted">{{ copy.enterPin }}</p>
-            <p class="text-sm text-muted">{{ copy.enterPinHint }}</p>
+          <div class="space-y-1 text-center">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ copy.enterPin }}</p>
+            <p class="hidden text-[13px] text-muted sm:block">{{ copy.enterPinHint }}</p>
           </div>
 
           <div class="relative" @click="focusPin">
-            <div class="grid grid-cols-6 gap-2">
+            <div class="grid grid-cols-6 gap-1.5">
               <div
                 v-for="(digit, index) in pinSlots"
                 :key="index"
-                class="flex h-14 items-center justify-center rounded-2xl border bg-slate-50 text-2xl font-black text-default transition dark:bg-slate-950"
+                class="flex h-11 items-center justify-center rounded-2xl border bg-slate-50 text-2xl font-black text-default transition dark:bg-slate-950"
                 :class="pinValue.length > index ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-800'"
               >
                 <span v-if="digit" class="translate-y-[-1px]">•</span>
@@ -434,10 +404,10 @@ onMounted(() => {
           </div>
 
           <div class="flex items-center justify-between gap-3">
-            <p class="text-xs text-muted">{{ copy.enterPinHint }}</p>
+            <p class="hidden text-[11px] text-muted sm:block">{{ copy.enterPinHint }}</p>
             <button
               type="button"
-              class="text-xs font-bold text-primary"
+              class="text-[11px] font-bold text-primary"
               @click="pinValue = ''"
             >
               Clear
@@ -445,7 +415,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <p v-if="errorMessage" class="mt-4 rounded-[0.95rem] border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
+        <p v-if="errorMessage" class="mt-2 rounded-[0.95rem] border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
           {{ errorMessage }}
         </p>
 
@@ -500,6 +470,15 @@ onMounted(() => {
               <span class="text-center">{{ isSubmitting ? copy.signingIn : nextButtonLabel }}</span>
             </span>
           </UButton>
+        </div>
+
+        <div class="text-center">
+          <NuxtLink
+            to="/login"
+            class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11px] font-bold text-slate-600 transition active:scale-95 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300"
+          >
+            User login
+          </NuxtLink>
         </div>
       </form>
     </section>

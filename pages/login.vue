@@ -271,33 +271,33 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-full flex-1 items-center justify-center py-4 sm:py-8">
-    <div class="w-full space-y-6">
-      <section class="space-y-3 text-center">
-        <div :class="['mx-auto flex size-16 items-center justify-center rounded-[1.4rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)]', activeTheme.accent]">
-          <UIcon name="i-lucide-wallet-cards" class="size-8" />
+  <div class="flex h-full flex-1 items-center justify-center overflow-hidden py-1 sm:py-2">
+    <div class="w-full space-y-2 sm:space-y-5">
+      <section class="space-y-2 text-center">
+        <div :class="['mx-auto flex size-12 items-center justify-center rounded-[1.25rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)] sm:size-16', activeTheme.accent]">
+          <UIcon name="i-lucide-wallet-cards" class="size-7 sm:size-8" />
         </div>
 
-        <div class="space-y-1">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.32em] text-muted">{{ loginCopy.welcomeBack }}</p>
-          <h1 class="text-3xl font-black tracking-tight text-default">{{ loginCopy.title }}</h1>
-          <p class="mx-auto max-w-[18rem] text-sm leading-6 text-muted">
+        <div class="space-y-0.5 sm:space-y-1">
+          <p class="text-[9px] font-semibold uppercase tracking-[0.28em] text-muted sm:text-[10px]">{{ loginCopy.welcomeBack }}</p>
+          <h1 class="text-[1.55rem] font-black tracking-tight text-default sm:text-3xl">{{ loginCopy.title }}</h1>
+          <p class="mx-auto hidden max-w-[18rem] text-[13px] leading-5 text-muted sm:block sm:text-sm sm:leading-6">
             {{ loginCopy.subtitle }}
           </p>
         </div>
       </section>
 
       <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
-        <form class="space-y-4" @submit.prevent="step === 'account' ? goToPin() : submitLogin()">
+        <form class="space-y-2 sm:space-y-3" @submit.prevent="step === 'account' ? goToPin() : submitLogin()">
         <div
           v-if="hasSavedAccount"
-          class="rounded-[1.2rem] border border-sky-200/70 bg-sky-50/80 p-4 dark:border-sky-900/50 dark:bg-sky-950/30"
+          class="rounded-[1.2rem] border border-sky-200/70 bg-sky-50/80 p-3 dark:border-sky-900/50 dark:bg-sky-950/30 sm:p-4"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-sky-700 dark:text-sky-100">{{ loginCopy.savedAccount }}</p>
               <p class="mt-1 break-all text-base font-black text-default">{{ rememberedProfile?.identifier }}</p>
-              <p class="mt-1 text-xs leading-5 text-muted">{{ loginCopy.savedAccountHint }}</p>
+              <p class="mt-1 hidden text-xs leading-5 text-muted sm:block">{{ loginCopy.savedAccountHint }}</p>
             </div>
 
             <button
@@ -311,11 +311,11 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-if="step === 'account'" class="space-y-4">
+        <div v-if="step === 'account'" class="space-y-3 sm:space-y-4">
           <div v-if="!hasSavedAccount">
             <div class="flex items-center gap-2">
-              <div class="flex size-9 items-center justify-center rounded-full bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-200">
-                <UIcon name="i-lucide-user-round" class="size-4.5" />
+              <div class="flex size-8 items-center justify-center rounded-full bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-200">
+                <UIcon name="i-lucide-user-round" class="size-4" />
               </div>
               <p class="text-[9px] font-semibold uppercase tracking-[0.24em] text-muted sm:text-[10px]">{{ loginCopy.emailOrPhone }}</p>
             </div>
@@ -330,21 +330,22 @@ onMounted(() => {
               autocorrect="off"
               spellcheck="false"
               :placeholder="loginCopy.emailPlaceholder"
-              class="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950"
+              class="mt-3 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950 sm:h-12"
             >
           </div>
 
           <div
             v-else
-            class="rounded-[1.2rem] border border-slate-200/80 bg-slate-50 px-4 py-3 text-sm text-muted dark:border-slate-800 dark:bg-slate-950"
+            class="rounded-[1.2rem] border border-slate-200/80 bg-slate-50 px-4 py-2.5 text-sm text-muted dark:border-slate-800 dark:bg-slate-950 sm:py-3"
           >
-            {{ loginCopy.savedAccountHint }}
+            <span class="hidden sm:inline">{{ loginCopy.savedAccountHint }}</span>
+            <span class="sm:hidden">{{ loginCopy.next }}</span>
           </div>
 
-          <label class="flex items-center justify-between gap-3 rounded-[1.2rem] border border-slate-200/80 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
+          <label class="flex items-center justify-between gap-3 rounded-[1.2rem] border border-slate-200/80 bg-slate-50 px-4 py-2.5 dark:border-slate-800 dark:bg-slate-950 sm:py-3">
             <div class="min-w-0">
               <p class="text-sm font-bold text-default">{{ loginCopy.rememberDevice }}</p>
-              <p class="text-xs text-muted">{{ loginCopy.rememberHint }}</p>
+              <p class="hidden text-xs text-muted sm:block">{{ loginCopy.rememberHint }}</p>
             </div>
 
             <button
@@ -363,7 +364,7 @@ onMounted(() => {
           <UButton
             type="submit"
             :disabled="isSubmitting || isCheckingAccount"
-            :class="['h-12 w-full rounded-full bg-gradient-to-r text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:text-base', activeTheme.accent]"
+            :class="['h-11 w-full rounded-full bg-gradient-to-r text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:h-12 sm:text-base', activeTheme.accent]"
           >
             <span class="flex w-full items-center justify-center gap-2 text-center">
               <UIcon
@@ -375,14 +376,21 @@ onMounted(() => {
             </span>
           </UButton>
 
-          <div class="text-center">
-            <NuxtLink to="/register" class="text-sm font-bold text-primary">
+          <div class="flex flex-wrap items-center justify-center gap-2 text-center">
+            <NuxtLink
+              to="/admin-login"
+              class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11px] font-bold text-slate-600 transition active:scale-95 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300"
+            >
+              Admin login
+            </NuxtLink>
+
+            <NuxtLink to="/register" class="hidden items-center justify-center rounded-full border border-transparent px-3.5 py-1.5 text-[11px] font-bold text-primary transition active:scale-95 sm:inline-flex">
               {{ loginCopy.createAccount }}
             </NuxtLink>
           </div>
         </div>
 
-        <div v-else class="space-y-4">
+        <div v-else class="space-y-3 sm:space-y-4">
           <div class="flex items-center justify-between gap-3">
             <button
               type="button"
@@ -398,17 +406,17 @@ onMounted(() => {
             </UBadge>
           </div>
 
-          <div class="space-y-2 text-center">
+          <div class="space-y-1 text-center">
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted">{{ loginCopy.enterPin }}</p>
-            <p class="text-sm text-muted">{{ loginCopy.enterPinHint }}</p>
+            <p class="hidden text-sm text-muted sm:block">{{ loginCopy.enterPinHint }}</p>
           </div>
 
           <div class="relative" @click="focusPin">
-            <div class="grid grid-cols-6 gap-2">
+            <div class="grid grid-cols-6 gap-1.5 sm:gap-2">
               <div
                 v-for="(digit, index) in pinSlots"
                 :key="index"
-                class="flex h-14 items-center justify-center rounded-2xl border bg-slate-50 text-2xl font-black text-default transition dark:bg-slate-950"
+                class="flex h-11 items-center justify-center rounded-2xl border bg-slate-50 text-2xl font-black text-default transition sm:h-14 dark:bg-slate-950"
                 :class="pinValue.length > index ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-800'"
               >
                 <span v-if="digit" class="translate-y-[-1px]">•</span>
@@ -430,7 +438,7 @@ onMounted(() => {
           </div>
 
           <div class="flex items-center justify-between gap-3">
-            <p class="text-xs text-muted">{{ loginCopy.enterPinHint }}</p>
+            <p class="hidden text-xs text-muted sm:block">{{ loginCopy.enterPinHint }}</p>
             <button
               type="button"
               class="text-xs font-bold text-primary"
@@ -443,7 +451,7 @@ onMounted(() => {
           <UButton
             type="submit"
             :disabled="pinValue.length !== 6 || isSubmitting"
-            :class="['h-12 w-full rounded-full bg-gradient-to-r text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:text-base', activeTheme.accent]"
+            :class="['h-11 w-full rounded-full bg-gradient-to-r text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:h-12 sm:text-base', activeTheme.accent]"
           >
             <span class="flex w-full items-center justify-center gap-2 text-center">
               <UIcon
@@ -456,7 +464,7 @@ onMounted(() => {
           </UButton>
         </div>
 
-        <p v-if="errorMessage" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+        <p v-if="errorMessage" class="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
           {{ errorMessage }}
         </p>
         </form>
