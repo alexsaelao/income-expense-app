@@ -106,7 +106,10 @@ export function useDeviceAuth() {
   const hydrated = useState('income-expense-note-auth-hydrated', () => false)
   const hydrating = useState('income-expense-note-auth-hydrating', () => false)
   const rememberedProfile = useState<AuthProfile | null>('income-expense-note-auth-remembered', () => null)
-  const sessionProfile = useState<AuthSession | null>('income-expense-note-auth-session', () => null)
+  const sessionProfile = useState<AuthSession | null>('income-expense-note-auth-session', () => {
+    if (import.meta.server) return null
+    return readSession<AuthSession>(SESSION_KEY)
+  })
   const serverAuthSession = useState<ServerAuthSessionSnapshot>(AUTH_SERVER_SESSION_STATE_KEY, createServerAuthSnapshot)
 
   if (!import.meta.server && !rememberedProfile.value) {
@@ -121,6 +124,9 @@ export function useDeviceAuth() {
 
   if (serverAuthSession.value.loaded) {
     applyServerAuthSession(serverAuthSession.value, rememberedProfile.value)
+    authReady.value = true
+  }
+  else if (sessionProfile.value) {
     authReady.value = true
   }
 

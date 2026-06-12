@@ -919,9 +919,15 @@ export function useMoneyNote() {
           updatedAt?: string | null
         } | null
         updatedAt?: string | null
+        connected?: boolean
       }>('/api/app-state', {
         query: { identifier }
       })
+
+      if (remote?.connected === false) {
+        syncDebugCloudSnapshot.value = null
+        return true
+      }
 
       const cloudSnapshot = remote?.snapshot ?? remote?.state ?? null
       syncDebugCloudSnapshot.value = {
@@ -1037,7 +1043,7 @@ export function useMoneyNote() {
   }
 
   async function pushCloudState(identifier: string, state: MoneyNoteState, updatedAt?: string) {
-    await $fetch('/api/app-state', {
+    const result = await $fetch<{ ok: boolean; connected?: boolean }>('/api/app-state', {
       method: 'POST',
       body: {
         identifier,
@@ -1050,6 +1056,12 @@ export function useMoneyNote() {
         updatedAt
       }
     })
+
+    if (result?.connected === false) {
+      throw new Error('cloud-unavailable')
+    }
+
+    return result
   }
 
   function resolveSyncErrorMessage(error: unknown) {
@@ -1295,9 +1307,17 @@ export function useMoneyNote() {
           updatedAt?: string | null
         } | null
         updatedAt?: string | null
+        connected?: boolean
       }>('/api/app-state', {
         query: { identifier }
       })
+
+      if (remote?.connected === false) {
+        syncError.value = ''
+        syncStatus.value = 'waiting'
+        syncProgress.value = 0
+        return false
+      }
 
       logSyncDebug('refreshCloudState: fetched cloud snapshot', {
         accountKey,

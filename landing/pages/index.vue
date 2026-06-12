@@ -90,11 +90,13 @@ const cloudIcon = `
   </svg>
 `
 
-const shieldIcon = `
+const chartIcon = `
   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M12 22s7-3.5 7-9.5V6.5L12 3l-7 3.5v6c0 6 7 9.5 7 9.5Z" />
-    <path d="M9 12h6" />
-    <path d="M12 9v6" />
+    <path d="M4 19V5" />
+    <path d="M4 19h16" />
+    <path d="M8 17v-5" />
+    <path d="M12 17V9" />
+    <path d="M16 17v-9" />
   </svg>
 `
 
@@ -113,12 +115,11 @@ const translations = {
     nav: {
       home: 'Home',
       features: 'Features',
-      pricing: 'Pricing',
       faq: 'FAQ',
     },
     language: 'Language',
-    installApp: 'Install app',
-    getPro: 'Get Pro',
+    goToWallet: 'Go to Wallet',
+    exploreFeatures: 'Explore Features',
     theme: 'Theme',
     hero: {
       kicker: 'Cloud-first money control',
@@ -156,30 +157,12 @@ const translations = {
       walletBody: 'Keep balances clear, budgets tidy, and expenses organized the way people work.',
       historyTitle: 'Transactions with history',
       historyBody: 'See what happened, when it happened, and where the money moved.',
+      insightsTitle: 'Simple insights',
+      insightsBody: 'Check totals and trends at a glance without extra noise.',
       backupTitle: 'Backup and restore',
       backupBody: 'Export JSON for safe restore and use CSV for spreadsheet analysis.',
-      plansTitle: 'Free and Pro',
-      plansBody: 'Keep a free cloud-backed plan, then unlock full sync and restore on Pro.',
       upgradeTitle: 'Simple upgrade path',
       upgradeBody: 'Redeem codes or entitlement-based Pro activation can unlock the app cleanly.',
-    },
-    pricing: {
-      kicker: 'Pricing',
-      badge: 'Dark/Light',
-      title: 'Free and Pro',
-      body: 'Keep pricing simple so the choice is obvious fast.',
-      label: 'Highlight',
-      freeBadge: 'Free',
-      freeTitle: 'Start without paying',
-      freeBody: 'Personal tracking, cloud sync, and easy exports.',
-      freeTerm: '/ forever',
-      freeChips: ['Cloud sync', 'Online access', 'Export JSON', 'Export CSV'],
-      proBadge: 'Pro',
-      proTitle: 'Cloud sync and restore',
-      proBody: 'Best for people who use more than one device.',
-      proTerm: '/ month',
-      proSub: 'Redeem code or entitlement can activate Pro without changing the rest of the app.',
-      proChips: ['Cloud sync', 'Restore devices', 'Pro unlock', 'Priority backup'],
     },
     faq: {
       kicker: 'FAQ',
@@ -206,11 +189,9 @@ const translations = {
     },
     cta: {
       kicker: 'Ready to try it?',
-      title: 'Install the app or try the demo now.',
+      title: 'Go to Wallet or try the demo now.',
       body: 'Simple, direct, and easy to act on.',
-      seePricing: 'See pricing',
     },
-    footer: 'Made for fast installs and calm finance tracking.',
     footerCopyright: '© 2026 Wallet Code Sabai. All rights reserved.',
   },
   lo: {
@@ -219,12 +200,11 @@ const translations = {
     nav: {
       home: 'ໜ້າຫຼັກ',
       features: 'ຟີຈເຈີ',
-      pricing: 'ລາຄາ',
       faq: 'ຄຳຖາມ',
     },
     language: 'ພາສາ',
-    installApp: 'ຕິດຕັ້ງແອັບ',
-    getPro: 'ເອົາ Pro',
+    goToWallet: 'ໄປທີ່ Wallet',
+    exploreFeatures: 'ເບິ່ງຟີຈເຈີ',
     theme: 'ຮູບແບບ',
     hero: {
       kicker: 'ການເງິນແບບຄລາວກ່ອນ',
@@ -262,30 +242,12 @@ const translations = {
       walletBody: 'ໃຫ້ຍອດຊັດເຈນ ແລະ ຈັດລາຍຈ່າຍໃຫ້ເປັນລະບຽບ.',
       historyTitle: 'ທຸລະກຳມີປະຫວັດ',
       historyBody: 'ເບິ່ງວ່າເກີດຫຍັງ, ເມື່ອໃດ, ແລະ ເງິນໄຫຼໄປທາງໃດ.',
+      insightsTitle: 'ສະຫຼຸບຂໍ້ມູນງ່າຍໆ',
+      insightsBody: 'ເບິ່ງຍອດລວມ ແລະ ແນວໂນ້ມໄດ້ທັນທີ ໂດຍບໍ່ລົບກວນສາຍຕາ.',
       backupTitle: 'ສຳຮອງ ແລະ ກູ້ຄືນ',
       backupBody: 'ສົ່ງອອກ JSON ແລະ CSV ເພື່ອກູ້ຄືນ ຫຼື ວິເຄາະ.',
-      plansTitle: 'ຟຣີ ແລະ Pro',
-      plansBody: 'ໃຊ້ແຜນຟຣີກ່ອນ ແລ້ວຄ່ອຍເປີດຊິງຄແລະກູ້ຄືນຄລາວໃນ Pro.',
       upgradeTitle: 'ອັບເກຣດງ່າຍ',
       upgradeBody: 'redeem code ຫຼື entitlement ສາມາດເປີດ Pro ໄດ້ແບບບໍ່ຊັບຊ້ອນ.',
-    },
-    pricing: {
-      kicker: 'ລາຄາ',
-      badge: 'Dark/Light',
-      title: 'ຟຣີ ແລະ Pro',
-      body: 'ຕັ້ງລາຄາໃຫ້ງ່າຍ ແລະເລືອກໄດ້ໄວ.',
-      label: 'ຈຸດເດັ່ນ',
-      freeBadge: 'ຟຣີ',
-      freeTitle: 'ເລີ່ມໃຊ້ໄດ້ທັນທີ',
-      freeBody: 'ເໝາະກັບການຈັດການສ່ວນຕົວແບບຊິງຄຄລາວ.',
-      freeTerm: '/ ຕະຫຼອດໄປ',
-      freeChips: ['ຊິງຄຄລາວ', 'ອອນລາຍຕະຫຼອດ', 'ສົ່ງອອກ JSON', 'ສົ່ງອອກ CSV'],
-      proBadge: 'Pro',
-      proTitle: 'ຊິງຄລາວ ແລະ ກູ້ຄືນ',
-      proBody: 'ເໝາະກັບຄົນທີ່ໃຊ້ຫຼາຍເຄື່ອງ.',
-      proTerm: '/ ເດືອນ',
-      proSub: 'redeem code ຫຼື entitlement ສາມາດເປີດ Pro ໄດ້ທັນທີ.',
-      proChips: ['ຊິງຄລາວ', 'ກູ້ຄືນຂ້າມເຄື່ອງ', 'ປົດລັອກ Pro', 'ສຳຮອງລຳດັບສູງ'],
     },
     faq: {
       kicker: 'ຄຳຖາມ',
@@ -312,11 +274,9 @@ const translations = {
     },
     cta: {
       kicker: 'ພ້ອມລອງແລ້ວບໍ?',
-      title: 'ຕິດຕັ້ງແອັບ ຫຼື ລອງດູໄດ້ເລີຍ.',
+      title: 'ໄປທີ່ Wallet ຫຼືລອງດູໄດ້ເລີຍ.',
       body: 'ສະອາດ, ຊັດເຈນ, ແລະອ່ານງ່າຍ.',
-      seePricing: 'ເບິ່ງລາຄາ',
     },
-    footer: 'ສ້າງມາເພື່ອຕິດຕັ້ງໄວ ແລະຈັດການເງິນໄດ້ງ່າຍ.',
     footerCopyright: '© 2026 Wallet Code Sabai. ສະຫງວນລິຂະສິດ.',
   },
 } as const
@@ -344,7 +304,7 @@ const themeIcon = computed(() => (theme.value === 'dark' ? sunIcon : moonIcon))
 const themeButtonLabel = computed(() => copy.value.theme)
 const themeModeLabel = computed(() => (theme.value === 'dark' ? 'Dark' : 'Light'))
 const languageCode = computed(() => (language.value === 'en' ? 'EN' : 'ລາວ'))
-const walletInstallHref = 'https://app.wallet.codesabai.com/install'
+const walletInstallHref = 'https://app.wallet.codesabai.com/'
 
 const featureCards = computed(() => [
   {
@@ -366,16 +326,16 @@ const featureCards = computed(() => [
     tone: 'from-violet-600 to-indigo-600',
   },
   {
+    title: copy.value.features.insightsTitle,
+    body: copy.value.features.insightsBody,
+    icon: chartIcon,
+    tone: 'from-fuchsia-500 to-pink-500',
+  },
+  {
     title: copy.value.features.backupTitle,
     body: copy.value.features.backupBody,
     icon: exportIcon,
     tone: 'from-slate-700 to-slate-900',
-  },
-  {
-    title: copy.value.features.plansTitle,
-    body: copy.value.features.plansBody,
-    icon: shieldIcon,
-    tone: 'from-pink-500 to-rose-500',
   },
   {
     title: copy.value.features.upgradeTitle,
@@ -500,12 +460,6 @@ useHead(() => ({
             {{ copy.nav.features }}
           </a>
           <a
-            href="#pricing"
-            class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-          >
-            {{ copy.nav.pricing }}
-          </a>
-          <a
             href="#faq"
             class="rounded-full px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
           >
@@ -616,10 +570,6 @@ useHead(() => ({
               <span>{{ copy.nav.features }}</span>
               <span class="text-slate-400 dark:text-slate-500">↗</span>
             </a>
-            <a href="#pricing" class="flex items-center justify-between rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800" @click="menuOpen = false">
-              <span>{{ copy.nav.pricing }}</span>
-              <span class="text-slate-400 dark:text-slate-500">↗</span>
-            </a>
             <a href="#faq" class="flex items-center justify-between rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800" @click="menuOpen = false">
               <span>{{ copy.nav.faq }}</span>
               <span class="text-slate-400 dark:text-slate-500">↗</span>
@@ -678,14 +628,14 @@ useHead(() => ({
               class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-600 via-blue-600 to-cyan-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_26px_-18px_rgba(14,165,233,.7)] transition hover:-translate-y-0.5 hover:from-sky-500 hover:via-blue-500 hover:to-cyan-400 dark:bg-gradient-to-r dark:from-sky-500 dark:via-blue-500 dark:to-cyan-400 dark:text-slate-950"
             >
               <span v-html="downloadIcon" class="text-white dark:text-slate-950"></span>
-              <span>{{ copy.installApp }}</span>
+              <span>{{ copy.goToWallet }}</span>
             </a>
             <a
-              href="#pricing"
+              href="#features"
               class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 dark:bg-white dark:text-slate-950"
             >
               <span v-html="arrowRightIcon"></span>
-              <span>{{ copy.getPro }}</span>
+              <span>{{ copy.exploreFeatures }}</span>
             </a>
           </div>
 
@@ -781,93 +731,6 @@ useHead(() => ({
         </div>
       </section>
 
-      <section id="pricing" class="mt-6 scroll-mt-[96px] transition-colors duration-300 md:scroll-mt-[112px]">
-        <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p class="text-sm font-bold uppercase tracking-[0.24em] text-sky-600 dark:text-sky-400">{{ copy.pricing.kicker }}</p>
-            <div class="mt-2 flex flex-wrap items-center gap-3">
-              <h3 class="text-3xl font-black tracking-tight text-slate-950 dark:text-white md:text-4xl">{{ copy.pricing.title }}</h3>
-              <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white/90 px-3 py-1.5 text-[11px] font-medium leading-none tracking-wide text-slate-700 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200">
-                <span class="h-1.5 w-1.5 rounded-full bg-violet-500"></span>
-                {{ copy.pricing.badge }}
-              </span>
-            </div>
-          </div>
-          <p class="max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
-            {{ copy.pricing.body }}
-          </p>
-        </div>
-
-        <div class="mt-6 grid gap-4 lg:grid-cols-2">
-          <article class="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-            <span class="inline-flex h-10 min-w-[6.5rem] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-4 text-[11px] font-black uppercase tracking-[0.24em] text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-              {{ copy.pricing.freeBadge }}
-            </span>
-            <h4 class="mt-4 text-2xl font-black tracking-tight">{{ copy.pricing.freeTitle }}</h4>
-            <p class="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">{{ copy.pricing.freeBody }}</p>
-            <div class="mt-5 flex items-end gap-2">
-              <div class="text-4xl font-black tracking-tight">₭0</div>
-              <div class="pb-1 text-sm font-semibold text-slate-500 dark:text-slate-400">{{ copy.pricing.freeTerm }}</div>
-            </div>
-            <div class="mt-5 flex flex-wrap gap-1.5 md:gap-2">
-              <span
-                v-for="chip in copy.pricing.freeChips"
-                :key="chip"
-                class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700 md:px-3 md:text-sm dark:bg-slate-800 dark:text-slate-200"
-              >
-                {{ chip }}
-              </span>
-            </div>
-            <div class="mt-auto pt-6">
-              <a
-                :href="walletInstallHref"
-                target="_blank"
-                rel="noreferrer"
-                class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-              >
-                <span v-html="downloadIcon" class="text-slate-700 dark:text-slate-200"></span>
-                {{ copy.installApp }}
-              </a>
-            </div>
-          </article>
-
-          <article class="flex h-full flex-col rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-600 to-cyan-500 p-6 text-white shadow-sm">
-            <span class="inline-flex h-10 min-w-[6.5rem] items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 text-[11px] font-black uppercase tracking-[0.24em] text-white/90">
-              {{ copy.pricing.proBadge }}
-            </span>
-            <h4 class="mt-4 text-2xl font-black tracking-tight">{{ copy.pricing.proTitle }}</h4>
-            <p class="mt-2 text-sm leading-7 text-white/85">{{ copy.pricing.proBody }}</p>
-            <div class="mt-5 flex items-end gap-2">
-              <div class="text-4xl font-black tracking-tight">₭49,000</div>
-              <div class="pb-1 text-sm font-semibold text-white/80">{{ copy.pricing.proTerm }}</div>
-            </div>
-            <p class="mt-4 text-sm leading-7 text-white/85">
-              {{ copy.pricing.proSub }}
-            </p>
-            <div class="mt-5 flex flex-wrap gap-1.5 md:gap-2">
-              <span
-                v-for="chip in copy.pricing.proChips"
-                :key="chip"
-                class="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white md:px-3 md:text-sm"
-              >
-                {{ chip }}
-              </span>
-            </div>
-            <div class="mt-auto pt-6">
-              <a
-                :href="walletInstallHref"
-                target="_blank"
-                rel="noreferrer"
-                class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5"
-              >
-                <span v-html="downloadIcon" class="text-slate-950"></span>
-                {{ copy.installApp }}
-              </a>
-            </div>
-          </article>
-        </div>
-      </section>
-
       <section id="faq" class="mt-6 scroll-mt-[96px] transition-colors duration-300 md:scroll-mt-[112px]">
         <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
@@ -916,13 +779,13 @@ useHead(() => ({
               class="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-600 via-blue-600 to-cyan-500 px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_26px_-18px_rgba(14,165,233,.7)] transition hover:-translate-y-0.5 hover:from-sky-500 hover:via-blue-500 hover:to-cyan-400 dark:bg-gradient-to-r dark:from-sky-500 dark:via-blue-500 dark:to-cyan-400 dark:text-slate-950"
             >
               <span v-html="downloadIcon" class="text-white dark:text-slate-950"></span>
-              <span>{{ copy.installApp }}</span>
+              <span>{{ copy.goToWallet }}</span>
             </a>
             <a
-              href="#pricing"
+              href="#features"
               class="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-white/10 dark:border-slate-200 dark:bg-slate-50 dark:text-slate-950 dark:hover:bg-slate-100"
             >
-              {{ copy.cta.seePricing }}
+              {{ copy.exploreFeatures }}
             </a>
           </div>
         </div>

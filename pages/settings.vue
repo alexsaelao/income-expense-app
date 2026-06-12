@@ -915,7 +915,7 @@ function handleLogout() {
 async function confirmLogout() {
   logoutConfirmModalOpen.value = false
   await signOut()
-  window.location.replace('/install')
+  window.location.replace('/login')
 }
 
 function formatBackupDate(value?: string) {

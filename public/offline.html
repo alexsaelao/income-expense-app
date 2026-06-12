@@ -7,92 +7,131 @@
     <title>Offline - Wallet Code Sabai</title>
     <style>
       :root {
-        color-scheme: dark;
-        --bg1: #0f172a;
-        --bg2: #111827;
-        --card: rgba(15, 23, 42, 0.72);
+        color-scheme: light dark;
+        --card: rgba(255, 255, 255, 0.9);
       }
       * { box-sizing: border-box; }
       html, body { height: 100%; margin: 0; }
       body {
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        color: #e2e8f0;
-        background:
-          radial-gradient(circle at top left, rgba(59, 130, 246, 0.24), transparent 35%),
-          radial-gradient(circle at top right, rgba(16, 185, 129, 0.18), transparent 30%),
-          linear-gradient(180deg, var(--bg1), var(--bg2));
         display: grid;
         place-items: center;
-        padding: 24px;
+        padding: 20px;
+        background:
+          radial-gradient(circle at top, rgba(14, 165, 233, 0.18), transparent 40%),
+          linear-gradient(180deg, #f8fafc, #e2e8f0);
+        color: #0f172a;
       }
       .card {
-        width: min(100%, 420px);
-        padding: 28px;
-        border-radius: 28px;
+        width: min(100%, 360px);
+        padding: 20px;
+        border-radius: 24px;
         background: var(--card);
-        border: 1px solid rgba(255,255,255,.08);
-        box-shadow: 0 24px 80px -30px rgba(2,6,23,.8);
-        backdrop-filter: blur(20px);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        box-shadow: 0 24px 70px -30px rgba(15, 23, 42, 0.28);
+        text-align: center;
       }
-      .logo {
-        width: 68px;
-        height: 68px;
-        border-radius: 22px;
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(254, 226, 226, 0.85);
+        color: #b91c1c;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+      h1 {
+        margin: 16px 0 8px;
+        font-size: 24px;
+        line-height: 1.15;
+      }
+      p {
+        margin: 0;
+        color: #475569;
+        line-height: 1.6;
+        font-size: 14px;
+      }
+      .actions {
         display: grid;
-        place-items: center;
-        background: linear-gradient(135deg, #3b82f6, #22c55e);
-        box-shadow: 0 14px 30px -16px rgba(59,130,246,.85);
-        overflow: hidden;
-        padding: 10px;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 18px;
       }
-      .logo img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-      }
-      h1 { margin: 18px 0 8px; font-size: 30px; line-height: 1.1; }
-      p { margin: 0; color: #cbd5e1; line-height: 1.6; }
-      .actions { display: flex; gap: 12px; margin-top: 24px; }
-      button, a {
+      a, button {
         appearance: none;
         border: 0;
-        text-decoration: none;
-        padding: 14px 18px;
-        border-radius: 18px;
+        border-radius: 16px;
+        padding: 12px 14px;
         font-weight: 700;
-        font-size: 15px;
+        font-size: 14px;
         cursor: pointer;
+        text-decoration: none;
       }
       button {
-        flex: 1;
         color: white;
-        background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+        background: linear-gradient(135deg, #0ea5e9, #22c55e);
       }
       a {
-        color: #e2e8f0;
-        background: rgba(148,163,184,.12);
+        color: #0f172a;
+        background: rgba(148, 163, 184, 0.18);
       }
       .hint {
-        margin-top: 14px;
-        font-size: 13px;
-        color: #94a3b8;
+        margin-top: 12px;
+        font-size: 12px;
+        color: #64748b;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background:
+            radial-gradient(circle at top, rgba(14, 165, 233, 0.18), transparent 40%),
+            linear-gradient(180deg, #020617, #0f172a);
+          color: #e2e8f0;
+        }
+        .card {
+          background: rgba(2, 6, 23, 0.85);
+          border-color: rgba(51, 65, 85, 0.6);
+        }
+        p, .hint {
+          color: #94a3b8;
+        }
+        a {
+          color: #e2e8f0;
+          background: rgba(148, 163, 184, 0.16);
+        }
       }
     </style>
   </head>
   <body>
     <section class="card">
-      <div class="logo"><img src="/wallet-codesabai-mark.svg" alt="" width="100%" height="100%" /></div>
-      <h1>You're offline</h1>
-      <p>
-        Wallet Code Sabai is still available. Your cached data and UI are ready,
-        so you can keep reviewing balances, wallets, and recent entries.
-      </p>
+      <div class="badge"><span class="dot"></span> Offline</div>
+      <h1>No internet connection</h1>
+      <p>Reconnect to continue. Once the network is back, the app will open again from login.</p>
       <div class="actions">
         <button onclick="window.location.reload()">Try again</button>
-        <a href="/">Go home</a>
+        <a href="/login">Go to login</a>
       </div>
-      <div class="hint">The app will sync automatically once the connection returns.</div>
+      <div class="hint">If you are back online, this page will work normally again.</div>
     </section>
+    <script>
+      function goToLogin() {
+        window.location.replace('/login')
+      }
+
+      if (navigator.onLine) {
+        goToLogin()
+      }
+
+      window.addEventListener('online', goToLogin)
+    </script>
   </body>
 </html>

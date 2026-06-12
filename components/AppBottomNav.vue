@@ -65,7 +65,7 @@ function syncOnNavigate() {
           :to="items[2].to"
           class="group relative flex flex-col items-center justify-center gap-0 rounded-2xl px-1 py-1 text-center transition active:scale-95"
           :class="isActive(items[2].to) ? 'text-primary' : 'text-muted'"
-            :aria-label="items[2].label"
+          :aria-label="items[2].label"
           @click="syncOnNavigate"
         >
           <div

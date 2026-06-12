@@ -42,10 +42,24 @@ const deleteUserSheetHandleRef = ref<HTMLElement | null>(null)
 const deleteUserOpen = ref(false)
 const updatingUser = ref(false)
 const deletingUser = ref(false)
+const upgradeUserOpen = ref(false)
+const loadingUpgradeKeys = ref(false)
+const upgradingUserToPro = ref(false)
+const upgradeKeysError = ref('')
+const upgradeKeys = ref<{
+  code: string
+  active: boolean
+  redeemedBy: string | null
+  redeemedAt: string | null
+  createdAt: string
+  updatedAt: string
+}[]>([])
+const selectedUpgradeKey = ref('')
 const refreshingUsers = ref(false)
 const isUsersLoading = computed(() => pending.value || refreshingUsers.value)
-const userEditPlan = ref<'free' | 'pro'>('free')
-const userEditRemember = ref(true)
+const passwordResetResult = ref<{ identifier: string; pin: string } | null>(null)
+const copiedCredentialField = ref<'identifier' | 'pin' | null>(null)
+let copiedCredentialTimer: ReturnType<typeof setTimeout> | null = null
 const selectedAccount = ref<{
   identifier: string
   identifierType: 'email' | 'phone'
@@ -57,7 +71,6 @@ const selectedAccount = ref<{
   cloudClearedCount: number
   cloudClearedAt: string | null
   cloudUpdatedAt: string | null
-  cloudStatus: 'synced' | 'local'
   walletCount: number
   transactionCount: number
   categoryCount: number
@@ -65,17 +78,26 @@ const selectedAccount = ref<{
   recordCount: number
   cloudSizeBytes: number
 } | null>(null)
+const availableUpgradeKeys = computed(() => upgradeKeys.value.filter(key => key.active && !key.redeemedBy && !key.redeemedAt))
+
+const centeredSuperadminModalUi = {
+  content: '!fixed !inset-auto !top-1/2 !left-1/2 flex !max-h-[calc(100dvh-2rem)] !w-[calc(100vw-1.5rem)] !max-w-[42rem] !-translate-x-1/2 !-translate-y-1/2 flex-col !overflow-hidden !rounded-[1.75rem] !border !border-slate-200/70 !bg-white !shadow-[0_30px_90px_-36px_rgba(15,23,42,0.42)] !ring-1 !ring-slate-200/60 focus:outline-none dark:!border-slate-800 dark:!bg-slate-950 dark:!ring-slate-800 sm:!max-h-[calc(100dvh-4rem)]',
+  body: 'p-0',
+  header: 'p-0',
+  footer: 'p-0',
+  overlay: 'fixed inset-0 bg-slate-950/45 backdrop-blur-[10px]'
+}
 
 const copy = computed(() => selectedLanguage.value === 'lo'
   ? {
       title: 'Users',
-      subtitle: 'ຈັດການ user, plan ແລະ cloud sync ຢູ່ໜ້ານີ້',
-      cloudStatus: 'Cloud status',
+      subtitle: 'ຈັດການ user, plan ແລະ cloud backup ຢູ່ໜ້ານີ້',
+      backupStatus: 'Cloud backup',
       userStatus: 'ຜູ້ໃຊ້ທັງໝົດ',
       actions: 'ຈັດການ',
       joined: 'ສ້າງແລ້ວ',
       lastActive: 'ໃຊ້ລ່າສຸດ',
-      cloudUpdated: 'Cloud update',
+      cloudUpdated: 'ອັບເດດ cloud ລ່າສຸດ',
       proStarted: 'Pro start',
       redeemKey: 'Redeem key',
       cloudClears: 'Cloud clears',
@@ -90,28 +112,50 @@ const copy = computed(() => selectedLanguage.value === 'lo'
       userUpdateHint: 'Switching to Pro will save the Pro start date automatically.',
       userDeleteTitle: 'Delete user account',
       userDeleteDesc: 'Delete the account and cloud backup. This cannot be undone.',
-      userDeleteHint: 'Local device data stays on the user device. This removes the account from admin records and cloud sync.',
+      userDeleteHint: 'This removes the account from admin records and keeps cloud backup separate.',
       userDeleteConfirm: 'Delete account',
       records: 'Record',
       cloudSize: 'ຂະໜາດຄລາວ',
       details: 'ລາຍລະອຽດ',
       close: 'ປິດ',
-      deleteCloudData: 'ລຶບ cloud data',
-      deleteCloudTitle: 'ລຶບຂໍ້ມູນຄລາວ',
-      deleteCloudDesc: 'ລຶບແຕ່ cloud backup ຂອງ user ນີ້. ຂໍ້ມູນໃນເຄື່ອງຍັງຢູ່.',
-      deleteCloudHint: 'ການກະທຳນີ້ລຶບແຕ່ຂໍ້ມູນທີ່ sync ໄວ້ໃນຄລາວ.',
-      deleteConfirm: 'ຢືນຢັນລຶບ',
+      deleteCloudData: 'ລ້າງ transaction cloud',
+      deleteCloudTitle: 'ລ້າງ transaction ໃນ cloud',
+      deleteCloudDesc: 'ລຶບພຽງ transaction ທີ່ຢູ່ໃນ cloud backup. wallet, category ແລະ company ຍັງຢູ່ຄົງເດີມ.',
+      deleteCloudHint: 'ການກະທຳນີ້ຈະລຶບພຽງ transaction ໃນ cloud ເທົ່ານັ້ນ.',
+      deleteConfirm: 'ລຶບ transaction',
       freeAccounts: 'Free',
       proAccounts: 'Pro',
-      syncedAccounts: 'ຊິງແລ້ວ',
+      cloudBackups: 'Cloud backups',
+      cloudPreserved: 'wallet, category ແລະ company ຍັງຢູ່',
       wallets: 'ກະເປົ໋າ',
       transactions: 'ທຸລະກຳ',
       categories: 'ປະເພດ',
       companies: 'ບໍລິສັດ',
       planFree: 'Free',
       planPro: 'Pro',
-      cloudSynced: 'ຊິງຄລາວ',
-      cloudLocal: 'ຢູ່ເຄື່ອງ',
+      latestBackup: 'Backup ລ່າສຸດ',
+      backedUp: 'Backup saved',
+      noBackup: 'No backup yet',
+      updatePassword: 'ຕັ້ງ PIN ໃໝ່',
+      updatePasswordTitle: 'ຕັ້ງ PIN ໃໝ່',
+      updatePasswordDesc: 'ລະບົບຈະສ້າງ PIN 6 ຕົວໃໝ່ໃຫ້ user ນີ້ ແລະສະແດງໃຫ້ copy ໄດ້ທັນທີ.',
+      updatePasswordHint: 'PIN ເກົ່າຈະໃຊ້ບໍ່ໄດ້ຫຼັງອັບເດດ.',
+      updatePasswordConfirm: 'ຢືນຢັນສ້າງ PIN ໃໝ່',
+      updatePasswordDone: 'PIN ຖືກອັບເດດແລ້ວ',
+      updatePasswordDoneDesc: 'ສຳເນົາ username ແລະ PIN ໃຫ້ user ໄດ້ທັນທີ.',
+      upgradeUser: 'ອັບເກຣດເປັນ Pro',
+      upgradeUserTitle: 'ອັບເກຣດ user ເປັນ Pro',
+      upgradeUserDesc: 'ເລືອກ key ທີ່ຍັງວ່າງແລ້ວກົດ Apply. key ນີ້ຈະຖືກໃຊ້ທັນທີ.',
+      upgradeUserHint: 'ລະບົບຈະ auto select key ທີ່ວ່າງຢູ່ຕົວທຳອິດ.',
+      upgradeUserSelectKey: 'ເລືອກ key',
+      upgradeUserNoKey: 'ບໍ່ມີ key ວ່າງ',
+      upgradeUserConfirm: 'Apply ແລະອັບເກຣດ',
+      upgradeUserDone: 'ອັບເກຣດເປັນ Pro ແລ້ວ',
+      username: 'Username',
+      loginType: 'ປະເພດລັອກອິນ',
+      password: 'PIN',
+      copied: 'ສຳເນົາແລ້ວ',
+      copy: 'ສຳເນົາ',
       showing: 'ສະແດງ',
       perPage: 'ຕໍ່ໜ້າ',
       page: 'ໜ້າ',
@@ -122,13 +166,13 @@ const copy = computed(() => selectedLanguage.value === 'lo'
     }
   : {
       title: 'Users',
-      subtitle: 'Review user plans, join date, activity, records, and cloud usage.',
-      cloudStatus: 'Cloud status',
+      subtitle: 'Review user plans, join date, activity, records, and cloud backup usage.',
+      backupStatus: 'Cloud backup',
       userStatus: 'Total Users',
       actions: 'Actions',
       joined: 'Joined',
       lastActive: 'Last active',
-      cloudUpdated: 'Cloud updated',
+      cloudUpdated: 'Last cloud update',
       proStarted: 'Pro start',
       redeemKey: 'Redeem key',
       cloudClears: 'Cloud clears',
@@ -143,28 +187,50 @@ const copy = computed(() => selectedLanguage.value === 'lo'
       userUpdateHint: 'Switching to Pro will save the Pro start date automatically.',
       userDeleteTitle: 'Delete user account',
       userDeleteDesc: 'Delete the account and cloud backup. This cannot be undone.',
-      userDeleteHint: 'Local device data stays on the user device. This removes the account from admin records and cloud sync.',
+      userDeleteHint: 'This removes the account from admin records and keeps cloud backup separate.',
       userDeleteConfirm: 'Delete account',
       records: 'Records',
       cloudSize: 'Cloud size',
       details: 'Details',
       close: 'Close',
-      deleteCloudData: 'Delete cloud data',
-      deleteCloudTitle: 'Delete cloud backup',
-      deleteCloudDesc: 'Remove only this user cloud backup. Local device data stays intact.',
-      deleteCloudHint: 'This action removes only the synced cloud snapshot for this account.',
-      deleteConfirm: 'Confirm delete',
+      deleteCloudData: 'Clear cloud transactions',
+      deleteCloudTitle: 'Clear cloud transactions',
+      deleteCloudDesc: 'Clear only transactions from the cloud backup. Wallets, categories, and companies stay intact.',
+      deleteCloudHint: 'This action removes transaction data only.',
+      deleteConfirm: 'Clear transactions',
       freeAccounts: 'Free',
       proAccounts: 'Pro',
-      syncedAccounts: 'Synced',
+      cloudBackups: 'Cloud backups',
+      cloudPreserved: 'Wallets, categories, and companies stay',
       wallets: 'Wallets',
       transactions: 'Transactions',
       categories: 'Categories',
       companies: 'Companies',
       planFree: 'Free',
       planPro: 'Pro',
-      cloudSynced: 'Synced',
-      cloudLocal: 'Local only',
+      latestBackup: 'Latest backup',
+      backedUp: 'Backup saved',
+      noBackup: 'No backup yet',
+      updatePassword: 'Reset password',
+      updatePasswordTitle: 'Reset password',
+      updatePasswordDesc: 'Generate a fresh 6-digit PIN for this user and show it here for copying.',
+      updatePasswordHint: 'The previous PIN will stop working immediately after the update.',
+      updatePasswordConfirm: 'Generate new PIN',
+      updatePasswordDone: 'Password updated',
+      updatePasswordDoneDesc: 'Copy the username and new PIN to send to the user.',
+      upgradeUser: 'Upgrade to Pro',
+      upgradeUserTitle: 'Upgrade user to Pro',
+      upgradeUserDesc: 'Choose an unused key and press Apply. The selected key will be consumed right away.',
+      upgradeUserHint: 'The first available key is selected automatically.',
+      upgradeUserSelectKey: 'Select key',
+      upgradeUserNoKey: 'No available keys',
+      upgradeUserConfirm: 'Apply and upgrade',
+      upgradeUserDone: 'User upgraded to Pro',
+      username: 'Username',
+      loginType: 'Login type',
+      password: 'PIN',
+      copied: 'Copied',
+      copy: 'Copy',
       showing: 'Showing',
       perPage: 'per page',
       page: 'Page',
@@ -229,19 +295,99 @@ function openAccountDetail(account: typeof accounts.value[number]) {
 }
 
 function openDeleteCloudConfirm() {
-  if (!selectedAccount.value || selectedAccount.value.cloudStatus !== 'synced' || deletingCloud.value) return
+  if (!selectedAccount.value || deletingCloud.value) return
   deleteCloudOpen.value = true
 }
 
 function openUpdateUserSheet() {
   if (!selectedAccount.value || updatingUser.value) return
-  userEditPlan.value = selectedAccount.value.plan
-  userEditRemember.value = selectedAccount.value.remember
+  passwordResetResult.value = null
+  copiedCredentialField.value = null
+  if (copiedCredentialTimer) {
+    clearTimeout(copiedCredentialTimer)
+    copiedCredentialTimer = null
+  }
   updateUserOpen.value = true
   updateSheetDragY.value = 0
   updateSheetDragging.value = false
   updateSheetDragStartY.value = 0
   updateSheetPointerId.value = null
+}
+
+async function loadUpgradeKeys() {
+  if (loadingUpgradeKeys.value) return
+
+  loadingUpgradeKeys.value = true
+  upgradeKeysError.value = ''
+
+  try {
+    const result = await $fetch<{
+      keys?: {
+        code: string
+        active: boolean
+        redeemedBy: string | null
+        redeemedAt: string | null
+        createdAt: string
+        updatedAt: string
+      }[]
+    }>('/api/superadmin/redeem-keys', {
+      query: {
+        activeOnly: 1,
+        limit: 1000
+      }
+    })
+
+    upgradeKeys.value = Array.isArray(result.keys) ? result.keys : []
+  }
+  catch (error) {
+    upgradeKeys.value = []
+    upgradeKeysError.value = error instanceof Error ? error.message : 'Failed to load keys'
+  }
+  finally {
+    loadingUpgradeKeys.value = false
+
+    if (upgradeUserOpen.value) {
+      const firstAvailableKey = availableUpgradeKeys.value[0]?.code ?? ''
+      if (!selectedUpgradeKey.value || !availableUpgradeKeys.value.some(key => key.code === selectedUpgradeKey.value)) {
+        selectedUpgradeKey.value = firstAvailableKey
+      }
+    }
+  }
+}
+
+function openUpgradeUserModal() {
+  if (!selectedAccount.value || selectedAccount.value.plan === 'pro') return
+
+  upgradeUserOpen.value = true
+  selectedUpgradeKey.value = availableUpgradeKeys.value[0]?.code ?? ''
+  void loadUpgradeKeys()
+}
+
+async function confirmUpgradeUserToPro() {
+  const account = selectedAccount.value
+  const redeemKey = selectedUpgradeKey.value.trim()
+
+  if (!account || !redeemKey || upgradingUserToPro.value) return
+
+  upgradingUserToPro.value = true
+  try {
+    await $fetch('/api/auth/upgrade', {
+      method: 'POST',
+      body: {
+        identifier: account.identifier,
+        key: redeemKey
+      }
+    })
+
+    upgradeUserOpen.value = false
+    detailOpen.value = false
+    selectedAccount.value = null
+    selectedUpgradeKey.value = ''
+    await refresh()
+  }
+  finally {
+    upgradingUserToPro.value = false
+  }
 }
 
 async function confirmUpdateUser() {
@@ -250,21 +396,56 @@ async function confirmUpdateUser() {
 
   updatingUser.value = true
   try {
-    await $fetch(`/api/superadmin/users/${encodeURIComponent(account.identifier)}`, {
+    const result = await $fetch<{
+      account?: {
+        identifier?: string
+      }
+      credentials?: {
+        identifier?: string
+        pin?: string
+      } | null
+    }>(`/api/superadmin/users/${encodeURIComponent(account.identifier)}`, {
       method: 'PATCH',
       body: {
-        plan: userEditPlan.value,
-        remember: userEditRemember.value
+        resetPassword: true
       }
     })
 
-    updateUserOpen.value = false
+    passwordResetResult.value = {
+      identifier: result.credentials?.identifier ?? result.account?.identifier ?? account.identifier,
+      pin: result.credentials?.pin ?? ''
+    }
     detailOpen.value = false
     selectedAccount.value = null
     await refresh()
   }
   finally {
     updatingUser.value = false
+  }
+}
+
+async function copyCredential(field: 'identifier' | 'pin') {
+  const credential = passwordResetResult.value
+  if (!credential) return
+
+  const value = field === 'identifier' ? credential.identifier : credential.pin
+  if (!value) return
+
+  try {
+    await navigator.clipboard.writeText(value)
+    copiedCredentialField.value = field
+
+    if (copiedCredentialTimer) {
+      clearTimeout(copiedCredentialTimer)
+    }
+
+    copiedCredentialTimer = setTimeout(() => {
+      copiedCredentialField.value = null
+      copiedCredentialTimer = null
+    }, 1200)
+  }
+  catch {
+    copiedCredentialField.value = null
   }
 }
 
@@ -299,7 +480,7 @@ async function confirmDeleteUser() {
 
 async function confirmDeleteCloud() {
   const account = selectedAccount.value
-  if (!account || account.cloudStatus !== 'synced' || deletingCloud.value) return
+  if (!account || deletingCloud.value) return
 
   deletingCloud.value = true
   try {
@@ -421,6 +602,12 @@ function resetUpdateSheetDrag() {
   updateSheetDragging.value = false
   updateSheetDragStartY.value = 0
   updateSheetPointerId.value = null
+  passwordResetResult.value = null
+  copiedCredentialField.value = null
+  if (copiedCredentialTimer) {
+    clearTimeout(copiedCredentialTimer)
+    copiedCredentialTimer = null
+  }
 }
 
 function onUpdateSheetPointerDown(event: PointerEvent) {
@@ -517,11 +704,11 @@ useHead({
         <p class="mt-1 text-2xl font-black text-default">{{ overviewStats?.proAccounts ?? 0 }}</p>
       </div>
       <div class="rounded-[1.2rem] border border-slate-200/80 bg-white p-3 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/70">
-        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.syncedAccounts }}</p>
-        <p class="mt-1 text-2xl font-black text-default">{{ overviewStats?.cloudSyncedAccounts ?? 0 }}</p>
+        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.cloudBackups }}</p>
+        <p class="mt-1 text-2xl font-black text-default">{{ overviewStats?.totalBackups ?? 0 }}</p>
       </div>
       <div class="rounded-[1.2rem] border border-slate-200/80 bg-white p-3 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/70">
-        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.cloudStatus }}</p>
+        <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.latestBackup }}</p>
         <p class="mt-1 text-[11px] font-semibold leading-5 text-muted">
           {{ overviewStats?.latestBackupAt ? formatDate(overviewStats.latestBackupAt) : '—' }}
         </p>
@@ -571,7 +758,7 @@ useHead({
                 <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.proStarted }}</th>
                 <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.redeemKey }}</th>
                 <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.cloudClears }}</th>
-                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.cloudStatus }}</th>
+                <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.backupStatus }}</th>
                 <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.joined }}</th>
                 <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.lastActive }}</th>
                 <th class="whitespace-nowrap border-b border-slate-200/80 bg-slate-50 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted dark:border-slate-800 dark:bg-slate-900">{{ copy.records }}</th>
@@ -622,9 +809,8 @@ useHead({
                   </div>
                 </td>
                 <td class="px-4 py-3.5 align-top">
-                  <div class="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-xs font-bold text-default dark:border-slate-800 dark:bg-slate-950">
-                    <span :class="['size-2 rounded-full', account.cloudStatus === 'synced' ? 'bg-emerald-500' : 'bg-slate-400']" />
-                    {{ account.cloudStatus === 'synced' ? copy.cloudSynced : copy.cloudLocal }}
+                  <div class="inline-flex whitespace-nowrap rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[11px] font-bold text-default dark:border-slate-800 dark:bg-slate-950">
+                    {{ account.cloudUpdatedAt ? copy.backedUp : copy.noBackup }}
                   </div>
                 </td>
                 <td class="px-4 py-3.5 align-top">
@@ -801,8 +987,8 @@ useHead({
                 <p class="mt-1 text-sm font-black text-default">{{ formatDate(selectedAccount.cloudClearedAt) }}</p>
               </div>
               <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
-                <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.cloudStatus }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ selectedAccount.cloudStatus === 'synced' ? copy.cloudSynced : copy.cloudLocal }}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.backupStatus }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ selectedAccount.cloudUpdatedAt ? copy.backedUp : copy.noBackup }}</p>
               </div>
             </div>
 
@@ -821,21 +1007,31 @@ useHead({
           <div class="shrink-0 border-t border-slate-200/80 bg-white/95 p-3.5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
             <div v-if="selectedAccount" class="space-y-2.5">
               <UButton
-                icon="i-lucide-trash-2"
+                v-if="selectedAccount.plan !== 'pro'"
+                icon="i-lucide-badge-check"
+                class="h-11 w-full justify-center rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-center text-sm font-bold text-white shadow-[0_16px_28px_-18px_rgba(16,185,129,0.5)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                :loading="loadingUpgradeKeys"
+                :disabled="upgradingUserToPro"
+                @click="openUpgradeUserModal"
+              >
+                {{ copy.upgradeUser }}
+              </UButton>
+              <UButton
+                icon="i-lucide-broom"
                 class="h-11 w-full justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 text-center text-sm font-bold text-white shadow-[0_16px_28px_-18px_rgba(239,68,68,0.58)] transition active:scale-[0.99] hover:from-rose-600 hover:to-red-600 disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="!selectedAccount || selectedAccount.cloudStatus !== 'synced' || deletingCloud"
+                :disabled="!selectedAccount || deletingCloud"
                 @click="openDeleteCloudConfirm"
               >
                 {{ copy.deleteCloudData }}
               </UButton>
               <div class="grid grid-cols-2 gap-2.5">
-                <UButton
-                  icon="i-lucide-pencil"
-                  class="h-11 justify-center rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 text-center text-sm font-bold text-white shadow-[0_16px_28px_-18px_rgba(14,165,233,0.5)] transition active:scale-[0.99]"
-                  @click="openUpdateUserSheet"
-                >
-                  {{ copy.updateUser }}
-                </UButton>
+              <UButton
+                icon="i-lucide-key-round"
+                class="h-11 justify-center rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 text-center text-sm font-bold text-white shadow-[0_16px_28px_-18px_rgba(14,165,233,0.5)] transition active:scale-[0.99]"
+                @click="openUpdateUserSheet"
+              >
+                {{ copy.updatePassword }}
+              </UButton>
                 <UButton
                   icon="i-lucide-user-x"
                   class="h-11 justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 text-center text-sm font-bold text-white shadow-[0_16px_28px_-18px_rgba(239,68,68,0.55)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
@@ -850,6 +1046,89 @@ useHead({
         </div>
       </template>
     </USlideover>
+
+    <UModal
+      v-model:open="upgradeUserOpen"
+      :title="copy.upgradeUserTitle"
+      :description="copy.upgradeUserDesc"
+      :ui="centeredSuperadminModalUi"
+    >
+      <template #body>
+        <div class="px-5 pb-5 pt-3 sm:px-6 sm:pb-6">
+          <div class="mx-auto mb-5 flex w-full items-center justify-center gap-2 rounded-[1.15rem] border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100">
+            <UIcon name="i-lucide-badge-check" class="size-4" />
+            <span class="text-[10px] font-semibold uppercase tracking-[0.22em]">{{ copy.upgradeUser }}</span>
+          </div>
+
+          <div class="space-y-4">
+            <div class="rounded-[1.15rem] border border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:to-slate-950">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ copy.username }}</p>
+              <p class="mt-1 break-all text-base font-black text-default">{{ selectedAccount?.identifier ?? '—' }}</p>
+              <p class="mt-1 text-xs leading-5 text-muted">{{ copy.upgradeUserHint }}</p>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-sm font-bold text-default">{{ copy.upgradeUserSelectKey }}</p>
+                <UBadge color="neutral" variant="soft" class="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em]">
+                  {{ availableUpgradeKeys.length }}
+                </UBadge>
+              </div>
+
+              <div class="rounded-[1.15rem] border border-slate-200/80 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                <select
+                  v-model="selectedUpgradeKey"
+                  class="h-12 w-full rounded-2xl border border-slate-200/80 bg-slate-50 px-4 text-sm font-semibold text-default outline-none transition focus:border-sky-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                  :disabled="loadingUpgradeKeys || !availableUpgradeKeys.length"
+                >
+                  <option v-if="loadingUpgradeKeys" value="">
+                    Loading...
+                  </option>
+                  <option v-else-if="!availableUpgradeKeys.length" value="">
+                    {{ copy.upgradeUserNoKey }}
+                  </option>
+                  <option v-for="key in availableUpgradeKeys" :key="key.code" :value="key.code">
+                    {{ key.code }}
+                  </option>
+                </select>
+              </div>
+
+              <p v-if="upgradeKeysError" class="rounded-[1rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+                {{ upgradeKeysError }}
+              </p>
+
+              <p class="text-xs leading-5 text-muted">
+                {{ availableUpgradeKeys.length ? copy.upgradeUserHint : copy.upgradeUserNoKey }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template #footer>
+        <div class="sticky bottom-0 shrink-0 border-t border-slate-200/80 bg-white/96 px-5 pb-[calc(env(safe-area-inset-bottom)+0.85rem)] pt-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/96 sm:px-6">
+          <div class="grid grid-cols-2 gap-3">
+            <UButton
+              icon="i-lucide-x"
+              class="h-11 w-full min-w-0 justify-center rounded-full border border-slate-200 bg-white px-4 text-center text-sm font-bold leading-none whitespace-nowrap text-default shadow-none transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+              :disabled="upgradingUserToPro"
+              @click="upgradeUserOpen = false"
+            >
+              {{ copy.close }}
+            </UButton>
+            <UButton
+              icon="i-lucide-badge-check"
+              class="h-11 w-full min-w-0 justify-center rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 px-4 text-center text-sm font-bold leading-none whitespace-nowrap text-white shadow-[0_16px_28px_-18px_rgba(16,185,129,0.5)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              :loading="upgradingUserToPro"
+              :disabled="upgradingUserToPro || !selectedUpgradeKey || !availableUpgradeKeys.length"
+              @click="confirmUpgradeUserToPro"
+            >
+              {{ copy.upgradeUserConfirm }}
+            </UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
 
     <USlideover
       v-model:open="updateUserOpen"
@@ -879,8 +1158,12 @@ useHead({
 
             <div class="flex items-start justify-between gap-2.5">
               <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ copy.userUpdateTitle }}</p>
-                <h2 class="mt-1 truncate text-lg font-black tracking-tight text-default">{{ selectedAccount?.identifier ?? '—' }}</h2>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                  {{ passwordResetResult ? copy.updatePasswordDone : copy.updatePasswordTitle }}
+                </p>
+                <h2 class="mt-1 truncate text-lg font-black tracking-tight text-default">
+                  {{ selectedAccount?.identifier ?? passwordResetResult?.identifier ?? '—' }}
+                </h2>
               </div>
 
               <button
@@ -895,47 +1178,66 @@ useHead({
           </div>
 
           <div class="flex-1 overflow-y-auto px-4 py-3.5 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-            <p class="text-sm leading-6 text-muted">{{ copy.userUpdateDesc }}</p>
+            <div v-if="!passwordResetResult" class="space-y-3.5">
+              <p class="text-sm leading-6 text-muted">{{ copy.updatePasswordDesc }}</p>
 
-            <div class="mt-3.5 rounded-[1.2rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
-              <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.userUpdatePlan }}</p>
-              <div class="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  class="h-11 rounded-2xl border text-sm font-bold transition active:scale-95"
-                  :class="userEditPlan === 'free'
-                    ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
-                    : 'border-slate-200 bg-white text-default dark:border-slate-700 dark:bg-slate-950 dark:text-white'"
-                  @click="userEditPlan = 'free'"
-                >
-                  {{ copy.planFree }}
-                </button>
-                <button
-                  type="button"
-                  class="h-11 rounded-2xl border text-sm font-bold transition active:scale-95"
-                  :class="userEditPlan === 'pro'
-                    ? 'border-sky-500 bg-gradient-to-r from-sky-500 to-cyan-400 text-white shadow-[0_16px_28px_-18px_rgba(14,165,233,0.45)]'
-                    : 'border-slate-200 bg-white text-default dark:border-slate-700 dark:bg-slate-950 dark:text-white'"
-                  @click="userEditPlan = 'pro'"
-                >
-                  {{ copy.planPro }}
-                </button>
+              <div class="rounded-[1.15rem] border border-amber-200/80 bg-amber-50 p-4 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+                <p class="text-sm font-bold">{{ copy.updatePasswordTitle }}</p>
+                <p class="mt-1 text-xs leading-5 opacity-90">{{ copy.updatePasswordHint }}</p>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.username }}</p>
+                  <p class="mt-1 truncate text-sm font-black text-default">{{ selectedAccount?.identifier ?? '—' }}</p>
+                </div>
+                <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+                  <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.loginType }}</p>
+                  <p class="mt-1 text-sm font-black text-default">{{ selectedAccount?.identifierType?.toUpperCase() ?? '—' }}</p>
+                </div>
               </div>
             </div>
 
-            <button
-              type="button"
-              class="mt-3.5 flex w-full items-center justify-between rounded-[1.2rem] border border-slate-200/80 bg-white px-4 py-3 text-left dark:border-slate-800 dark:bg-slate-950"
-              @click="userEditRemember = !userEditRemember"
-            >
-              <div class="min-w-0">
-                <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.userUpdateRemember }}</p>
-                <p class="mt-1 text-sm text-muted">{{ copy.userUpdateHint }}</p>
+            <div v-else class="space-y-3.5">
+              <div class="rounded-[1.15rem] border border-emerald-200/80 bg-emerald-50 p-4 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-100">
+                <p class="text-sm font-bold">{{ copy.updatePasswordDone }}</p>
+                <p class="mt-1 text-xs leading-5 opacity-90">{{ copy.updatePasswordDoneDesc }}</p>
               </div>
-              <span :class="['relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition', userEditRemember ? 'bg-sky-500' : 'bg-slate-300 dark:bg-slate-700']">
-                <span :class="['inline-block size-5 rounded-full bg-white shadow-sm transition', userEditRemember ? 'translate-x-6' : 'translate-x-1']" />
-              </span>
-            </button>
+
+              <div class="space-y-2.5">
+                <div class="rounded-[1.15rem] border border-slate-200/80 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-950">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.username }}</p>
+                      <p class="mt-1 truncate text-sm font-black text-default">{{ passwordResetResult.identifier }}</p>
+                    </div>
+                    <UButton
+                      :icon="copiedCredentialField === 'identifier' ? 'i-lucide-check' : 'i-lucide-copy'"
+                      class="h-9 shrink-0 justify-center rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-default shadow-none transition active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      @click="copyCredential('identifier')"
+                    >
+                      {{ copiedCredentialField === 'identifier' ? copy.copied : copy.copy }}
+                    </UButton>
+                  </div>
+                </div>
+
+                <div class="rounded-[1.15rem] border border-slate-200/80 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-950">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.password }}</p>
+                      <p class="mt-1 font-mono text-lg font-black tracking-[0.28em] text-default">{{ passwordResetResult.pin }}</p>
+                    </div>
+                    <UButton
+                      :icon="copiedCredentialField === 'pin' ? 'i-lucide-check' : 'i-lucide-copy'"
+                      class="h-9 shrink-0 justify-center rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-default shadow-none transition active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                      @click="copyCredential('pin')"
+                    >
+                      {{ copiedCredentialField === 'pin' ? copy.copied : copy.copy }}
+                    </UButton>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="shrink-0 border-t border-slate-200/80 bg-white/95 p-3.5 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
@@ -949,13 +1251,22 @@ useHead({
                 {{ copy.close }}
               </UButton>
               <UButton
-                icon="i-lucide-check"
+                v-if="!passwordResetResult"
+                icon="i-lucide-key-round"
                 class="h-11 flex-1 justify-center rounded-full bg-gradient-to-r from-sky-500 to-cyan-400 text-center text-sm font-bold text-white shadow-[0_16px_28px_-18px_rgba(14,165,233,0.45)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 :loading="updatingUser"
                 :disabled="updatingUser"
                 @click="confirmUpdateUser"
               >
-                {{ copy.updateUser }}
+                {{ copy.updatePasswordConfirm }}
+              </UButton>
+              <UButton
+                v-else
+                icon="i-lucide-copy"
+                class="h-11 flex-1 justify-center rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 text-center text-sm font-bold text-white shadow-[0_16px_28px_-18px_rgba(16,185,129,0.45)] transition active:scale-[0.99]"
+                @click="copyCredential('pin')"
+              >
+                {{ copiedCredentialField === 'pin' ? copy.copied : copy.copy }}
               </UButton>
             </div>
           </div>
@@ -1017,8 +1328,8 @@ useHead({
                 <p class="mt-1 text-sm font-black text-default">{{ selectedAccount?.plan === 'pro' ? copy.planPro : copy.planFree }}</p>
               </div>
               <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
-                <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.cloudStatus }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ selectedAccount?.cloudStatus === 'synced' ? copy.cloudSynced : copy.cloudLocal }}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.backupStatus }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ selectedAccount?.cloudUpdatedAt ? copy.backedUp : copy.noBackup }}</p>
               </div>
             </div>
           </div>
@@ -1096,14 +1407,15 @@ useHead({
             <div class="mt-4 rounded-[1.1rem] border border-rose-200/80 bg-rose-50 px-3 py-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/50 dark:text-rose-200">
               {{ copy.deleteCloudHint }}
             </div>
+            <p class="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.cloudPreserved }}</p>
             <div class="mt-4 grid grid-cols-2 gap-3">
               <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
-                <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.cloudStatus }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ selectedAccount?.cloudStatus === 'synced' ? copy.cloudSynced : copy.cloudLocal }}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.transactions }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ selectedAccount?.transactionCount ?? 0 }}</p>
               </div>
               <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
-                <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.records }}</p>
-                <p class="mt-1 text-sm font-black text-default">{{ selectedAccount?.recordCount ?? 0 }}</p>
+                <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ copy.backupStatus }}</p>
+                <p class="mt-1 text-sm font-black text-default">{{ selectedAccount?.cloudUpdatedAt ? copy.backedUp : copy.noBackup }}</p>
               </div>
             </div>
           </div>
@@ -1119,10 +1431,10 @@ useHead({
                 {{ copy.close }}
               </UButton>
               <UButton
-                icon="i-lucide-shield-alert"
+                icon="i-lucide-broom"
                 class="h-11 flex-1 justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-500 text-center text-sm font-bold text-white shadow-[0_16px_28px_-18px_rgba(239,68,68,0.55)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 :loading="deletingCloud"
-                :disabled="deletingCloud || !selectedAccount || selectedAccount.cloudStatus !== 'synced'"
+                :disabled="deletingCloud || !selectedAccount"
                 @click="confirmDeleteCloud"
               >
                 {{ copy.deleteConfirm }}

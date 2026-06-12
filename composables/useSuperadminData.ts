@@ -12,7 +12,6 @@ type AdminAccount = {
   cloudClearedCount: number
   cloudClearedAt: string | null
   cloudUpdatedAt: string | null
-  cloudStatus: 'synced' | 'local'
   walletCount: number
   transactionCount: number
   categoryCount: number
@@ -41,7 +40,6 @@ type AdminOverview = {
     totalKeys: number
     activeKeys: number
     usedKeys: number
-    cloudSyncedAccounts: number
   } | null
   accounts: AdminAccount[]
   redeemKeys: AdminRedeemKey[]

@@ -1,26 +1,40 @@
 <script setup lang="ts">
-const { activeTheme } = useAppThemeColor()
+const router = useRouter()
+const { isOnline } = useConnectivity()
 
-function reload() {
-  window.location.reload()
+async function goToLogin() {
+  await router.replace('/login')
 }
+
+watch(
+  isOnline,
+  (online) => {
+    if (online) {
+      void goToLogin()
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
-  <div class="flex min-h-[70dvh] items-center justify-center pb-10 pt-6">
-    <UCard class="w-full border border-white/60 bg-white/85 shadow-[0_22px_70px_-30px_rgba(15,23,42,0.25)] dark:border-white/10 dark:bg-slate-950/80">
+  <div class="flex min-h-[70dvh] items-center justify-center px-4 py-8">
+    <UCard class="w-full max-w-sm border border-white/60 bg-white/90 shadow-[0_22px_70px_-30px_rgba(15,23,42,0.25)] dark:border-white/10 dark:bg-slate-950/80">
       <div class="text-center">
-        <div :class="['mx-auto flex size-16 items-center justify-center rounded-[1.5rem] bg-gradient-to-br text-3xl text-white shadow-lg', activeTheme.accent]">
-          💸
+        <div class="mx-auto inline-flex items-center gap-2 rounded-full border border-rose-200/80 bg-rose-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/50 dark:text-rose-300">
+          <UIcon name="i-lucide-wifi-off" class="size-3.5" />
+          Offline
         </div>
-        <h1 class="mt-5 text-3xl font-black tracking-tight text-default">You're offline</h1>
+        <h1 class="mt-4 text-2xl font-black tracking-tight text-default">No internet connection</h1>
         <p class="mt-3 text-sm leading-6 text-muted">
-          Cached screens are still available, and your data will keep syncing once the connection returns.
+          The app will keep working again as soon as the connection comes back. When you're back online, we'll take you back into the app.
         </p>
 
         <div class="mt-6 grid gap-3 sm:grid-cols-2">
-          <UButton class="h-12 rounded-2xl" @click="reload">Try again</UButton>
-          <UButton class="h-12 rounded-2xl" color="neutral" variant="soft" to="/">Go home</UButton>
+          <UButton class="h-11 rounded-2xl" @click="goToLogin">Try again</UButton>
+          <UButton class="h-11 rounded-2xl" color="neutral" variant="soft" @click="goToLogin">
+            Go to login
+          </UButton>
         </div>
       </div>
     </UCard>

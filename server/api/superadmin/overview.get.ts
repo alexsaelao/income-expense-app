@@ -180,7 +180,6 @@ export default defineEventHandler(async (event) => {
       cloudClearedCount: Number(row.cloud_cleared_count ?? 0),
       cloudClearedAt: normalizeDbTimestamp(row.cloud_cleared_at as string | null | undefined),
       cloudUpdatedAt: normalizeDbTimestamp(row.cloud_updated_at as string | null | undefined),
-      cloudStatus: row.cloud_updated_at ? 'synced' : 'local',
       walletCount,
       transactionCount,
       categoryCount,
@@ -218,8 +217,7 @@ export default defineEventHandler(async (event) => {
       latestBackupAt,
       totalKeys,
       activeKeys,
-      usedKeys,
-      cloudSyncedAccounts: accounts.filter(account => account.cloudStatus === 'synced').length
+      usedKeys
     },
     accounts,
     redeemKeys,

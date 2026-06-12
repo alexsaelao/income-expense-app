@@ -3,7 +3,7 @@ import { AUTH_SERVER_SESSION_STATE_KEY, type ServerAuthSessionSnapshot } from '~
 const AUTH_PAGES = new Set(['/login', '/register'])
 
 function isPublicPage(path: string) {
-  return path === '/offline' || path === '/install' || path.startsWith('/install/')
+  return path === '/offline' || AUTH_PAGES.has(path)
 }
 
 function createEmptyServerAuthSession(): ServerAuthSessionSnapshot {
@@ -59,6 +59,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!serverAuthSession.value.authenticated && !isAuthPage) {
-    return navigateTo('/install', { replace: true })
+    return navigateTo('/login', { replace: true })
   }
 })

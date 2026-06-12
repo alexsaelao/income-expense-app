@@ -104,11 +104,17 @@ watch(
 )
 
 function focusIdentifier() {
-  nextTick(() => identifierInput.value?.focus())
+  nextTick(() => {
+    identifierInput.value?.focus({ preventScroll: true })
+  })
 }
 
 function focusPin() {
-  nextTick(() => pinInput.value?.focus())
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      pinInput.value?.focus({ preventScroll: true })
+    })
+  })
 }
 
 function clearSavedAccount() {
@@ -238,6 +244,15 @@ watch(pinValue, (value) => {
   if (value.length === 6 && !isSubmitting.value) {
     submitLogin()
   }
+})
+
+watch(step, (currentStep) => {
+  if (currentStep === 'pin') {
+    focusPin()
+    return
+  }
+
+  focusIdentifier()
 })
 
 onMounted(() => {
@@ -405,8 +420,10 @@ onMounted(() => {
               :value="pinValue"
               type="tel"
               inputmode="numeric"
+              enterkeyhint="done"
               maxlength="6"
               autocomplete="one-time-code"
+              :autofocus="step === 'pin'"
               class="absolute inset-0 h-full w-full cursor-text opacity-0 caret-transparent outline-none"
               @input="sanitizePin(($event.target as HTMLInputElement).value)"
             >

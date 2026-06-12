@@ -118,43 +118,48 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing identifier' })
   }
 
-  await ensureStateTable(db)
-
-  const result = await db.execute({
-    sql: `SELECT state_json, updated_at FROM app_state WHERE state_key = ?`,
-    args: [stateKeyForIdentifier(identifier)]
-  })
-
-  const row = result.rows[0] as { state_json?: string; updated_at?: string } | undefined
-  if (!row?.state_json) {
-    return { state: null, connected: true }
-  }
-
   try {
-    const parsed = JSON.parse(row.state_json)
-    const snapshot = parseStoredSnapshot(parsed)
+    await ensureStateTable(db)
 
-    if (snapshot) {
+    const result = await db.execute({
+      sql: `SELECT state_json, updated_at FROM app_state WHERE state_key = ?`,
+      args: [stateKeyForIdentifier(identifier)]
+    })
+
+    const row = result.rows[0] as { state_json?: string; updated_at?: string } | undefined
+    if (!row?.state_json) {
+      return { state: null, connected: true }
+    }
+
+    try {
+      const parsed = JSON.parse(row.state_json)
+      const snapshot = parseStoredSnapshot(parsed)
+
+      if (snapshot) {
+        return {
+          state: snapshot.state,
+          snapshot: snapshot.snapshot,
+          updatedAt: normalizeDbTimestamp(row.updated_at),
+          connected: true
+        }
+      }
+
       return {
-        state: snapshot.state,
-        snapshot: snapshot.snapshot,
+        state: parsed,
+        snapshot: {
+          state: parsed,
+          selectedCurrency: 'LAK',
+          currencySupport: DEFAULT_CURRENCY_SUPPORT
+        },
         updatedAt: normalizeDbTimestamp(row.updated_at),
         connected: true
       }
     }
-
-    return {
-      state: parsed,
-      snapshot: {
-        state: parsed,
-        selectedCurrency: 'LAK',
-        currencySupport: DEFAULT_CURRENCY_SUPPORT
-      },
-      updatedAt: normalizeDbTimestamp(row.updated_at),
-      connected: true
+    catch {
+      return { state: null, updatedAt: normalizeDbTimestamp(row.updated_at), connected: true }
     }
   }
   catch {
-    return { state: null, updatedAt: normalizeDbTimestamp(row.updated_at), connected: true }
+    return { state: null, connected: false }
   }
 })

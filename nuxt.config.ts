@@ -74,7 +74,7 @@ export default defineNuxtConfig({
       display_override: ['fullscreen', 'standalone'],
       display: 'standalone',
       orientation: 'portrait-primary',
-      start_url: '/',
+      start_url: '/login',
       scope: '/',
       lang: 'th',
       dir: 'ltr',

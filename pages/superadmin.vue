@@ -20,19 +20,19 @@ const adminCopy = computed(() => selectedLanguage.value === 'lo'
       totalAccounts: 'ຜູ້ໃຊ້ທັງໝົດ',
       proAccounts: 'Pro',
       freeAccounts: 'Free',
-      syncedAccounts: 'ຊິງແລ້ວ',
+      cloudBackups: 'Cloud backups',
       totalBackups: 'Cloud backups',
-      latestBackup: 'backup ລ່າສຸດ',
+      latestBackup: 'Backup ລ່າສຸດ',
       openUsers: 'ໄປຫາ Users',
       openKeys: 'ໄປຫາ Keys',
       openSettings: 'ໄປຫາ Settings',
-      usersDesc: 'ຈັດການສະຖານະ user, cloud sync ແລະ plan.',
+      usersDesc: 'ຈັດການຜູ້ໃຊ້, plan ແລະ cloud backup.',
       keysDesc: 'ສ້າງ Pro key ແລະກວດ key ທີ່ໃຊ້ແລ້ວ.',
       settingsDesc: 'ປັບພາສາ ແລະຮູບແບບໜ້າຕາຂອງແອັບຈັດການ.',
       usersCardTitle: 'Users',
       keysCardTitle: 'Keys',
       settingsCardTitle: 'Settings',
-      cloudStatus: 'Cloud status',
+      backupStatus: 'Backup status',
       roleTools: 'ເຄື່ອງມືຈັດການ'
     }
   : {
@@ -44,19 +44,19 @@ const adminCopy = computed(() => selectedLanguage.value === 'lo'
       totalAccounts: 'Total users',
       proAccounts: 'Pro',
       freeAccounts: 'Free',
-      syncedAccounts: 'Synced',
+      cloudBackups: 'Cloud backups',
       totalBackups: 'Cloud backups',
       latestBackup: 'Latest backup',
       openUsers: 'Open Users',
       openKeys: 'Open Keys',
       openSettings: 'Open Settings',
-      usersDesc: 'Manage user status, cloud sync, and plan details.',
+      usersDesc: 'Manage users, plans, and cloud backup data.',
       keysDesc: 'Create Pro keys and review redeemed keys.',
       settingsDesc: 'Adjust the admin language and appearance here.',
       usersCardTitle: 'Users',
       keysCardTitle: 'Keys',
       settingsCardTitle: 'Settings',
-      cloudStatus: 'Cloud status',
+      backupStatus: 'Backup status',
       roleTools: 'Admin tools'
     })
 
@@ -142,12 +142,12 @@ useHead({
           <p class="mt-1 text-[1.9rem] font-black leading-none text-default">{{ stats?.proAccounts ?? 0 }}</p>
         </div>
         <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.syncedAccounts }}</p>
-          <p class="mt-1 text-[1.9rem] font-black leading-none text-default">{{ stats?.cloudSyncedAccounts ?? 0 }}</p>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.cloudBackups }}</p>
+          <p class="mt-1 text-[1.9rem] font-black leading-none text-default">{{ stats?.totalBackups ?? 0 }}</p>
         </div>
         <div class="rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.totalBackups }}</p>
-          <p class="mt-1 text-[1.9rem] font-black leading-none text-default">{{ stats?.totalBackups ?? 0 }}</p>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.latestBackup }}</p>
+          <p class="mt-1 text-sm font-black leading-none text-default">{{ stats?.latestBackupAt ? formatDate(stats.latestBackupAt) : '—' }}</p>
         </div>
       </div>
 
@@ -155,7 +155,7 @@ useHead({
         <div class="rounded-[1.15rem] border border-slate-200/80 bg-white/75 px-3 py-3 dark:border-slate-800 dark:bg-slate-950/60">
           <div class="flex items-center justify-between gap-2.5">
             <div class="min-w-0">
-              <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.cloudStatus }}</p>
+              <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">{{ adminCopy.backupStatus }}</p>
               <p class="mt-1 text-sm font-black text-default">{{ isConnected ? adminCopy.connected : adminCopy.disconnected }}</p>
               <p class="mt-1 text-[11px] leading-5 text-muted">
                 {{ stats?.latestBackupAt ? formatDate(stats.latestBackupAt) : '—' }}
@@ -233,8 +233,8 @@ useHead({
           </div>
         </div>
         <div class="mt-3 flex items-end justify-between">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ adminCopy.syncedAccounts }}</p>
-          <p class="text-2xl font-black text-default">{{ stats?.cloudSyncedAccounts ?? 0 }}</p>
+          <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">{{ adminCopy.cloudBackups }}</p>
+          <p class="text-2xl font-black text-default">{{ stats?.totalBackups ?? 0 }}</p>
         </div>
       </NuxtLink>
     </section>
@@ -257,7 +257,7 @@ useHead({
               <p class="mt-1 text-[11px] leading-5 text-muted">
                 <span class="whitespace-nowrap">{{ account.plan === 'pro' ? 'Pro' : 'Free' }}</span>
                 <span class="mx-1">·</span>
-                <span class="whitespace-nowrap">{{ account.cloudStatus === 'synced' ? 'Cloud synced' : 'Local only' }}</span>
+                <span class="whitespace-nowrap">Cloud backup</span>
               </p>
             </div>
             <div class="text-right">
@@ -347,7 +347,7 @@ useHead({
       <ul class="mt-2 space-y-0.5">
         <li>• Overview, Users, Keys, Settings are separated into their own pages.</li>
         <li>• Use the bottom navigation to jump between admin pages.</li>
-        <li>• Check latest cloud backup and user sync status from the dashboard cards above.</li>
+        <li>• Check the latest cloud backup from the dashboard cards above.</li>
         <li>• Generate single-use Pro keys from the Keys page and review redeemed keys anytime.</li>
       </ul>
     </section>

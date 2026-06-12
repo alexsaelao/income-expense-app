@@ -19,11 +19,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing identifier' })
   }
 
-  await ensureStateTable(db)
-  await db.execute({
-    sql: `DELETE FROM app_state WHERE state_key = ?`,
-    args: [stateKeyForIdentifier(identifier)]
-  })
+  try {
+    await ensureStateTable(db)
+    await db.execute({
+      sql: `DELETE FROM app_state WHERE state_key = ?`,
+      args: [stateKeyForIdentifier(identifier)]
+    })
 
-  return { ok: true, connected: true }
+    return { ok: true, connected: true }
+  }
+  catch {
+    return { ok: false, connected: false }
+  }
 })

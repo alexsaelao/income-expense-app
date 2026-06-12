@@ -118,7 +118,24 @@ function focusIdentifier() {
 }
 
 function focusPin() {
-  nextTick(() => pinInput.value?.focus())
+  void nextTick().then(() => {
+    const input = pinInput.value
+    if (!input) return
+
+    input.focus({ preventScroll: true })
+
+    requestAnimationFrame(() => {
+      input.focus({ preventScroll: true })
+
+      try {
+        const length = input.value.length
+        input.setSelectionRange(length, length)
+      }
+      catch {
+        // Ignore mobile browsers that do not support selection on type=tel.
+      }
+    })
+  })
 }
 
 function clearSavedAccount() {
@@ -143,7 +160,6 @@ async function goToPin() {
   pinValue.value = ''
   errorMessage.value = ''
   focusPin()
-
   isCheckingAccount.value = true
 
   try {
@@ -187,6 +203,12 @@ function goBackToAccount() {
   errorMessage.value = ''
   focusIdentifier()
 }
+
+watch(step, (value) => {
+  if (value === 'pin') {
+    focusPin()
+  }
+})
 
 function sanitizePin(value: string) {
   pinValue.value = value.replace(/\D/g, '').slice(0, 6)
@@ -428,12 +450,13 @@ onMounted(() => {
         </p>
 
         <div class="flex items-center gap-3">
-          <UButton
-            v-if="step === 'account' && !hasSavedAccount"
-            :class="['h-11 flex-1 justify-center rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:opacity-95 active:scale-95', activeTheme.accent]"
-            :disabled="!canContinue || isCheckingAccount"
-            @click="goToPin"
-          >
+            <UButton
+              type="button"
+              v-if="step === 'account' && !hasSavedAccount"
+              :class="['h-11 flex-1 justify-center rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:opacity-95 active:scale-95', activeTheme.accent]"
+              :disabled="!canContinue || isCheckingAccount"
+              @click="goToPin"
+            >
             <span class="flex w-full items-center justify-center gap-2 text-center">
               <UIcon
                 :name="isCheckingAccount ? 'i-lucide-refresh-cw' : 'i-lucide-arrow-right'"
@@ -445,6 +468,7 @@ onMounted(() => {
           </UButton>
 
           <UButton
+            type="button"
             v-else-if="step === 'account' && hasSavedAccount"
             :class="['h-11 flex-1 justify-center rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:opacity-95 active:scale-95', activeTheme.accent]"
             :disabled="isCheckingAccount"
@@ -461,6 +485,7 @@ onMounted(() => {
           </UButton>
 
           <UButton
+            type="button"
             v-else
             :class="['h-11 flex-1 justify-center rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:opacity-95 active:scale-95', activeTheme.accent]"
             :disabled="pinValue.length !== 6 || isSubmitting"

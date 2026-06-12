@@ -41,7 +41,7 @@ async function handleSubmit(payload: TransactionInput) {
 
       <section
         class="fixed inset-x-0 z-40 border-t border-white/60 bg-white/95 px-4 py-3 shadow-[0_-16px_52px_-42px_rgba(15,23,42,0.45)] backdrop-blur-none dark:border-white/10 dark:bg-slate-950/95"
-        style="bottom: calc(env(safe-area-inset-bottom) + 4.75rem); pointer-events: auto; touch-action: manipulation;"
+        style="bottom: calc(env(safe-area-inset-bottom) + 4.25rem); pointer-events: auto; touch-action: manipulation;"
       >
         <div class="mx-auto grid max-w-md gap-2">
           <UButton
