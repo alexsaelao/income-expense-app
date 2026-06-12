@@ -1,9 +1,10 @@
 import { AUTH_SERVER_SESSION_STATE_KEY, type ServerAuthSessionSnapshot } from '~/composables/useDeviceAuth'
 
 const AUTH_PAGES = new Set(['/login', '/register'])
+const ADMIN_AUTH_PAGES = new Set(['/admin-login'])
 
 function isPublicPage(path: string) {
-  return path === '/offline' || AUTH_PAGES.has(path)
+  return path === '/offline' || AUTH_PAGES.has(path) || ADMIN_AUTH_PAGES.has(path)
 }
 
 function createEmptyServerAuthSession(): ServerAuthSessionSnapshot {
