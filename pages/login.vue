@@ -16,7 +16,6 @@ const isCheckingAccount = ref(false)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 const identifierInput = ref<HTMLInputElement | null>(null)
-const pinInput = ref<HTMLInputElement | null>(null)
 
 const loginCopy = computed(() => selectedLanguage.value === 'lo'
   ? {
@@ -76,7 +75,6 @@ const loginCopy = computed(() => selectedLanguage.value === 'lo'
       signInFailed: 'Could not sign in right now.'
     })
 
-const pinSlots = computed(() => Array.from({ length: 6 }, (_, index) => pinValue.value[index] ?? ''))
 const canContinue = computed(() => identifier.value.trim().length >= 3 || hasSavedAccount.value)
 const hasSavedAccount = computed(() => Boolean(rememberedProfile.value?.identifier))
 const nextButtonLabel = computed(() => step.value === 'account' ? loginCopy.value.next : loginCopy.value.unlock)
@@ -110,11 +108,7 @@ function focusIdentifier() {
 }
 
 function focusPin() {
-  nextTick(() => {
-    requestAnimationFrame(() => {
-      pinInput.value?.focus({ preventScroll: true })
-    })
-  })
+  // iOS-style keypad does not use a text input.
 }
 
 function clearSavedAccount() {
@@ -174,11 +168,6 @@ function goBackToAccount() {
   pinValue.value = ''
   errorMessage.value = ''
   focusIdentifier()
-}
-
-function sanitizePin(value: string) {
-  pinValue.value = value.replace(/\D/g, '').slice(0, 6)
-  errorMessage.value = ''
 }
 
 async function submitLogin() {
@@ -241,6 +230,9 @@ async function submitLogin() {
 
 watch(pinValue, (value) => {
   if (step.value !== 'pin') return
+  if (errorMessage.value) {
+    errorMessage.value = ''
+  }
   if (value.length === 6 && !isSubmitting.value) {
     submitLogin()
   }
@@ -272,16 +264,20 @@ onMounted(() => {
 
 <template>
   <div class="flex h-full flex-1 items-center justify-center overflow-hidden py-1 sm:py-2">
-    <div class="w-full space-y-2 sm:space-y-5">
-      <section class="space-y-2 text-center">
-        <div :class="['mx-auto flex size-12 items-center justify-center rounded-[1.25rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)] sm:size-16', activeTheme.accent]">
-          <UIcon name="i-lucide-wallet-cards" class="size-7 sm:size-8" />
+    <div class="w-full max-w-[26rem] space-y-3 sm:space-y-4">
+      <section v-if="step === 'account'" class="space-y-2 text-center">
+        <div :class="['mx-auto flex size-12 items-center justify-center overflow-hidden rounded-[1.25rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)] sm:size-14', activeTheme.accent]">
+          <img src="/wallet-codesabai-mark.svg" alt="" class="h-full w-full" />
         </div>
 
         <div class="space-y-0.5 sm:space-y-1">
-          <p class="text-[9px] font-semibold uppercase tracking-[0.28em] text-muted sm:text-[10px]">{{ loginCopy.welcomeBack }}</p>
-          <h1 class="text-[1.55rem] font-black tracking-tight text-default sm:text-3xl">{{ loginCopy.title }}</h1>
-          <p class="mx-auto hidden max-w-[18rem] text-[13px] leading-5 text-muted sm:block sm:text-sm sm:leading-6">
+          <p class="text-[9px] font-semibold uppercase tracking-[0.28em] text-muted sm:text-[10px]">
+            {{ loginCopy.welcomeBack }}
+          </p>
+          <h1 class="text-2xl font-black tracking-tight text-default sm:text-[1.75rem]">
+            {{ loginCopy.title }}
+          </h1>
+          <p class="mx-auto max-w-[22rem] text-sm leading-6 text-muted sm:text-[15px]">
             {{ loginCopy.subtitle }}
           </p>
         </div>
@@ -406,62 +402,11 @@ onMounted(() => {
             </UBadge>
           </div>
 
-          <div class="space-y-1 text-center">
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted">{{ loginCopy.enterPin }}</p>
-            <p class="hidden text-sm text-muted sm:block">{{ loginCopy.enterPinHint }}</p>
-          </div>
-
-          <div class="relative" @click="focusPin">
-            <div class="grid grid-cols-6 gap-1.5 sm:gap-2">
-              <div
-                v-for="(digit, index) in pinSlots"
-                :key="index"
-                class="flex h-11 items-center justify-center rounded-2xl border bg-slate-50 text-2xl font-black text-default transition sm:h-14 dark:bg-slate-950"
-                :class="pinValue.length > index ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-800'"
-              >
-                <span v-if="digit" class="translate-y-[-1px]">•</span>
-              </div>
-            </div>
-
-            <input
-              ref="pinInput"
-              :value="pinValue"
-              type="tel"
-              inputmode="numeric"
-              enterkeyhint="done"
-              maxlength="6"
-              autocomplete="one-time-code"
-              :autofocus="step === 'pin'"
-              class="absolute inset-0 h-full w-full cursor-text opacity-0 caret-transparent outline-none"
-              @input="sanitizePin(($event.target as HTMLInputElement).value)"
-            >
-          </div>
-
-          <div class="flex items-center justify-between gap-3">
-            <p class="hidden text-xs text-muted sm:block">{{ loginCopy.enterPinHint }}</p>
-            <button
-              type="button"
-              class="text-xs font-bold text-primary"
-              @click="pinValue = ''"
-            >
-              Clear
-            </button>
-          </div>
-
-          <UButton
-            type="submit"
-            :disabled="pinValue.length !== 6 || isSubmitting"
-            :class="['h-11 w-full rounded-full bg-gradient-to-r text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:h-12 sm:text-base', activeTheme.accent]"
-          >
-            <span class="flex w-full items-center justify-center gap-2 text-center">
-              <UIcon
-                :name="isSubmitting ? 'i-lucide-refresh-cw' : 'i-lucide-arrow-right'"
-                class="size-4 shrink-0"
-                :class="isSubmitting ? 'animate-spin' : ''"
-              />
-              <span class="text-center">{{ isSubmitting ? loginCopy.signingIn : loginCopy.unlock }}</span>
-            </span>
-          </UButton>
+          <IosPinKeypad
+            v-model="pinValue"
+            :disabled="isSubmitting || isCheckingAccount"
+            @clear="errorMessage = ''"
+          />
         </div>
 
         <p v-if="errorMessage" class="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">

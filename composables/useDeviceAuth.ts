@@ -322,6 +322,21 @@ export function useDeviceAuth() {
     }
   }
 
+  function updateRememberedPin(identifier: string, pin: string) {
+    const normalizedIdentifier = identifier.trim()
+    const normalizedPin = pin.trim()
+
+    if (!rememberedProfile.value || rememberedProfile.value.identifier !== normalizedIdentifier) return
+
+    rememberedProfile.value = {
+      ...rememberedProfile.value,
+      pin: normalizedPin,
+      updatedAt: new Date().toISOString()
+    }
+
+    writeStorage(REMEMBER_KEY, rememberedProfile.value)
+  }
+
   async function signOut() {
     sessionProfile.value = null
     serverAuthSession.value = {
@@ -357,6 +372,7 @@ export function useDeviceAuth() {
     signIn,
     setSessionPlan,
     setProfileAvatar,
+    updateRememberedPin,
     signOut,
     clearRememberedProfile,
     hydrateAuth

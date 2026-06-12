@@ -1,341 +1,403 @@
 <script setup lang="ts">
 import { useMoneyNote } from '~/composables/useMoneyNote'
-import type { CurrencyCode } from '~/composables/useMoneyNote'
+import type { CurrencyCode, Transaction } from '~/composables/useMoneyNote'
+
+type ReportViewMode = 'year' | 'month' | 'range'
 
 const { selectedLanguage } = useAppLanguage()
 const { activeTheme } = useAppThemeColor()
 
 const {
   selectedCurrency,
-  walletSeries,
-  currencySeries,
   filterTransactions,
   walletOptionsForCurrency,
   formatCurrency,
-  enabledCurrencyOptions
+  enabledCurrencyOptions,
+  walletSeries,
+  currencySeries
 } = useMoneyNote()
 
-type ReportPreset = 'all' | 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'custom'
-
-const reportPreset = ref<ReportPreset>('all')
-const reportFrom = ref('')
-const reportTo = ref('')
+const now = new Date()
 const selectedWalletId = ref<'all' | string>('all')
-const filtersOpen = ref(false)
+const selectedViewMode = ref<ReportViewMode>('year')
+const selectedYear = ref(now.getFullYear())
+const selectedMonth = ref(formatMonthKey(now))
+const rangeFrom = ref(formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1)))
+const rangeTo = ref(formatDateInput(now))
+
+function pad2(value: number) {
+  return String(value).padStart(2, '0')
+}
+
+function formatDateInput(date: Date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+function formatMonthKey(date: Date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`
+}
+
+function parseDateInput(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day, 12)
+}
+
+function parseMonthKey(value: string) {
+  const [year, month] = value.split('-').map(Number)
+  return {
+    year,
+    monthIndex: month - 1
+  }
+}
+
+const locale = computed(() => (selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US'))
 
 const reportCopy = computed(() => selectedLanguage.value === 'lo'
   ? {
-      insights: 'ມຸມມອງ',
+      title: 'ລາຍງານ',
+      subtitle: 'ສະຫຼຸບລາຍຮັບ ລາຍຈ່າຍ ແລະ ກຳໄລຕາມປີ ເດືອນ ແລະ ຊ່ວງວັນທີ.',
       currency: 'ສະກຸນເງິນ',
-      filters: 'ຕົວກອງ',
-      dateAndWallet: 'ວັນທີ ແລະ ກະເປົ໋າ',
-      show: 'ສະແດງ',
-      hide: 'ຊ່ອນ',
-      from: 'ຈາກ',
-      to: 'ຮອດ',
+      year: 'ປີ',
+      month: 'ເດືອນ',
+      day: 'ວັນ',
+      date: 'ວັນທີ',
       wallet: 'ກະເປົ໋າ',
-      quickDates: 'ວັນທີດ່ວນ',
-      cashFlow: 'ການໄຫຼເງິນ',
-      cashFlowDetail: 'ລາຍຮັບ ແລະ ລາຍຈ່າຍລວມໃນຊ່ວງນີ້',
-      allTime: 'ທຸກເວລາ',
-      today: 'ມື້ນີ້',
-      yesterday: 'ມື້ວານ',
-      thisWeek: 'ອາທິດນີ້',
-      lastWeek: 'ອາທິດກ່ອນ',
-      thisMonth: 'ເດືອນນີ້',
-      lastMonth: 'ເດືອນກ່ອນ',
+      allWallets: 'ກະເປົ໋າທັງໝົດ',
       income: 'ລາຍຮັບ',
       expense: 'ລາຍຈ່າຍ',
-      net: 'ຍອດສຸດທິ',
-      given: 'ໃຫ້ກູ້',
-      received: 'ໄດ້ຮັບຄືນ',
-      loanNet: 'ຍອດສຸດທິກູ້ຢືມ',
-      loanSummary: 'ສະຫຼຸບກູ້ຢືມ',
-      monthTrend: 'ລາຍຮັບ ແລະ ລາຍຈ່າຍລາຍເດືອນ',
-      trendByMonth: 'ແນວໂນ້ມຕາມເດືອນ',
+      net: 'ກຳໄລສຸດທິ',
+      profit: 'ກຳໄລ',
+      monthlyTrend: 'ແນວໂນ້ມລາຍເດືອນ',
+      dailyTrend: 'ແນວໂນ້ມລາຍວັນ',
+      monthlyTable: 'ຕາຕະລາງລາຍເດືອນ',
+      dailyTable: 'ຕາຕະລາງລາຍວັນ',
       topCategories: 'ປະເພດຫຼັກ',
       expenseByCategory: 'ລາຍຈ່າຍຕາມປະເພດ',
       incomeByCategory: 'ລາຍຮັບຕາມປະເພດ',
-      whereMoneyGoes: 'ເງິນໄປໃສ່',
-      balanceByWallet: 'ຍອດແຕ່ລະກະເປົ໋າ',
+      loanSummary: 'ສະຫຼຸບກູ້ຢືມ',
+      given: 'ໃຫ້ກູ້',
+      received: 'ໄດ້ຮັບຄືນ',
+      loanNet: 'ຍອດສຸດທິກູ້ຢືມ',
       topWallets: 'ກະເປົ໋າຍອດສູງສຸດ',
-      topWalletsDetail: 'ຍອດສູງສຸດຕາມກະເປົ໋າ',
-      currencySummary: 'ສະຫຼຸບສະກຸນເງິນ',
-      portfolioOverview: 'ພາບລວມການເງິນ',
-      allWalletsCombined: 'ທຸກກະເປົ໋າລວມກັນ',
-      noReportData: 'ບໍ່ພົບຂໍ້ມູນໃນຊ່ວງນີ້',
-      noReportDataHint: 'ກົດ All time ຫຼື ເລືອກຊ່ວງວັນທີອື່ນ',
-      noExpenseRecords: 'ບໍ່ພົບລາຍຈ່າຍສຳລັບສະກຸນເງິນນີ້',
-      noIncomeRecords: 'ບໍ່ພົບລາຍຮັບສຳລັບສະກຸນເງິນນີ້',
+      portfolioOverview: 'ພາບລວມສະກຸນເງິນ',
+      noData: 'ບໍ່ມີຂໍ້ມູນສຳລັບຊ່ວງນີ້',
+      noExpenseRecords: 'ບໍ່ພົບລາຍຈ່າຍສຳລັບປະເພດນີ້',
+      noIncomeRecords: 'ບໍ່ພົບລາຍຮັບສຳລັບປະເພດນີ້',
       noWallets: 'ບໍ່ມີກະເປົ໋າໃນສະກຸນເງິນນີ້',
-      allWallets: 'ກະເປົ໋າທັງໝົດ',
-      customRange: 'ຊ່ວງເວລາກຳນົດເອງ'
+      allWalletsCombined: 'ລວມທຸກກະເປົ໋າ',
+      yearView: 'ປີ',
+      monthView: 'ເດືອນ',
+      rangeView: 'ຊ່ວງວັນທີ',
+      period: 'ຊ່ວງ',
+      from: 'ຈາກ',
+      to: 'ເຖິງ',
+      selectedPeriod: 'ຊ່ວງທີ່ເລືອກ'
     }
   : {
-      insights: 'Insights',
+      title: 'Reports',
+      subtitle: 'Compare income, expense, and profit by year, month, or custom date range.',
       currency: 'Currency',
-      filters: 'Filters',
-      dateAndWallet: 'Date and wallet',
-      show: 'Show',
-      hide: 'Hide',
-      from: 'From',
-      to: 'To',
+      year: 'Year',
+      month: 'Month',
+      day: 'Day',
+      date: 'Date',
       wallet: 'Wallet',
-      quickDates: 'Quick dates',
-      cashFlow: 'Cash flow',
-      cashFlowDetail: 'Income and expense totals for the selected range',
-      allTime: 'All time',
-      today: 'Today',
-      yesterday: 'Yesterday',
-      thisWeek: 'This week',
-      lastWeek: 'Last week',
-      thisMonth: 'This month',
-      lastMonth: 'Last month',
+      allWallets: 'All wallets',
       income: 'Income',
       expense: 'Expense',
-      net: 'Net',
-      given: 'Given',
-      received: 'Received',
-      loanNet: 'Loan net',
-      loanSummary: 'Loan summary',
-      monthTrend: 'Monthly income vs expense',
-      trendByMonth: 'Trend by month',
+      net: 'Net profit',
+      profit: 'Profit',
+      monthlyTrend: 'Monthly trend',
+      dailyTrend: 'Daily trend',
+      monthlyTable: 'Monthly table',
+      dailyTable: 'Daily table',
       topCategories: 'Top categories',
       expenseByCategory: 'Expense by category',
       incomeByCategory: 'Income by category',
-      whereMoneyGoes: 'Where the money goes',
-      balanceByWallet: 'Balance by wallet',
+      loanSummary: 'Loan summary',
+      given: 'Given',
+      received: 'Received',
+      loanNet: 'Loan net',
       topWallets: 'Top wallets',
-      topWalletsDetail: 'Highest balances by wallet',
-      currencySummary: 'Currency summary',
-      portfolioOverview: 'Portfolio overview',
+      portfolioOverview: 'Currency overview',
+      noData: 'No data found for this period',
+      noExpenseRecords: 'No expense records for this category set',
+      noIncomeRecords: 'No income records for this category set',
+      noWallets: 'No wallets in this currency yet',
       allWalletsCombined: 'All wallets combined',
-      noReportData: 'No data in this range yet.',
-      noReportDataHint: 'Tap All time or choose another date range.',
-      noExpenseRecords: 'No expense records for this currency yet.',
-      noIncomeRecords: 'No income records for this currency yet.',
-      noWallets: 'No wallets in this currency yet.',
-      allWallets: 'All wallets',
-      customRange: 'Custom range'
+      yearView: 'Year',
+      monthView: 'Month',
+      rangeView: 'Range',
+      period: 'Period',
+      from: 'From',
+      to: 'To',
+      selectedPeriod: 'Selected period'
     })
 
-const reportPresetOptions = computed<Array<{ label: string; value: ReportPreset }>>(() => [
-  { label: reportCopy.value.allTime, value: 'all' },
-  { label: reportCopy.value.today, value: 'today' },
-  { label: reportCopy.value.yesterday, value: 'yesterday' },
-  { label: reportCopy.value.thisWeek, value: 'thisWeek' },
-  { label: reportCopy.value.lastWeek, value: 'lastWeek' },
-  { label: reportCopy.value.thisMonth, value: 'thisMonth' },
-  { label: reportCopy.value.lastMonth, value: 'lastMonth' }
+const viewModeOptions = computed(() => [
+  {
+    value: 'year' as const,
+    label: reportCopy.value.yearView,
+    icon: 'i-lucide-calendar-range'
+  },
+  {
+    value: 'month' as const,
+    label: reportCopy.value.monthView,
+    icon: 'i-lucide-calendar-days'
+  },
+  {
+    value: 'range' as const,
+    label: reportCopy.value.rangeView,
+    icon: 'i-lucide-calendar-search'
+  }
 ])
 
-const reportWalletOptions = computed(() => [
+const walletOptions = computed(() => [
   { label: reportCopy.value.allWallets, value: 'all' as const },
   ...walletOptionsForCurrency(selectedCurrency.value)
 ])
 
-function pad(num: number) {
-  return String(num).padStart(2, '0')
-}
+const baseTransactions = computed(() => filterTransactions({
+  currency: selectedCurrency.value,
+  walletId: selectedWalletId.value === 'all' ? undefined : selectedWalletId.value
+}))
 
-function toDateKey(date: Date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
+const availableYears = computed(() => {
+  const years = new Set<number>()
 
-function startOfDay(date: Date) {
-  const value = new Date(date)
-  value.setHours(0, 0, 0, 0)
-  return value
-}
-
-function endOfDay(date: Date) {
-  const value = new Date(date)
-  value.setHours(23, 59, 59, 999)
-  return value
-}
-
-function addDays(date: Date, days: number) {
-  const value = new Date(date)
-  value.setDate(value.getDate() + days)
-  return value
-}
-
-function startOfWeek(date: Date) {
-  const value = startOfDay(date)
-  const day = value.getDay() === 0 ? 6 : value.getDay() - 1
-  value.setDate(value.getDate() - day)
-  return value
-}
-
-function endOfWeek(date: Date) {
-  return endOfDay(addDays(startOfWeek(date), 6))
-}
-
-function startOfMonth(date: Date) {
-  const value = startOfDay(date)
-  value.setDate(1)
-  return value
-}
-
-function endOfMonth(date: Date) {
-  const value = new Date(date)
-  value.setMonth(value.getMonth() + 1, 0)
-  value.setHours(23, 59, 59, 999)
-  return value
-}
-
-function monthLabel(key: string) {
-  const [year, month] = key.split('-').map(Number)
-  return new Date(year, month - 1, 1).toLocaleDateString(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', {
-    month: 'short',
-    year: 'numeric'
+  baseTransactions.value.forEach((transaction) => {
+    years.add(parseDateInput(transaction.date).getFullYear())
   })
-}
 
-function formatReadableDate(date: string) {
-  return new Date(`${date}T00:00:00`).toLocaleDateString(selectedLanguage.value === 'lo' ? 'lo-LA' : 'en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  })
-}
+  years.add(now.getFullYear())
 
-function transactionWindow(preset: ReportPreset) {
-  const now = new Date()
+  return [...years].sort((a, b) => b - a)
+})
 
-  if (preset === 'today') {
-    const from = startOfDay(now)
-    const to = endOfDay(now)
-    return { from: toDateKey(from), to: toDateKey(to), label: reportCopy.value.today }
-  }
-
-  if (preset === 'yesterday') {
-    const day = addDays(now, -1)
-    const from = startOfDay(day)
-    const to = endOfDay(day)
-    return { from: toDateKey(from), to: toDateKey(to), label: reportCopy.value.yesterday }
-  }
-
-  if (preset === 'thisWeek') {
-    return { from: toDateKey(startOfWeek(now)), to: toDateKey(endOfDay(now)), label: reportCopy.value.thisWeek }
-  }
-
-  if (preset === 'lastWeek') {
-    const thisWeekStart = startOfWeek(now)
-    const from = startOfWeek(addDays(thisWeekStart, -1))
-    const to = endOfWeek(addDays(thisWeekStart, -1))
-    return { from: toDateKey(from), to: toDateKey(to), label: reportCopy.value.lastWeek }
-  }
-
-  if (preset === 'thisMonth') {
-    return { from: toDateKey(startOfMonth(now)), to: toDateKey(endOfDay(now)), label: reportCopy.value.thisMonth }
-  }
-
-  if (preset === 'lastMonth') {
-    const lastMonth = new Date(now)
-    lastMonth.setMonth(lastMonth.getMonth() - 1)
-    return {
-      from: toDateKey(startOfMonth(lastMonth)),
-      to: toDateKey(endOfMonth(lastMonth)),
-      label: reportCopy.value.lastMonth
+watch(
+  availableYears,
+  (years) => {
+    if (!years.includes(selectedYear.value)) {
+      selectedYear.value = years[0] ?? now.getFullYear()
     }
-  }
-
-  return { from: undefined, to: undefined, label: reportCopy.value.allTime }
-}
-
-function applyPreset(preset: ReportPreset) {
-  reportPreset.value = preset
-
-  const window = transactionWindow(preset)
-  reportFrom.value = window.from ?? ''
-  reportTo.value = window.to ?? ''
-}
-
-applyPreset('all')
+  },
+  { immediate: true }
+)
 
 watch(selectedCurrency, () => {
-  if (selectedWalletId.value !== 'all' && !reportWalletOptions.value.some(option => option.value === selectedWalletId.value)) {
+  if (selectedWalletId.value !== 'all' && !walletOptions.value.some(option => option.value === selectedWalletId.value)) {
     selectedWalletId.value = 'all'
   }
 })
 
-const reportTransactions = computed(() => filterTransactions({
-  currency: selectedCurrency.value,
-  walletId: selectedWalletId.value === 'all' ? undefined : selectedWalletId.value,
-  from: reportFrom.value || undefined,
-  to: reportTo.value || undefined
-}))
-const currencyTransactions = computed(() => filterTransactions({
-  currency: selectedCurrency.value,
-  walletId: selectedWalletId.value === 'all' ? undefined : selectedWalletId.value
-}))
-const hasReportData = computed(() => reportTransactions.value.length > 0)
-const hasCurrencyData = computed(() => currencyTransactions.value.length > 0)
+watch(selectedYear, () => {
+  if (selectedViewMode.value === 'month') {
+    const { monthIndex } = parseMonthKey(selectedMonth.value)
+    selectedMonth.value = `${selectedYear.value}-${pad2(monthIndex + 1)}`
+  }
+})
 
-const monthlyData = computed(() => {
-  const grouped = new Map<string, { income: number; expense: number }>()
-
-  reportTransactions.value.forEach((transaction) => {
-    const key = transaction.date.slice(0, 7)
-    if (!grouped.has(key)) {
-      grouped.set(key, { income: 0, expense: 0 })
+watch(selectedViewMode, (mode) => {
+  if (mode === 'month') {
+    const { year, monthIndex } = parseMonthKey(selectedMonth.value)
+    if (year !== selectedYear.value) {
+      selectedMonth.value = `${selectedYear.value}-${pad2(monthIndex + 1)}`
     }
+  }
 
-    const bucket = grouped.get(key)!
-    const isIncome = transaction.type === 'income' || (transaction.type === 'loan' && transaction.loanDirection === 'received')
-    const isExpense = transaction.type === 'expense' || (transaction.type === 'loan' && transaction.loanDirection !== 'received')
-
-    if (isIncome) bucket.income += transaction.amount
-    if (isExpense) bucket.expense += transaction.amount
-  })
-
-  return [...grouped.entries()]
-    .sort(([a], [b]) => b.localeCompare(a))
-    .map(([key, totals]) => ({
-      key,
-      label: monthLabel(key),
-      income: totals.income,
-      expense: totals.expense,
-      net: totals.income - totals.expense
-    }))
+  if (mode === 'range' && parseDateInput(rangeFrom.value) > parseDateInput(rangeTo.value)) {
+    const temp = rangeFrom.value
+    rangeFrom.value = rangeTo.value
+    rangeTo.value = temp
+  }
 })
 
-const categoryData = computed(() => {
-  const items = reportTransactions.value.filter(transaction => transaction.type === 'expense' || (transaction.type === 'loan' && transaction.loanDirection !== 'received'))
+const selectedPeriodLabel = computed(() => {
+  if (selectedViewMode.value === 'year') {
+    return `${reportCopy.value.year} ${selectedYear.value}`
+  }
+
+  if (selectedViewMode.value === 'month') {
+    const { year, monthIndex } = parseMonthKey(selectedMonth.value)
+    return new Date(year, monthIndex, 1).toLocaleDateString(locale.value, {
+      month: 'long',
+      year: 'numeric'
+    })
+  }
+
+  const start = parseDateInput(rangeFrom.value)
+  const end = parseDateInput(rangeTo.value)
+
+  return `${start.toLocaleDateString(locale.value, { day: 'numeric', month: 'short', year: 'numeric' })} - ${end.toLocaleDateString(locale.value, { day: 'numeric', month: 'short', year: 'numeric' })}`
+})
+
+const filteredTransactionsByPeriod = computed(() => {
+  if (selectedViewMode.value === 'year') {
+    return baseTransactions.value.filter(transaction => parseDateInput(transaction.date).getFullYear() === selectedYear.value)
+  }
+
+  if (selectedViewMode.value === 'month') {
+    const { year, monthIndex } = parseMonthKey(selectedMonth.value)
+    return baseTransactions.value.filter((transaction) => {
+      const date = parseDateInput(transaction.date)
+      return date.getFullYear() === year && date.getMonth() === monthIndex
+    })
+  }
+
+  const start = parseDateInput(rangeFrom.value)
+  const end = parseDateInput(rangeTo.value)
+  const min = start <= end ? start : end
+  const max = start <= end ? end : start
+
+  return baseTransactions.value.filter((transaction) => {
+    const time = parseDateInput(transaction.date).getTime()
+    return time >= min.getTime() && time <= max.getTime()
+  })
+})
+
+function isIncome(transaction: Transaction) {
+  return transaction.type === 'income'
+}
+
+function isExpense(transaction: Transaction) {
+  return transaction.type === 'expense'
+}
+
+function groupByCategory(items: Transaction[]) {
   const grouped = new Map<string, number>()
 
   items.forEach((transaction) => {
-    grouped.set(transaction.category, (grouped.get(transaction.category) ?? 0) + transaction.amount)
+    const key = transaction.category?.trim() || (selectedLanguage.value === 'lo' ? 'ອື່ນໆ' : 'Other')
+    grouped.set(key, (grouped.get(key) ?? 0) + transaction.amount)
   })
 
   return [...grouped.entries()]
     .map(([label, value]) => ({ label, value }))
     .sort((a, b) => b.value - a.value)
-})
-const expenseCategoryData = computed(() => categoryData.value.slice(0, 6))
-const incomeCategoryData = computed(() => {
-  const items = reportTransactions.value.filter(transaction => transaction.type === 'income')
-  const grouped = new Map<string, number>()
+}
 
-  items.forEach((transaction) => {
-    grouped.set(transaction.category, (grouped.get(transaction.category) ?? 0) + transaction.amount)
+function monthLabel(monthIndex: number) {
+  return new Date(selectedYear.value, monthIndex, 1).toLocaleDateString(locale.value, {
+    month: 'short'
   })
+}
 
-  return [...grouped.entries()]
-    .map(([label, value]) => ({ label, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6)
-})
+function buildTimelineRows() {
+  if (selectedViewMode.value === 'month') {
+    const { year, monthIndex } = parseMonthKey(selectedMonth.value)
+    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate()
+
+    return Array.from({ length: daysInMonth }, (_, index) => {
+      const date = new Date(year, monthIndex, index + 1, 12)
+      const items = filteredTransactionsByPeriod.value.filter((transaction) => {
+        const transactionDate = parseDateInput(transaction.date)
+        return transactionDate.getFullYear() === year
+          && transactionDate.getMonth() === monthIndex
+          && transactionDate.getDate() === date.getDate()
+      })
+
+      const income = items.filter(isIncome).reduce((sum, transaction) => sum + transaction.amount, 0)
+      const expense = items.filter(isExpense).reduce((sum, transaction) => sum + transaction.amount, 0)
+
+      return {
+        key: formatDateInput(date),
+        label: String(date.getDate()),
+        secondaryLabel: date.toLocaleDateString(locale.value, { month: 'short' }),
+        income,
+        expense,
+        net: income - expense,
+        count: items.length
+      }
+    })
+  }
+
+  if (selectedViewMode.value === 'range') {
+    const start = parseDateInput(rangeFrom.value)
+    const end = parseDateInput(rangeTo.value)
+    const min = start <= end ? start : end
+    const max = start <= end ? end : start
+    const dayCount = Math.max(Math.round((max.getTime() - min.getTime()) / 86400000) + 1, 0)
+
+    return Array.from({ length: dayCount }, (_, index) => {
+      const date = new Date(min.getFullYear(), min.getMonth(), min.getDate() + index, 12)
+      const items = filteredTransactionsByPeriod.value.filter((transaction) => {
+        const transactionDate = parseDateInput(transaction.date)
+        return transactionDate.getFullYear() === date.getFullYear()
+          && transactionDate.getMonth() === date.getMonth()
+          && transactionDate.getDate() === date.getDate()
+      })
+
+      const income = items.filter(isIncome).reduce((sum, transaction) => sum + transaction.amount, 0)
+      const expense = items.filter(isExpense).reduce((sum, transaction) => sum + transaction.amount, 0)
+
+      return {
+        key: formatDateInput(date),
+        label: date.toLocaleDateString(locale.value, { day: 'numeric', month: 'short' }),
+        secondaryLabel: date.toLocaleDateString(locale.value, { weekday: 'short' }),
+        income,
+        expense,
+        net: income - expense,
+        count: items.length
+      }
+    })
+  }
+
+  return Array.from({ length: 12 }, (_, monthIndex) => {
+    const items = filteredTransactionsByPeriod.value.filter((transaction) => {
+      const transactionDate = parseDateInput(transaction.date)
+      return transactionDate.getMonth() === monthIndex
+    })
+
+    const income = items.filter(isIncome).reduce((sum, transaction) => sum + transaction.amount, 0)
+    const expense = items.filter(isExpense).reduce((sum, transaction) => sum + transaction.amount, 0)
+
+    return {
+      key: `${selectedYear.value}-${pad2(monthIndex + 1)}`,
+      label: monthLabel(monthIndex),
+      secondaryLabel: String(selectedYear.value),
+      income,
+      expense,
+      net: income - expense,
+      count: items.length
+    }
+  })
+}
+
+const timelineRows = computed(() => buildTimelineRows())
+const chartLabels = computed(() => timelineRows.value.map(row => row.label))
+const chartSeries = computed(() => [
+  {
+    label: reportCopy.value.income,
+    color: '#10b981',
+    values: timelineRows.value.map(row => row.income)
+  },
+  {
+    label: reportCopy.value.expense,
+    color: '#ff4d93',
+    values: timelineRows.value.map(row => row.expense)
+  },
+  {
+    label: reportCopy.value.net,
+    color: '#f59e0b',
+    values: timelineRows.value.map(row => row.net)
+  }
+])
+
+const expenseCategoryData = computed(() => groupByCategory(filteredTransactionsByPeriod.value.filter(isExpense)).slice(0, 6))
+const incomeCategoryData = computed(() => groupByCategory(filteredTransactionsByPeriod.value.filter(isIncome)).slice(0, 6))
+
 const expenseCategoryTotal = computed(() => expenseCategoryData.value.reduce((sum, item) => sum + item.value, 0))
 const incomeCategoryTotal = computed(() => incomeCategoryData.value.reduce((sum, item) => sum + item.value, 0))
+
 const loanSummary = computed(() => {
-  const given = reportTransactions.value
-    .filter(transaction => transaction.type === 'loan' && transaction.loanDirection !== 'received')
+  const loanTransactions = filteredTransactionsByPeriod.value.filter(transaction => transaction.type === 'loan')
+
+  const given = loanTransactions
+    .filter(transaction => transaction.loanDirection !== 'received')
     .reduce((sum, transaction) => sum + transaction.amount, 0)
 
-  const received = reportTransactions.value
-    .filter(transaction => transaction.type === 'loan' && transaction.loanDirection === 'received')
+  const received = loanTransactions
+    .filter(transaction => transaction.loanDirection === 'received')
     .reduce((sum, transaction) => sum + transaction.amount, 0)
 
   return {
@@ -344,54 +406,19 @@ const loanSummary = computed(() => {
     net: received - given
   }
 })
-const walletData = computed(() => walletSeries(selectedCurrency.value))
-const topWallets = computed(() => walletData.value.slice(0, 5))
-const currencyData = computed(() => currencySeries())
-const monthMax = computed(() => Math.max(...monthlyData.value.flatMap(item => [item.income, item.expense, 1]), 1))
-const summaryIncome = computed(() => monthlyData.value.reduce((sum, item) => sum + item.income, 0))
-const summaryExpense = computed(() => monthlyData.value.reduce((sum, item) => sum + item.expense, 0))
-const summaryNet = computed(() => summaryIncome.value - summaryExpense.value)
-const cashFlowMax = computed(() => Math.max(summaryIncome.value, summaryExpense.value, Math.abs(summaryNet.value), 1))
-const cashFlowCards = computed(() => [
-  {
-    label: reportCopy.value.income,
-    value: summaryIncome.value,
-    formatted: formatCurrency(summaryIncome.value, selectedCurrency.value),
-    detail: reportCopy.value.cashFlowDetail,
-    accent: 'from-emerald-500 to-teal-400',
-    icon: 'i-lucide-trending-up'
-  },
-  {
-    label: reportCopy.value.expense,
-    value: summaryExpense.value,
-    formatted: formatCurrency(summaryExpense.value, selectedCurrency.value),
-    detail: reportCopy.value.cashFlowDetail,
-    accent: 'from-rose-500 to-pink-400',
-    icon: 'i-lucide-trending-down'
-  },
-  {
-    label: reportCopy.value.net,
-    value: Math.abs(summaryNet.value),
-    formatted: formatCurrency(summaryNet.value, selectedCurrency.value, true),
-    detail: reportCopy.value.cashFlowDetail,
-    accent: summaryNet.value >= 0 ? 'from-sky-500 to-cyan-400' : 'from-amber-500 to-orange-400',
-    icon: 'i-lucide-badge-dollar-sign'
-  }
-])
-const topWalletMax = computed(() => Math.max(...topWallets.value.map(item => item.value), 1))
-const summaryRangeLabel = computed(() => {
-  if (!reportFrom.value && !reportTo.value) return reportCopy.value.allTime
-  if (reportFrom.value && reportTo.value) return `${formatReadableDate(reportFrom.value)} - ${formatReadableDate(reportTo.value)}`
-  if (reportFrom.value) return `${reportCopy.value.from} ${formatReadableDate(reportFrom.value)}`
-  if (reportTo.value) return `${reportCopy.value.to} ${formatReadableDate(reportTo.value)}`
-  return reportCopy.value.customRange
-})
-const reportFiltersSummary = computed(() => {
-  const walletLabel = selectedWalletId.value === 'all'
-    ? reportCopy.value.allWallets
-    : (reportWalletOptions.value.find(option => option.value === selectedWalletId.value)?.label ?? reportCopy.value.wallet)
 
-  return `${reportPresetOptions.value.find(item => item.value === reportPreset.value)?.label ?? reportCopy.value.allTime} · ${walletLabel}`
+const summaryIncome = computed(() => timelineRows.value.reduce((sum, item) => sum + item.income, 0))
+const summaryExpense = computed(() => timelineRows.value.reduce((sum, item) => sum + item.expense, 0))
+const summaryNet = computed(() => summaryIncome.value - summaryExpense.value)
+
+const topWallets = computed(() => walletSeries(selectedCurrency.value).slice(0, 5))
+const currencyOverview = computed(() => currencySeries())
+
+const topWalletMax = computed(() => Math.max(...topWallets.value.map(item => item.value), 1))
+
+const selectedWalletLabel = computed(() => {
+  if (selectedWalletId.value === 'all') return reportCopy.value.allWallets
+  return walletOptions.value.find(option => option.value === selectedWalletId.value)?.label ?? reportCopy.value.allWallets
 })
 
 const currencySymbols: Record<CurrencyCode, string> = {
@@ -405,138 +432,139 @@ const currencyAccents: Record<CurrencyCode, string> = {
   THB: 'from-emerald-500 to-teal-400',
   USD: 'from-amber-500 to-orange-400'
 }
+
+const chartTitle = computed(() => selectedViewMode.value === 'year' ? reportCopy.value.monthlyTrend : reportCopy.value.dailyTrend)
+const tableTitle = computed(() => selectedViewMode.value === 'year' ? reportCopy.value.monthlyTable : reportCopy.value.dailyTable)
+const tablePrimaryLabel = computed(() => selectedViewMode.value === 'year' ? reportCopy.value.month : reportCopy.value.date)
+const tableProfitLabel = computed(() => reportCopy.value.profit)
+const chartValueFormatter = (value: number) => formatCurrency(value, selectedCurrency.value, true)
+
+const hasPeriodData = computed(() => filteredTransactionsByPeriod.value.length > 0)
+const hasCategoryExpenseData = computed(() => expenseCategoryData.value.length > 0)
+const hasCategoryIncomeData = computed(() => incomeCategoryData.value.length > 0)
 </script>
 
 <template>
-  <div class="space-y-5 pb-8">
+  <div class="space-y-5 pb-10">
     <section class="flex items-start justify-between gap-3">
-      <h1 class="text-3xl font-black tracking-tight text-default">{{ reportCopy.insights }}</h1>
+      <div class="min-w-0 space-y-1">
+        <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.selectedPeriod }}</p>
+        <h1 class="text-3xl font-black tracking-tight text-default">{{ reportCopy.title }}</h1>
+        <p class="max-w-2xl text-sm leading-6 text-muted">
+          {{ reportCopy.subtitle }}
+        </p>
+      </div>
 
       <UButton icon="i-lucide-arrow-left" variant="ghost" color="neutral" size="lg" class="rounded-2xl" to="/" />
     </section>
 
-    <section class="space-y-3">
-      <div class="flex items-end justify-between gap-3">
-        <div>
-          <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.currency }}</p>
-          <p class="mt-0.5 text-sm font-bold text-default">{{ selectedCurrency }}</p>
-        </div>
-
-        <div class="grid grid-cols-3 gap-1.5 rounded-full bg-slate-100 p-1 dark:bg-slate-900">
-          <button
-            v-for="item in enabledCurrencyOptions"
-            :key="item.value"
-            type="button"
-            class="rounded-full px-3 py-2.5 text-[12px] font-bold transition active:scale-95 sm:px-3 sm:py-2 sm:text-xs"
-            :class="selectedCurrency === item.value ? 'bg-white text-primary shadow-sm dark:bg-slate-800' : 'text-muted'"
-            @click="selectedCurrency = item.value"
-          >
-            {{ item.label }}
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
-      <template #header>
-        <button
-          type="button"
-          class="flex w-full items-center justify-between gap-3 text-left"
-          @click="filtersOpen = !filtersOpen"
-        >
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-muted">Filters</p>
-            <h2 class="mt-1 truncate font-black tracking-tight text-default" :class="filtersOpen ? 'text-lg sm:text-xl' : 'text-base sm:text-lg'">
-              Date and wallet
-            </h2>
-            <div v-if="!filtersOpen" class="mt-2">
-              <span
-                class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-bold text-sky-700 shadow-sm dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-200"
+    <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+      <div class="space-y-4">
+        <div class="grid gap-3 md:grid-cols-[repeat(3,minmax(0,1fr))]">
+          <div class="space-y-1.5 md:col-span-3">
+            <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.period }}</span>
+            <div class="grid grid-cols-3 gap-2 rounded-[1rem] bg-slate-100 p-1 dark:bg-slate-900">
+              <button
+                v-for="item in viewModeOptions"
+                :key="item.value"
+                type="button"
+                class="inline-flex items-center justify-center gap-2 rounded-[0.9rem] px-3 py-2 text-[11px] font-bold transition active:scale-95"
+                :class="selectedViewMode === item.value ? 'bg-white text-primary shadow-sm dark:bg-slate-800' : 'text-muted'"
+                @click="selectedViewMode = item.value"
               >
-                <UIcon name="i-lucide-calendar-range" class="size-3.5 shrink-0" />
-                <span class="truncate">{{ reportFiltersSummary }}</span>
-              </span>
+                <UIcon :name="item.icon" class="size-4" />
+                <span class="whitespace-nowrap">{{ item.label }}</span>
+              </button>
             </div>
           </div>
-          <div class="flex items-center gap-2">
-            <span
-              class="hidden rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-muted dark:border-slate-800 dark:bg-slate-900 sm:inline-flex"
-            >
-              {{ filtersOpen ? reportCopy.hide : reportCopy.show }}
-            </span>
-            <div :class="['flex size-9 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
-              <UIcon name="i-lucide-filter" class="size-4.5 transition-transform duration-200" :class="filtersOpen ? 'rotate-180' : ''" />
-            </div>
-          </div>
-        </button>
-      </template>
 
-      <div v-show="filtersOpen" class="space-y-4 pt-1">
-        <div class="grid grid-cols-2 gap-2">
-          <label class="min-w-0 space-y-1">
-            <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.from }}</span>
+          <label v-if="selectedViewMode === 'year'" class="space-y-1.5">
+            <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.year }}</span>
+            <select
+              v-model="selectedYear"
+              class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
+            >
+              <option v-for="year in availableYears" :key="year" :value="year">
+                {{ year }}
+              </option>
+            </select>
+          </label>
+
+          <label v-else-if="selectedViewMode === 'month'" class="space-y-1.5 md:col-span-2">
+            <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.month }}</span>
             <input
-              v-model="reportFrom"
-              type="date"
-              class="h-11 w-full min-w-0 rounded-[1rem] border border-slate-200 bg-white px-2.5 text-[12px] font-semibold text-default shadow-none outline-none transition placeholder:text-muted focus:border-primary dark:border-slate-800 dark:bg-slate-900"
+              v-model="selectedMonth"
+              type="month"
+              class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
             >
           </label>
 
-          <label class="min-w-0 space-y-1">
-            <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.to }}</span>
-            <input
-              v-model="reportTo"
-              type="date"
-              class="h-11 w-full min-w-0 rounded-[1rem] border border-slate-200 bg-white px-2.5 text-[12px] font-semibold text-default shadow-none outline-none transition placeholder:text-muted focus:border-primary dark:border-slate-800 dark:bg-slate-900"
+          <div v-else class="grid grid-cols-2 gap-3 md:col-span-2">
+            <label class="space-y-1.5">
+              <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.from }}</span>
+              <input
+                v-model="rangeFrom"
+                type="date"
+                class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
+              >
+            </label>
+            <label class="space-y-1.5">
+              <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.to }}</span>
+              <input
+                v-model="rangeTo"
+                type="date"
+                class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
+              >
+            </label>
+          </div>
+
+          <label class="space-y-1.5">
+            <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.wallet }}</span>
+            <select
+              v-model="selectedWalletId"
+              class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
             >
+              <option v-for="option in walletOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
           </label>
+
+          <div class="space-y-1.5">
+            <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.currency }}</span>
+            <div class="grid grid-cols-3 gap-2 rounded-[1rem] bg-slate-100 p-1 dark:bg-slate-900">
+              <button
+                v-for="item in enabledCurrencyOptions"
+                :key="item.value"
+                type="button"
+                class="rounded-[0.9rem] px-3 py-2 text-[11px] font-bold transition active:scale-95"
+                :class="selectedCurrency === item.value ? 'bg-white text-primary shadow-sm dark:bg-slate-800' : 'text-muted'"
+                @click="selectedCurrency = item.value"
+              >
+                {{ item.label }}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <label class="block space-y-1.5">
-          <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.wallet }}</span>
-          <select
-            v-model="selectedWalletId"
-            class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default shadow-none outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
-          >
-            <option v-for="option in reportWalletOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
-
-        <div class="space-y-2">
-          <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.quickDates }}</p>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="item in reportPresetOptions"
-              :key="item.value"
-              type="button"
-              class="rounded-full border px-3 py-2 text-[11px] font-bold transition active:scale-95"
-              :class="reportPreset === item.value ? 'border-primary bg-primary text-white shadow-sm' : 'border-slate-200 bg-white text-muted dark:border-slate-800 dark:bg-slate-900'"
-              @click="applyPreset(item.value)"
-            >
-              {{ item.label }}
-            </button>
-          </div>
+        <div class="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted">
+          <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 dark:border-slate-800 dark:bg-slate-900">
+            <UIcon name="i-lucide-calendar-range" class="size-4" />
+            {{ selectedPeriodLabel }}
+          </span>
+          <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 dark:border-slate-800 dark:bg-slate-900">
+            <UIcon name="i-lucide-wallet" class="size-4" />
+            {{ selectedWalletLabel }}
+          </span>
         </div>
       </div>
     </UCard>
 
-    <UAlert
-      v-if="!hasReportData"
-      color="neutral"
-      variant="soft"
-      icon="i-lucide-info"
-      :title="reportCopy.noReportData"
-      :description="hasCurrencyData ? reportCopy.noReportDataHint : reportCopy.noWallets"
-      class="rounded-[1.2rem] border border-slate-200/80 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"
-    />
-
-    <section class="grid grid-cols-1 gap-3">
+    <section class="grid gap-3 md:grid-cols-3">
       <MetricCard
         :title="reportCopy.income"
         :value="formatCurrency(summaryIncome, selectedCurrency)"
-        :detail="summaryRangeLabel"
+        :detail="selectedPeriodLabel"
         icon="i-lucide-trending-up"
         accent="from-emerald-500 to-teal-400"
         value-class="text-[clamp(1rem,4vw,1.38rem)]"
@@ -544,7 +572,7 @@ const currencyAccents: Record<CurrencyCode, string> = {
       <MetricCard
         :title="reportCopy.expense"
         :value="formatCurrency(summaryExpense, selectedCurrency)"
-        :detail="summaryRangeLabel"
+        :detail="selectedPeriodLabel"
         icon="i-lucide-trending-down"
         accent="from-rose-500 to-pink-400"
         value-class="text-[clamp(1rem,4vw,1.38rem)]"
@@ -552,66 +580,20 @@ const currencyAccents: Record<CurrencyCode, string> = {
       <MetricCard
         :title="reportCopy.net"
         :value="formatCurrency(summaryNet, selectedCurrency, true)"
-        :detail="summaryRangeLabel"
+        :detail="selectedPeriodLabel"
         icon="i-lucide-badge-dollar-sign"
+        :accent="summaryNet >= 0 ? 'from-sky-500 to-cyan-400' : 'from-amber-500 to-orange-400'"
         value-class="text-[clamp(1rem,4vw,1.38rem)]"
       />
     </section>
 
-    <section class="space-y-4">
-      <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+    <section class="grid gap-4">
+      <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
         <template #header>
           <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-muted">{{ reportCopy.monthTrend }}</p>
-              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.cashFlow }}</h2>
-            </div>
-            <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
-              <UIcon name="i-lucide-activity" class="size-5" />
-            </div>
-          </div>
-        </template>
-
-        <div class="grid grid-cols-1 gap-3">
-          <div
-            v-for="item in cashFlowCards"
-            :key="item.label"
-            class="space-y-3 rounded-[1.2rem] bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70"
-          >
-            <div class="flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-[0.22em] text-muted">{{ item.label }}</p>
-                <p class="mt-1 text-sm font-bold text-default">{{ item.detail }}</p>
-              </div>
-              <div :class="['flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', item.accent]">
-                <UIcon :name="item.icon" class="size-4.5" />
-              </div>
-            </div>
-
-            <p class="whitespace-nowrap text-lg font-black tracking-tight text-default sm:text-xl">
-              {{ item.formatted }}
-            </p>
-
-            <div class="space-y-2">
-              <div class="h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800">
-                <div
-                  class="h-full rounded-full bg-gradient-to-r transition-all duration-500"
-                  :class="item.accent"
-                  :style="{ width: `${Math.max((item.value / cashFlowMax) * 100, item.value > 0 ? 10 : 0)}%` }"
-                />
-              </div>
-              <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ summaryRangeLabel }}</p>
-            </div>
-          </div>
-        </div>
-      </UCard>
-
-      <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
-        <template #header>
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-muted">{{ reportCopy.monthTrend }}</p>
-              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.trendByMonth }}</h2>
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-muted">{{ chartTitle }}</p>
+              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ selectedPeriodLabel }}</h2>
             </div>
             <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
               <UIcon name="i-lucide-chart-column" class="size-5" />
@@ -619,48 +601,80 @@ const currencyAccents: Record<CurrencyCode, string> = {
           </div>
         </template>
 
-        <div class="space-y-4">
-          <div v-for="item in monthlyData" :key="item.key" class="space-y-3 rounded-[1.2rem] bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70">
-            <div class="flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <p class="text-sm font-bold text-default">{{ item.label }}</p>
-                <p class="text-xs text-muted">{{ formatCurrency(item.net, selectedCurrency, true) }}</p>
-              </div>
-              <p class="shrink-0 text-xs font-semibold text-muted sm:text-sm">
-                {{ formatCurrency(item.income, selectedCurrency) }} / {{ formatCurrency(item.expense, selectedCurrency) }}
-              </p>
+        <TrendLineChart
+          :labels="chartLabels"
+          :series="chartSeries"
+          :height="300"
+          :value-formatter="chartValueFormatter"
+        />
+
+        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div class="rounded-[1.1rem] bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{{ reportCopy.income }}</p>
+            <p class="mt-1 text-lg font-black tracking-tight text-default">{{ formatCurrency(summaryIncome, selectedCurrency) }}</p>
+          </div>
+          <div class="rounded-[1.1rem] bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{{ reportCopy.expense }}</p>
+            <p class="mt-1 text-lg font-black tracking-tight text-default">{{ formatCurrency(summaryExpense, selectedCurrency) }}</p>
+          </div>
+          <div class="rounded-[1.1rem] bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{{ reportCopy.net }}</p>
+            <p class="mt-1 text-lg font-black tracking-tight text-default">{{ formatCurrency(summaryNet, selectedCurrency, true) }}</p>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+        <template #header>
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-muted">{{ tableTitle }}</p>
+              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ selectedPeriodLabel }}</h2>
+            </div>
+            <div class="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg">
+              <UIcon name="i-lucide-table-2" class="size-5" />
+            </div>
+          </div>
+        </template>
+
+        <div class="overflow-x-auto rounded-[1.2rem] border border-slate-200/80 dark:border-slate-800">
+          <div>
+            <div class="grid grid-cols-[minmax(4rem,5.25rem)_repeat(3,minmax(7rem,1fr))] gap-x-5 bg-slate-50 px-4 py-3 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted dark:bg-slate-900 sm:grid-cols-[minmax(4.25rem,0.52fr)_repeat(3,minmax(0,1fr))] sm:gap-x-7 sm:px-6 sm:text-[10px] sm:tracking-[0.22em] lg:gap-x-8 lg:px-7">
+              <span class="min-w-0 whitespace-nowrap">{{ tablePrimaryLabel }}</span>
+              <span class="min-w-0 whitespace-nowrap text-right">{{ reportCopy.income }}</span>
+              <span class="min-w-0 whitespace-nowrap text-right">{{ reportCopy.expense }}</span>
+              <span class="min-w-0 whitespace-nowrap text-right">{{ tableProfitLabel }}</span>
             </div>
 
-            <div class="space-y-2">
-              <div class="flex items-center gap-3">
-                <span class="w-16 shrink-0 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-500">{{ reportCopy.income }}</span>
-                <div class="h-3 flex-1 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800">
-                  <div
-                    class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
-                    :style="{ width: `${Math.max((item.income / monthMax) * 100, item.income > 0 ? 8 : 0)}%` }"
-                  />
+            <div class="divide-y divide-slate-200/80 dark:divide-slate-800">
+              <div
+                v-for="row in timelineRows"
+                :key="row.key"
+                class="grid grid-cols-[minmax(4rem,5.25rem)_repeat(3,minmax(7rem,1fr))] items-center gap-x-5 px-4 py-4 text-[13px] sm:grid-cols-[minmax(4.25rem,0.52fr)_repeat(3,minmax(0,1fr))] sm:gap-x-7 sm:px-6 sm:py-5 sm:text-sm lg:gap-x-8 lg:px-7"
+              >
+                <div class="min-w-0 pr-2">
+                  <p class="whitespace-nowrap font-bold leading-5 text-default">{{ row.label }}</p>
+                  <p class="whitespace-nowrap text-[11px] text-muted sm:text-[11px]">{{ row.secondaryLabel }} · {{ row.count }} tx</p>
                 </div>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="w-16 shrink-0 text-xs font-semibold uppercase tracking-[0.22em] text-rose-500">{{ reportCopy.expense }}</span>
-                <div class="h-3 flex-1 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800">
-                  <div
-                    class="h-full rounded-full bg-gradient-to-r from-rose-500 to-pink-400 transition-all duration-500"
-                    :style="{ width: `${Math.max((item.expense / monthMax) * 100, item.expense > 0 ? 8 : 0)}%` }"
-                  />
-                </div>
+                <p class="min-w-0 whitespace-nowrap px-3 text-right font-semibold text-default tabular-nums sm:px-4 lg:px-5">{{ formatCurrency(row.income, selectedCurrency) }}</p>
+                <p class="min-w-0 whitespace-nowrap px-3 text-right font-semibold text-default tabular-nums sm:px-4 lg:px-5">{{ formatCurrency(row.expense, selectedCurrency) }}</p>
+                <p class="min-w-0 whitespace-nowrap px-3 text-right font-black tabular-nums sm:px-4 lg:px-5" :class="row.net >= 0 ? 'text-emerald-500' : 'text-rose-500'">
+                  {{ formatCurrency(row.net, selectedCurrency, true) }}
+                </p>
               </div>
             </div>
           </div>
         </div>
       </UCard>
+    </section>
 
-      <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+    <section class="grid gap-4 xl:grid-cols-2">
+      <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
         <template #header>
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="text-sm font-medium text-muted">{{ reportCopy.topCategories }}</p>
-              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.whereMoneyGoes }}</h2>
+              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.expenseByCategory }}</h2>
             </div>
             <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
               <UIcon name="i-lucide-pie-chart" class="size-5" />
@@ -668,69 +682,48 @@ const currencyAccents: Record<CurrencyCode, string> = {
           </div>
         </template>
 
-        <SimpleBarChart
-          v-if="categoryData.length"
-          :items="categoryData"
-          :total="Math.max(...categoryData.map(item => item.value), 1)"
+        <DonutChart
+          v-if="hasCategoryExpenseData"
+          :items="expenseCategoryData.map(item => ({
+            label: item.label,
+            value: item.value,
+            formatted: formatCurrency(item.value, selectedCurrency)
+          }))"
+          :center-label="reportCopy.expenseByCategory"
+          :center-value="formatCurrency(expenseCategoryTotal, selectedCurrency)"
         />
         <p v-else class="py-8 text-center text-sm text-muted">{{ reportCopy.noExpenseRecords }}</p>
       </UCard>
 
-      <section class="grid grid-cols-1 gap-4">
-        <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
-          <template #header>
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-sm font-medium text-muted">{{ reportCopy.topCategories }}</p>
-                <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.expenseByCategory }}</h2>
-              </div>
-              <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
-                <UIcon name="i-lucide-pie-chart" class="size-5" />
-              </div>
+      <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+        <template #header>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium text-muted">{{ reportCopy.topCategories }}</p>
+              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.incomeByCategory }}</h2>
             </div>
-          </template>
-
-          <DonutChart
-            v-if="expenseCategoryData.length"
-            :items="expenseCategoryData.map(item => ({
-              label: item.label,
-              value: item.value,
-              formatted: formatCurrency(item.value, selectedCurrency)
-            }))"
-            :center-label="reportCopy.expenseByCategory"
-            :center-value="formatCurrency(expenseCategoryTotal, selectedCurrency)"
-          />
-          <p v-else class="py-8 text-center text-sm text-muted">{{ reportCopy.noExpenseRecords }}</p>
-        </UCard>
-
-        <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
-          <template #header>
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-sm font-medium text-muted">{{ reportCopy.topCategories }}</p>
-                <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.incomeByCategory }}</h2>
-              </div>
-              <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
-                <UIcon name="i-lucide-pie-chart" class="size-5" />
-              </div>
+            <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
+              <UIcon name="i-lucide-pie-chart" class="size-5" />
             </div>
-          </template>
+          </div>
+        </template>
 
-          <DonutChart
-            v-if="incomeCategoryData.length"
-            :items="incomeCategoryData.map(item => ({
-              label: item.label,
-              value: item.value,
-              formatted: formatCurrency(item.value, selectedCurrency)
-            }))"
-            :center-label="reportCopy.incomeByCategory"
-            :center-value="formatCurrency(incomeCategoryTotal, selectedCurrency)"
-          />
-          <p v-else class="py-8 text-center text-sm text-muted">{{ reportCopy.noIncomeRecords }}</p>
-        </UCard>
-      </section>
+        <DonutChart
+          v-if="hasCategoryIncomeData"
+          :items="incomeCategoryData.map(item => ({
+            label: item.label,
+            value: item.value,
+            formatted: formatCurrency(item.value, selectedCurrency)
+          }))"
+          :center-label="reportCopy.incomeByCategory"
+          :center-value="formatCurrency(incomeCategoryTotal, selectedCurrency)"
+        />
+        <p v-else class="py-8 text-center text-sm text-muted">{{ reportCopy.noIncomeRecords }}</p>
+      </UCard>
+    </section>
 
-      <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+    <section class="grid gap-4 xl:grid-cols-3">
+      <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80 xl:col-span-1">
         <template #header>
           <div class="flex items-start justify-between gap-3">
             <div>
@@ -743,11 +736,11 @@ const currencyAccents: Record<CurrencyCode, string> = {
           </div>
         </template>
 
-        <div class="grid grid-cols-1 gap-3">
+        <div class="grid gap-3">
           <MetricCard
             :title="reportCopy.given"
             :value="formatCurrency(loanSummary.given, selectedCurrency)"
-            :detail="reportCopy.loanSummary"
+            :detail="selectedPeriodLabel"
             icon="i-lucide-arrow-up-right"
             accent="from-amber-500 to-orange-400"
             value-class="text-[clamp(1rem,4vw,1.38rem)]"
@@ -755,7 +748,7 @@ const currencyAccents: Record<CurrencyCode, string> = {
           <MetricCard
             :title="reportCopy.received"
             :value="formatCurrency(loanSummary.received, selectedCurrency)"
-            :detail="reportCopy.loanSummary"
+            :detail="selectedPeriodLabel"
             icon="i-lucide-arrow-down-right"
             accent="from-emerald-500 to-teal-400"
             value-class="text-[clamp(1rem,4vw,1.38rem)]"
@@ -763,21 +756,20 @@ const currencyAccents: Record<CurrencyCode, string> = {
           <MetricCard
             :title="reportCopy.loanNet"
             :value="formatCurrency(loanSummary.net, selectedCurrency, true)"
-            :detail="reportCopy.loanSummary"
+            :detail="selectedPeriodLabel"
             icon="i-lucide-badge-dollar-sign"
+            :accent="loanSummary.net >= 0 ? 'from-sky-500 to-cyan-400' : 'from-amber-500 to-orange-400'"
             value-class="text-[clamp(1rem,4vw,1.38rem)]"
           />
         </div>
       </UCard>
-    </section>
 
-    <section class="space-y-4">
-      <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+      <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80 xl:col-span-1">
         <template #header>
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-sm font-medium text-muted">{{ reportCopy.topWalletsDetail }}</p>
-              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.topWallets }}</h2>
+              <p class="text-sm font-medium text-muted">{{ reportCopy.topWallets }}</p>
+              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.wallet }}</h2>
             </div>
             <div class="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg">
               <UIcon name="i-lucide-wallet" class="size-5" />
@@ -818,12 +810,12 @@ const currencyAccents: Record<CurrencyCode, string> = {
         <p v-else class="py-8 text-center text-sm text-muted">{{ reportCopy.noWallets }}</p>
       </UCard>
 
-      <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+      <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80 xl:col-span-1">
         <template #header>
           <div class="flex items-start justify-between gap-3">
             <div>
-              <p class="text-sm font-medium text-muted">{{ reportCopy.currencySummary }}</p>
-              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.portfolioOverview }}</h2>
+              <p class="text-sm font-medium text-muted">{{ reportCopy.portfolioOverview }}</p>
+              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ reportCopy.allWalletsCombined }}</h2>
             </div>
             <div :class="['flex size-10 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
               <UIcon name="i-lucide-coins" class="size-5" />
@@ -833,7 +825,7 @@ const currencyAccents: Record<CurrencyCode, string> = {
 
         <div class="grid grid-cols-1 gap-3">
           <MetricCard
-            v-for="item in currencyData"
+            v-for="item in currencyOverview"
             :key="item.currency"
             :title="item.currency"
             :value="formatCurrency(item.balance, item.currency)"
@@ -845,5 +837,15 @@ const currencyAccents: Record<CurrencyCode, string> = {
         </div>
       </UCard>
     </section>
+
+    <UAlert
+      v-if="!hasPeriodData"
+      color="neutral"
+      variant="soft"
+      icon="i-lucide-info"
+      :title="reportCopy.noData"
+      :description="reportCopy.subtitle"
+      class="rounded-[1.2rem] border border-slate-200/80 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"
+    />
   </div>
 </template>

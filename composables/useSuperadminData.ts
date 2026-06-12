@@ -97,7 +97,6 @@ export function useSuperadminData(options: SuperadminDataOptions = {}) {
     return $fetch<AdminOverview>(`/api/superadmin/overview${queryString}`, serverHeaders ? { headers: serverHeaders } : undefined)
   }, {
     watch: [query],
-    lazy: true,
     dedupe: 'defer',
     default: () => ({
       connected: false,

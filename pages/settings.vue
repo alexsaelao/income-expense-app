@@ -18,7 +18,15 @@ const {
   isCloudSyncEnabled,
   isOnline
 } = useMoneyNote()
-const { signOut, sessionProfile, rememberedProfile, authReady, setSessionPlan, setProfileAvatar } = useDeviceAuth()
+const {
+  signOut,
+  sessionProfile,
+  rememberedProfile,
+  authReady,
+  setSessionPlan,
+  setProfileAvatar,
+  updateRememberedPin
+} = useDeviceAuth()
 const colorMode = useColorMode()
 const { selectedThemeColor, activeTheme, appThemeColorOptions, setThemeColor } = useAppThemeColor()
 const router = useRouter()
@@ -45,6 +53,22 @@ const storageExportFileName = ref('')
 const storageExportPending = ref<MoneyNoteBackupFile | null>(null)
 const storageImportInputRef = ref<HTMLInputElement | null>(null)
 const storageNotice = ref('')
+const changePinModalOpen = ref(false)
+const changePinBusy = ref(false)
+const changePinError = ref('')
+const changePinNotice = ref('')
+const changePinOldPin = ref('')
+const changePinNewPin = ref('')
+const changePinConfirmPin = ref('')
+const changePinShowOldPin = ref(false)
+const changePinShowNewPin = ref(false)
+const changePinShowConfirmPin = ref(false)
+const changePinOldPinInputRef = ref<{ inputRef?: HTMLInputElement | null } | null>(null)
+const changePinSheetDragY = ref(0)
+const changePinSheetDragging = ref(false)
+const changePinSheetDragStartY = ref(0)
+const changePinSheetPointerId = ref<number | null>(null)
+const changePinSheetHandleRef = ref<HTMLElement | null>(null)
 const clearDataConfirmModalOpen = ref(false)
 const isClearingData = ref(false)
 const clearDataError = ref('')
@@ -286,6 +310,21 @@ const settingsCopy = computed(() => {
       phoneAccount: 'ບັນຊີເບີໂທ',
       signedIn: 'ເຂົ້າລະບົບແລ້ວ',
       editProfile: 'ແກ້ໄຂໂປຣໄຟລ໌',
+      security: 'ຄວາມປອດໄພ',
+      securityDesc: 'ປ່ຽນ PIN ຂອງບັນຊີນີ້.',
+      changePin: 'ປ່ຽນ PIN',
+      changePinDesc: 'ໃຊ້ PIN ເກົ່າເພື່ອຕັ້ງ PIN ໃໝ່.',
+      changePinModalTitle: 'ປ່ຽນ PIN',
+      changePinModalDesc: 'ໃສ່ PIN ເກົ່າ, PIN ໃໝ່, ແລະຢືນຢັນ PIN ໃໝ່.',
+      oldPin: 'PIN ເກົ່າ',
+      newPin: 'PIN ໃໝ່',
+      confirmNewPin: 'ຢືນຢັນ PIN ໃໝ່',
+      pinHint: 'PIN ຕ້ອງເປັນ 6 ຕົວເລກ.',
+      pinRequired: 'ກະລຸນາໃສ່ PIN ໃຫ້ຄົບ.',
+      pinMismatch: 'PIN ໃໝ່ບໍ່ຕົງກັນ.',
+      oldPinWrong: 'PIN ເກົ່າບໍ່ຖືກຕ້ອງ.',
+      pinUpdated: 'ປ່ຽນ PIN ສຳເລັດແລ້ວ.',
+      pinUpdateFailed: 'ບໍ່ສາມາດປ່ຽນ PIN ໄດ້.',
       free: 'ຟຣີ',
       pro: 'ໂປຣ',
       upgradeToPro: 'ອັບເກຣດເປັນໂປຣ',
@@ -421,6 +460,21 @@ const settingsCopy = computed(() => {
     phoneAccount: 'Phone account',
     signedIn: 'Signed in',
     editProfile: 'Edit profile',
+    security: 'Security',
+    securityDesc: 'Change this account PIN.',
+    changePin: 'Change PIN',
+    changePinDesc: 'Use your old PIN to set a new one.',
+    changePinModalTitle: 'Change PIN',
+    changePinModalDesc: 'Enter your old PIN, new PIN, and confirm the new PIN.',
+    oldPin: 'Old PIN',
+    newPin: 'New PIN',
+    confirmNewPin: 'Confirm new PIN',
+    pinHint: 'PIN must be 6 digits.',
+    pinRequired: 'Please fill in all PIN fields.',
+    pinMismatch: 'The new PINs do not match.',
+    oldPinWrong: 'The old PIN is not correct.',
+    pinUpdated: 'PIN changed successfully.',
+    pinUpdateFailed: 'Could not change the PIN.',
     free: 'Free',
     pro: 'Pro',
     upgradeToPro: 'Upgrade to Pro',
@@ -747,6 +801,140 @@ function openProRedeemModal() {
   proRedeemModalOpen.value = true
 }
 
+function sanitizeChangePinInput(value: string) {
+  return value.replace(/\D/g, '').slice(0, 6)
+}
+
+function openChangePinModal() {
+  changePinError.value = ''
+  changePinNotice.value = ''
+  changePinOldPin.value = ''
+  changePinNewPin.value = ''
+  changePinConfirmPin.value = ''
+  changePinShowOldPin.value = false
+  changePinShowNewPin.value = false
+  changePinShowConfirmPin.value = false
+  changePinModalOpen.value = true
+  nextTick(() => changePinOldPinInputRef.value?.inputRef?.focus?.())
+}
+
+function closeChangePinModal() {
+  changePinModalOpen.value = false
+  changePinError.value = ''
+  changePinBusy.value = false
+  changePinShowOldPin.value = false
+  changePinShowNewPin.value = false
+  changePinShowConfirmPin.value = false
+}
+
+function resetChangePinSheetDrag() {
+  changePinSheetDragY.value = 0
+  changePinSheetDragging.value = false
+  changePinSheetDragStartY.value = 0
+  changePinSheetPointerId.value = null
+}
+
+function onChangePinSheetPointerDown(event: PointerEvent) {
+  if (event.pointerType === 'mouse' && event.button !== 0) return
+
+  changePinSheetHandleRef.value?.setPointerCapture(event.pointerId)
+  changePinSheetDragging.value = true
+  changePinSheetDragStartY.value = event.clientY
+  changePinSheetPointerId.value = event.pointerId
+}
+
+function onChangePinSheetPointerMove(event: PointerEvent) {
+  if (!changePinSheetDragging.value || changePinSheetPointerId.value !== event.pointerId) return
+
+  const deltaY = Math.max(0, event.clientY - changePinSheetDragStartY.value)
+  changePinSheetDragY.value = deltaY
+}
+
+function onChangePinSheetPointerUp(event: PointerEvent) {
+  if (!changePinSheetDragging.value || changePinSheetPointerId.value !== event.pointerId) return
+
+  changePinSheetHandleRef.value?.releasePointerCapture(event.pointerId)
+  const shouldClose = changePinSheetDragY.value > 90
+  changePinModalOpen.value = !shouldClose
+  resetChangePinSheetDrag()
+}
+
+function onChangePinSheetPointerCancel() {
+  if (changePinSheetPointerId.value !== null) {
+    changePinSheetHandleRef.value?.releasePointerCapture(changePinSheetPointerId.value)
+  }
+  resetChangePinSheetDrag()
+}
+
+async function submitChangePin() {
+  if (changePinBusy.value) return
+
+  const oldPin = changePinOldPin.value.trim()
+  const newPin = changePinNewPin.value.trim()
+  const confirmNewPin = changePinConfirmPin.value.trim()
+
+  if (!oldPin || !newPin || !confirmNewPin) {
+    changePinError.value = settingsCopy.value.pinRequired
+    return
+  }
+
+  if (oldPin.length !== 6 || newPin.length !== 6 || confirmNewPin.length !== 6) {
+    changePinError.value = settingsCopy.value.pinHint
+    return
+  }
+
+  if (newPin !== confirmNewPin) {
+    changePinError.value = settingsCopy.value.pinMismatch
+    return
+  }
+
+  const identifier = sessionProfile.value?.identifier?.trim()
+  if (!identifier) {
+    changePinError.value = settingsCopy.value.pinUpdateFailed
+    return
+  }
+
+  changePinBusy.value = true
+  changePinError.value = ''
+  changePinNotice.value = ''
+
+  try {
+    await $fetch('/api/auth/change-pin', {
+      method: 'POST',
+      body: {
+        oldPin,
+        newPin,
+        confirmNewPin
+      }
+    })
+
+    updateRememberedPin(identifier, newPin)
+    changePinNotice.value = settingsCopy.value.pinUpdated
+    changePinModalOpen.value = false
+  }
+  catch (error) {
+    const status = (error as { statusCode?: number; response?: { status?: number; _data?: { statusMessage?: string } } } | null)?.statusCode
+      ?? (error as { response?: { status?: number } } | null)?.response?.status
+    const statusMessage = (error as { response?: { _data?: { statusMessage?: string } } } | null)?.response?._data?.statusMessage
+
+    if (status === 401 && statusMessage === 'Old PIN is not correct') {
+      changePinError.value = settingsCopy.value.oldPinWrong
+    }
+    else if (status === 400 && statusMessage === 'New PINs do not match') {
+      changePinError.value = settingsCopy.value.pinMismatch
+    }
+    else if (status === 400) {
+      changePinError.value = settingsCopy.value.pinRequired
+    }
+    else {
+      changePinError.value = settingsCopy.value.pinUpdateFailed
+    }
+  }
+  finally {
+    changePinBusy.value = false
+  }
+}
+
 function openUpgradeForProAction() {
   if (isProAccount.value) return false
 
@@ -903,9 +1091,26 @@ watch(clearDataConfirmModalOpen, (open) => {
   }
 })
 
+watch(changePinModalOpen, (open) => {
+  if (open) {
+    changePinError.value = ''
+    changePinNotice.value = ''
+    nextTick(() => changePinOldPinInputRef.value?.inputRef?.focus?.())
+  }
+  else if (!changePinBusy.value) {
+    changePinOldPin.value = ''
+    changePinNewPin.value = ''
+    changePinConfirmPin.value = ''
+    changePinShowOldPin.value = false
+    changePinShowNewPin.value = false
+    changePinShowConfirmPin.value = false
+  }
+})
+
 onBeforeUnmount(() => {
   stopClearDataSlideDrag()
   stopClearDataModalDrag()
+  onChangePinSheetPointerCancel()
 })
 
 function handleLogout() {
@@ -1238,8 +1443,16 @@ const internetStatusCopy = computed(() => {
 
 <template>
   <div class="space-y-6 pb-8">
-    <section class="space-y-1">
-      <h1 class="text-3xl font-black tracking-tight text-default">{{ settingsCopy.settings }}</h1>
+    <section class="flex items-center justify-between gap-3">
+      <h1 class="min-w-0 text-3xl font-black tracking-tight text-default">{{ settingsCopy.settings }}</h1>
+
+      <UButton
+        class="h-9 shrink-0 justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-400 px-3 text-xs font-bold text-white shadow-[0_12px_24px_-16px_rgba(239,68,68,0.55)] transition active:scale-95 sm:h-10 sm:px-4 sm:text-sm"
+        icon="i-lucide-log-out"
+        @click="handleLogout"
+      >
+        {{ settingsCopy.logout }}
+      </UButton>
     </section>
 
     <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
@@ -1298,6 +1511,27 @@ const internetStatusCopy = computed(() => {
             </UBadge>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
+      <div class="flex items-center justify-between gap-3 px-4 py-4">
+        <div class="min-w-0">
+          <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.security }}</h2>
+          <p class="text-xs text-muted">{{ settingsCopy.securityDesc }}</p>
+        </div>
+
+        <UButton
+          type="button"
+          icon="i-lucide-lock-keyhole"
+          :class="[
+            'h-10 rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.35)] transition active:scale-95',
+            activeTheme.accent
+          ]"
+          @click="openChangePinModal"
+        >
+          {{ settingsCopy.changePin }}
+        </UButton>
       </div>
     </section>
 
@@ -1396,6 +1630,92 @@ const internetStatusCopy = computed(() => {
       </div>
     </section>
 
+
+    <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
+      <div class="flex items-center justify-between gap-3 px-4 py-4">
+        <div class="min-w-0">
+          <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.category }}</h2>
+          <p class="text-xs text-muted">{{ settingsCopy.categoryDesc }}</p>
+        </div>
+
+        <UButton
+          to="/categories"
+          icon="i-lucide-tags"
+          :class="[
+            'h-10 rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.35)] transition active:scale-95',
+            activeTheme.accent
+          ]"
+        >
+          {{ settingsCopy.manage }}
+        </UButton>
+      </div>
+    </section>
+
+    <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
+      <div class="flex items-center justify-between gap-3 px-4 py-4">
+        <div class="min-w-0">
+          <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.company }}</h2>
+          <p class="text-xs text-muted">{{ settingsCopy.companyDesc }}</p>
+        </div>
+
+        <UButton
+          type="button"
+          icon="i-lucide-building-2"
+          :class="[
+            'h-10 rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.35)] transition active:scale-95',
+            activeTheme.accent
+          ]"
+          @click="openCompaniesPage"
+        >
+          {{ settingsCopy.manage }}
+        </UButton>
+      </div>
+    </section>
+
+    <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
+      <div class="flex items-center justify-between gap-3 px-4 py-4">
+        <div class="min-w-0">
+          <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.currency }}</h2>
+          <p class="text-xs text-muted">{{ settingsCopy.currencyDesc }}</p>
+        </div>
+        <UBadge color="neutral" variant="soft" class="rounded-full">
+          {{ enabledCurrencyOptions.length }}/{{ currencyOptions.length }}
+        </UBadge>
+      </div>
+
+      <div class="border-t border-slate-200/80 px-4 py-2 dark:border-slate-800">
+        <div
+          v-for="item in currencyOptions"
+          :key="item.value"
+          class="flex items-center justify-between gap-3 py-3"
+          :class="item.value !== currencyOptions[currencyOptions.length - 1].value ? 'border-b border-slate-200/80 dark:border-slate-800' : ''"
+        >
+          <div class="flex min-w-0 items-center gap-3">
+            <div class="flex size-10 items-center justify-center rounded-[0.9rem] bg-slate-100 text-base font-black text-default shadow-sm dark:bg-slate-900">
+              {{ currencySymbols[item.value] }}
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-bold text-default">{{ item.label }}</p>
+              <p class="text-xs text-muted">{{ isCurrencyEnabled(item.value) ? settingsCopy.active : settingsCopy.disabled }}</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition duration-200 ease-out active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            :class="isCurrencyEnabled(item.value) ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'"
+            :disabled="isCurrencyEnabled(item.value) && enabledCurrencyOptions.length <= 1"
+            :aria-pressed="isCurrencyEnabled(item.value)"
+            @click="toggleCurrencyEnabled(item.value)"
+          >
+            <span
+              class="inline-block size-6 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition duration-200 ease-out"
+              :class="isCurrencyEnabled(item.value) ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
+        </div>
+      </div>
+    </section>
 
     <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
       <div class="px-4 py-4">
@@ -1499,92 +1819,6 @@ const internetStatusCopy = computed(() => {
               </span>
             </button>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
-      <div class="flex items-center justify-between gap-3 px-4 py-4">
-        <div class="min-w-0">
-          <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.category }}</h2>
-          <p class="text-xs text-muted">{{ settingsCopy.categoryDesc }}</p>
-        </div>
-
-        <UButton
-          to="/categories"
-          icon="i-lucide-tags"
-          :class="[
-            'h-10 rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.35)] transition active:scale-95',
-            activeTheme.accent
-          ]"
-        >
-          {{ settingsCopy.manage }}
-        </UButton>
-      </div>
-    </section>
-
-    <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
-      <div class="flex items-center justify-between gap-3 px-4 py-4">
-        <div class="min-w-0">
-          <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.company }}</h2>
-          <p class="text-xs text-muted">{{ settingsCopy.companyDesc }}</p>
-        </div>
-
-        <UButton
-          type="button"
-          icon="i-lucide-building-2"
-          :class="[
-            'h-10 rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.35)] transition active:scale-95',
-            activeTheme.accent
-          ]"
-          @click="openCompaniesPage"
-        >
-          {{ settingsCopy.manage }}
-        </UButton>
-      </div>
-    </section>
-
-    <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
-      <div class="flex items-center justify-between gap-3 px-4 py-4">
-        <div class="min-w-0">
-          <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.currency }}</h2>
-          <p class="text-xs text-muted">{{ settingsCopy.currencyDesc }}</p>
-        </div>
-        <UBadge color="neutral" variant="soft" class="rounded-full">
-          {{ enabledCurrencyOptions.length }}/{{ currencyOptions.length }}
-        </UBadge>
-      </div>
-
-      <div class="border-t border-slate-200/80 px-4 py-2 dark:border-slate-800">
-        <div
-          v-for="item in currencyOptions"
-          :key="item.value"
-          class="flex items-center justify-between gap-3 py-3"
-          :class="item.value !== currencyOptions[currencyOptions.length - 1].value ? 'border-b border-slate-200/80 dark:border-slate-800' : ''"
-        >
-          <div class="flex min-w-0 items-center gap-3">
-            <div class="flex size-10 items-center justify-center rounded-[0.9rem] bg-slate-100 text-base font-black text-default shadow-sm dark:bg-slate-900">
-              {{ currencySymbols[item.value] }}
-            </div>
-            <div class="min-w-0">
-              <p class="text-sm font-bold text-default">{{ item.label }}</p>
-              <p class="text-xs text-muted">{{ isCurrencyEnabled(item.value) ? settingsCopy.active : settingsCopy.disabled }}</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition duration-200 ease-out active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-            :class="isCurrencyEnabled(item.value) ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'"
-            :disabled="isCurrencyEnabled(item.value) && enabledCurrencyOptions.length <= 1"
-            :aria-pressed="isCurrencyEnabled(item.value)"
-            @click="toggleCurrencyEnabled(item.value)"
-          >
-            <span
-              class="inline-block size-6 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition duration-200 ease-out"
-              :class="isCurrencyEnabled(item.value) ? 'translate-x-5' : 'translate-x-0'"
-            />
-          </button>
         </div>
       </div>
     </section>
@@ -2065,6 +2299,226 @@ const internetStatusCopy = computed(() => {
         </div>
       </template>
     </UModal>
+
+    <USlideover
+      v-model:open="changePinModalOpen"
+      side="bottom"
+      :close="true"
+      :ui="{
+        content: 'w-full data-[state=open]:animate-[slide-in-from-bottom_220ms_ease-out] data-[state=closed]:animate-[slide-out-to-bottom_220ms_ease-in] data-[state=open]:rounded-t-[1.5rem] data-[state=closed]:rounded-t-[1.5rem] overflow-hidden border border-slate-200/80 bg-white shadow-[0_-18px_60px_-30px_rgba(15,23,42,0.35)] dark:border-slate-800 dark:bg-slate-950',
+        body: 'p-0',
+        footer: 'p-0',
+        header: 'p-0'
+      }"
+      @after:leave="resetChangePinSheetDrag"
+    >
+      <template #content="{ close }">
+        <div
+          class="max-h-[88svh] overflow-hidden"
+          :style="{ transform: `translateY(${changePinSheetDragY}px)`, transition: changePinSheetDragging ? 'none' : 'transform 180ms ease-out' }"
+        >
+          <div class="flex max-h-[88svh] flex-col overflow-hidden">
+            <div class="border-b border-slate-200/80 px-4 pb-3 pt-2 dark:border-slate-800">
+              <div
+                ref="changePinSheetHandleRef"
+                class="touch-none select-none cursor-grab active:cursor-grabbing"
+                @pointerdown="onChangePinSheetPointerDown"
+                @pointermove="onChangePinSheetPointerMove"
+                @pointerup="onChangePinSheetPointerUp"
+                @pointercancel="onChangePinSheetPointerCancel"
+              >
+                <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-300/80 dark:bg-slate-700" />
+              </div>
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ settingsCopy.changePinModalTitle }}</p>
+                  <h2 class="mt-1 text-lg font-black tracking-tight text-default">{{ settingsCopy.changePin }}</h2>
+                  <p class="mt-1 text-[11px] text-muted">{{ settingsCopy.changePinModalDesc }}</p>
+                </div>
+
+                <button
+                  type="button"
+                  class="flex size-9 items-center justify-center rounded-full bg-slate-100 text-muted transition active:scale-95 dark:bg-slate-900"
+                  :aria-label="settingsCopy.cancel"
+                  @click="closeChangePinModal(); close()"
+                >
+                  <UIcon name="i-lucide-x" class="size-4" />
+                </button>
+              </div>
+            </div>
+
+            <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
+              <div class="space-y-4">
+                <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+                  <div class="flex items-start gap-3">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg">
+                      <UIcon name="i-lucide-lock-keyhole" class="size-4" />
+                    </div>
+
+                    <div class="min-w-0">
+                      <p class="text-sm font-bold text-default">{{ sessionProfile?.identifier }}</p>
+                      <p class="mt-1 text-xs leading-5 text-muted">{{ settingsCopy.pinHint }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <label class="block">
+                  <div class="mb-2 flex items-center gap-2">
+                    <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
+                      <UIcon name="i-lucide-key-round" class="size-3.5" />
+                    </div>
+                    <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ settingsCopy.oldPin }}</span>
+                  </div>
+                  <UInput
+                    ref="changePinOldPinInputRef"
+                    :model-value="changePinOldPin"
+                    :placeholder="settingsCopy.oldPin"
+                    class="w-full"
+                    :ui="{
+                      root: 'w-full',
+                      base: 'h-12 w-full rounded-2xl border-0 bg-slate-50 px-4 pe-11 text-[16px] font-semibold shadow-none outline-none transition focus:ring-2 focus:ring-primary/20 dark:bg-slate-950',
+                      trailing: 'absolute inset-y-0 end-0 flex items-center pe-1.5'
+                    }"
+                    :type="changePinShowOldPin ? 'text' : 'password'"
+                    inputmode="numeric"
+                    autocomplete="current-password"
+                    autocapitalize="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    @update:model-value="value => changePinOldPin = sanitizeChangePinInput(String(value ?? ''))"
+                    @keyup.enter="submitChangePin"
+                  >
+                    <template #trailing>
+                      <UButton
+                        type="button"
+                        variant="ghost"
+                        color="neutral"
+                        class="h-9 rounded-full px-2 text-muted hover:bg-slate-100 dark:hover:bg-slate-900"
+                        :aria-label="changePinShowOldPin ? 'Hide PIN' : 'Show PIN'"
+                        @click="changePinShowOldPin = !changePinShowOldPin"
+                      >
+                        <UIcon :name="changePinShowOldPin ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="size-4.5" />
+                      </UButton>
+                    </template>
+                  </UInput>
+                </label>
+
+                <label class="block">
+                  <div class="mb-2 flex items-center gap-2">
+                    <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
+                      <UIcon name="i-lucide-lock-keyhole" class="size-3.5" />
+                    </div>
+                    <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ settingsCopy.newPin }}</span>
+                  </div>
+                  <UInput
+                    :model-value="changePinNewPin"
+                    :placeholder="settingsCopy.newPin"
+                    class="w-full"
+                    :ui="{
+                      root: 'w-full',
+                      base: 'h-12 w-full rounded-2xl border-0 bg-slate-50 px-4 pe-11 text-[16px] font-semibold shadow-none outline-none transition focus:ring-2 focus:ring-primary/20 dark:bg-slate-950',
+                      trailing: 'absolute inset-y-0 end-0 flex items-center pe-1.5'
+                    }"
+                    :type="changePinShowNewPin ? 'text' : 'password'"
+                    inputmode="numeric"
+                    autocomplete="new-password"
+                    autocapitalize="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    @update:model-value="value => changePinNewPin = sanitizeChangePinInput(String(value ?? ''))"
+                    @keyup.enter="submitChangePin"
+                  >
+                    <template #trailing>
+                      <UButton
+                        type="button"
+                        variant="ghost"
+                        color="neutral"
+                        class="h-9 rounded-full px-2 text-muted hover:bg-slate-100 dark:hover:bg-slate-900"
+                        :aria-label="changePinShowNewPin ? 'Hide PIN' : 'Show PIN'"
+                        @click="changePinShowNewPin = !changePinShowNewPin"
+                      >
+                        <UIcon :name="changePinShowNewPin ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="size-4.5" />
+                      </UButton>
+                    </template>
+                  </UInput>
+                </label>
+
+                <label class="block">
+                  <div class="mb-2 flex items-center gap-2">
+                    <div class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 shadow-sm dark:bg-sky-950/40 dark:text-sky-200">
+                      <UIcon name="i-lucide-check-circle-2" class="size-3.5" />
+                    </div>
+                    <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">{{ settingsCopy.confirmNewPin }}</span>
+                  </div>
+                  <UInput
+                    :model-value="changePinConfirmPin"
+                    :placeholder="settingsCopy.confirmNewPin"
+                    class="w-full"
+                    :ui="{
+                      root: 'w-full',
+                      base: 'h-12 w-full rounded-2xl border-0 bg-slate-50 px-4 pe-11 text-[16px] font-semibold shadow-none outline-none transition focus:ring-2 focus:ring-primary/20 dark:bg-slate-950',
+                      trailing: 'absolute inset-y-0 end-0 flex items-center pe-1.5'
+                    }"
+                    :type="changePinShowConfirmPin ? 'text' : 'password'"
+                    inputmode="numeric"
+                    autocomplete="new-password"
+                    autocapitalize="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    @update:model-value="value => changePinConfirmPin = sanitizeChangePinInput(String(value ?? ''))"
+                    @keyup.enter="submitChangePin"
+                  >
+                    <template #trailing>
+                      <UButton
+                        type="button"
+                        variant="ghost"
+                        color="neutral"
+                        class="h-9 rounded-full px-2 text-muted hover:bg-slate-100 dark:hover:bg-slate-900"
+                        :aria-label="changePinShowConfirmPin ? 'Hide PIN' : 'Show PIN'"
+                        @click="changePinShowConfirmPin = !changePinShowConfirmPin"
+                      >
+                        <UIcon :name="changePinShowConfirmPin ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="size-4.5" />
+                      </UButton>
+                    </template>
+                  </UInput>
+                </label>
+
+                <p v-if="changePinNotice" class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">
+                  {{ changePinNotice }}
+                </p>
+
+                <p v-if="changePinError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+                  {{ changePinError }}
+                </p>
+              </div>
+            </div>
+
+            <div class="sticky bottom-0 shrink-0 border-t border-slate-200/80 bg-white/92 px-4 py-3 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
+              <div class="grid gap-2">
+                <UButton
+                  variant="soft"
+                  color="neutral"
+                  class="h-12 justify-center rounded-full text-center font-bold"
+                  icon="i-lucide-x"
+                  :disabled="changePinBusy"
+                  @click="closeChangePinModal(); close()"
+                >
+                  {{ settingsCopy.cancel }}
+                </UButton>
+                <UButton
+                  :loading="changePinBusy"
+                  :class="['h-12 justify-center rounded-full bg-gradient-to-r text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
+                  icon="i-lucide-lock-keyhole"
+                  @click="submitChangePin"
+                >
+                  {{ settingsCopy.changePin }}
+                </UButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </USlideover>
 
     <UModal
       v-model:open="storageExportModalOpen"

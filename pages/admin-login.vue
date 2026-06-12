@@ -16,7 +16,6 @@ const isCheckingAccount = ref(false)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 const identifierInput = ref<HTMLInputElement | null>(null)
-const pinInput = ref<HTMLInputElement | null>(null)
 
 const copy = computed(() => selectedLanguage.value === 'lo'
   ? {
@@ -74,7 +73,6 @@ const copy = computed(() => selectedLanguage.value === 'lo'
       signInFailed: 'Could not sign in right now.',
     })
 
-const pinSlots = computed(() => Array.from({ length: 6 }, (_, index) => pinValue.value[index] ?? ''))
 const canContinue = computed(() => identifier.value.trim().length >= 3)
 const hasSavedAccount = computed(() => Boolean(rememberedProfile.value?.identifier))
 const nextButtonLabel = computed(() => step.value === 'account' ? copy.value.next : copy.value.unlock)
@@ -96,24 +94,7 @@ function focusIdentifier() {
 }
 
 function focusPin() {
-  void nextTick().then(() => {
-    const input = pinInput.value
-    if (!input) return
-
-    input.focus({ preventScroll: true })
-
-    requestAnimationFrame(() => {
-      input.focus({ preventScroll: true })
-
-      try {
-        const length = input.value.length
-        input.setSelectionRange(length, length)
-      }
-      catch {
-        // Ignore mobile browsers that do not support selection on type=tel.
-      }
-    })
-  })
+  // iOS-style keypad does not use a text input.
 }
 
 function clearSavedAccount() {
@@ -188,11 +169,6 @@ watch(step, (value) => {
   }
 })
 
-function sanitizePin(value: string) {
-  pinValue.value = value.replace(/\D/g, '').slice(0, 6)
-  errorMessage.value = ''
-}
-
 async function submitLogin() {
   if (isSubmitting.value) return
 
@@ -253,6 +229,9 @@ async function submitLogin() {
 
 watch(pinValue, (value) => {
   if (step.value !== 'pin') return
+  if (errorMessage.value) {
+    errorMessage.value = ''
+  }
   if (value.length === 6 && !isSubmitting.value) {
     submitLogin()
   }
@@ -272,8 +251,8 @@ onMounted(() => {
 
 <template>
   <div class="w-full space-y-3 sm:space-y-4">
-    <section class="space-y-2 text-center">
-      <div :class="['mx-auto flex size-12 items-center justify-center overflow-hidden rounded-[1.25rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)] sm:size-16', activeTheme.accent]">
+    <section v-if="step === 'account'" class="space-y-2 text-center">
+      <div :class="['mx-auto flex size-12 items-center justify-center overflow-hidden rounded-[1.25rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)] sm:size-14', activeTheme.accent]">
         <img src="/wallet-codesabai-mark.svg" alt="" class="h-full w-full" />
       </div>
 
@@ -372,47 +351,11 @@ onMounted(() => {
             </UBadge>
           </div>
 
-          <div class="space-y-1 text-center">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ copy.enterPin }}</p>
-            <p class="hidden text-[13px] text-muted sm:block">{{ copy.enterPinHint }}</p>
-          </div>
-
-          <div class="relative" @click="focusPin">
-            <div class="grid grid-cols-6 gap-1.5">
-              <div
-                v-for="(digit, index) in pinSlots"
-                :key="index"
-                class="flex h-11 items-center justify-center rounded-2xl border bg-slate-50 text-2xl font-black text-default transition dark:bg-slate-950"
-                :class="pinValue.length > index ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-800'"
-              >
-                <span v-if="digit" class="translate-y-[-1px]">•</span>
-              </div>
-            </div>
-
-            <input
-              ref="pinInput"
-              :value="pinValue"
-              :autofocus="step === 'pin'"
-              type="tel"
-              inputmode="numeric"
-              maxlength="6"
-              autocomplete="one-time-code"
-              class="absolute inset-0 h-full w-full cursor-text opacity-0 caret-transparent outline-none"
-              @input="sanitizePin(($event.target as HTMLInputElement).value)"
-              @keyup.enter="submitLogin"
-            >
-          </div>
-
-          <div class="flex items-center justify-between gap-3">
-            <p class="hidden text-[11px] text-muted sm:block">{{ copy.enterPinHint }}</p>
-            <button
-              type="button"
-              class="text-[11px] font-bold text-primary"
-              @click="pinValue = ''"
-            >
-              Clear
-            </button>
-          </div>
+          <IosPinKeypad
+            v-model="pinValue"
+            :disabled="isSubmitting || isCheckingAccount"
+            @clear="errorMessage = ''"
+          />
         </div>
 
         <p v-if="errorMessage" class="mt-2 rounded-[0.95rem] border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">
@@ -420,28 +363,11 @@ onMounted(() => {
         </p>
 
         <div class="flex items-center gap-3">
-            <UButton
-              type="button"
-              v-if="step === 'account' && !hasSavedAccount"
-              :class="['h-11 flex-1 justify-center rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:opacity-95 active:scale-95', activeTheme.accent]"
-              :disabled="!canContinue || isCheckingAccount"
-              @click="goToPin"
-            >
-            <span class="flex w-full items-center justify-center gap-2 text-center">
-              <UIcon
-                :name="isCheckingAccount ? 'i-lucide-refresh-cw' : 'i-lucide-arrow-right'"
-                class="size-4 shrink-0"
-                :class="isCheckingAccount ? 'animate-spin' : ''"
-              />
-              <span class="text-center">{{ isCheckingAccount ? copy.checking : copy.next }}</span>
-            </span>
-          </UButton>
-
           <UButton
+            v-if="step === 'account'"
             type="button"
-            v-else-if="step === 'account' && hasSavedAccount"
             :class="['h-11 flex-1 justify-center rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:opacity-95 active:scale-95', activeTheme.accent]"
-            :disabled="isCheckingAccount"
+            :disabled="!canContinue || isCheckingAccount"
             @click="goToPin"
           >
             <span class="flex w-full items-center justify-center gap-2 text-center">
@@ -454,31 +380,12 @@ onMounted(() => {
             </span>
           </UButton>
 
-          <UButton
-            type="button"
+          <div
             v-else
-            :class="['h-11 flex-1 justify-center rounded-full bg-gradient-to-r px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:opacity-95 active:scale-95', activeTheme.accent]"
-            :disabled="pinValue.length !== 6 || isSubmitting"
-            @click="submitLogin"
+            class="flex h-11 flex-1 items-center justify-center rounded-full border border-dashed border-slate-200 bg-slate-50 px-4 text-xs font-semibold text-muted dark:border-slate-800 dark:bg-slate-900"
           >
-            <span class="flex w-full items-center justify-center gap-2 text-center">
-              <UIcon
-                :name="isSubmitting ? 'i-lucide-refresh-cw' : 'i-lucide-arrow-right'"
-                class="size-4 shrink-0"
-                :class="isSubmitting ? 'animate-spin' : ''"
-              />
-              <span class="text-center">{{ isSubmitting ? copy.signingIn : nextButtonLabel }}</span>
-            </span>
-          </UButton>
-        </div>
-
-        <div class="text-center">
-          <NuxtLink
-            to="/login"
-            class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11px] font-bold text-slate-600 transition active:scale-95 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300"
-          >
-            User login
-          </NuxtLink>
+            {{ isSubmitting ? copy.signingIn : copy.enterPin }}
+          </div>
         </div>
       </form>
     </section>
