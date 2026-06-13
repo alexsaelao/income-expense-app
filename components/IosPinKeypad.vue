@@ -26,7 +26,9 @@ const digitRows = [
   { digit: '9', letters: 'WXYZ' }
 ] as const
 
-const pinSlots = computed(() => Array.from({ length: props.length }, (_, index) => modelValue.value[index] ?? ''))
+const pinSlots = computed(() => Array.from({ length: props.length }, (_, index) => ({
+  active: Boolean(modelValue.value[index])
+})))
 const isDisabled = computed(() => props.disabled)
 
 function updateValue(nextValue: string) {
@@ -61,11 +63,16 @@ function clearValue() {
       <span
         v-for="(slot, index) in pinSlots"
         :key="index"
-        class="size-3.5 rounded-full border transition-all duration-200 sm:size-4"
-        :class="slot
-          ? 'border-white bg-white shadow-[0_0_0_4px_rgba(255,255,255,0.06)]'
-          : 'border-white/30 bg-transparent'"
-      />
+        class="flex size-4 items-center justify-center rounded-full border transition-all duration-200 sm:size-4.5"
+        :class="slot.active
+          ? 'border-white/80 bg-white/10 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]'
+          : 'border-white/20 bg-white/5'"
+      >
+        <span
+          class="size-1.5 rounded-full transition-all duration-200 sm:size-2"
+          :class="slot.active ? 'bg-white shadow-[0_0_10px_rgba(255,255,255,0.35)]' : 'bg-white/25'"
+        />
+      </span>
     </div>
 
     <div class="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(15,23,42,0.98))] px-3 py-4 shadow-[0_24px_60px_-34px_rgba(15,23,42,0.8)] sm:px-4">

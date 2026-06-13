@@ -91,7 +91,9 @@ const reportCopy = computed(() => selectedLanguage.value === 'lo'
       period: 'ຊ່ວງ',
       from: 'ຈາກ',
       to: 'ເຖິງ',
-      selectedPeriod: 'ຊ່ວງທີ່ເລືອກ'
+      selectedPeriod: 'ຊ່ວງທີ່ເລືອກ',
+      filter: 'ຕົວກອງ',
+      close: 'ປິດ'
     }
   : {
       title: 'Reports',
@@ -131,7 +133,9 @@ const reportCopy = computed(() => selectedLanguage.value === 'lo'
       period: 'Period',
       from: 'From',
       to: 'To',
-      selectedPeriod: 'Selected period'
+      selectedPeriod: 'Selected period',
+      filter: 'Filter',
+      close: 'Close'
     })
 
 const viewModeOptions = computed(() => [
@@ -438,10 +442,25 @@ const tableTitle = computed(() => selectedViewMode.value === 'year' ? reportCopy
 const tablePrimaryLabel = computed(() => selectedViewMode.value === 'year' ? reportCopy.value.month : reportCopy.value.date)
 const tableProfitLabel = computed(() => reportCopy.value.profit)
 const chartValueFormatter = (value: number) => formatCurrency(value, selectedCurrency.value, true)
+const chartAxisFormatter = (value: number) => {
+  const formatted = formatCurrency(Math.abs(value), selectedCurrency.value)
+  return value < 0 ? `-${formatted}` : formatted
+}
+const chartCompactCurrencyFormatter = (value: number) => {
+  const sign = value < 0 ? '-' : ''
+  const absoluteValue = Math.abs(value)
+  const compactNumber = new Intl.NumberFormat(locale.value, {
+    notation: 'compact',
+    maximumFractionDigits: absoluteValue >= 1_000_000 ? 0 : 1
+  }).format(absoluteValue)
+
+  return `${sign}${currencySymbols[selectedCurrency.value]} ${compactNumber}`
+}
 
 const hasPeriodData = computed(() => filteredTransactionsByPeriod.value.length > 0)
 const hasCategoryExpenseData = computed(() => expenseCategoryData.value.length > 0)
 const hasCategoryIncomeData = computed(() => incomeCategoryData.value.length > 0)
+const reportFiltersOpen = ref(false)
 </script>
 
 <template>
@@ -458,7 +477,120 @@ const hasCategoryIncomeData = computed(() => incomeCategoryData.value.length > 0
       <UButton icon="i-lucide-arrow-left" variant="ghost" color="neutral" size="lg" class="rounded-2xl" to="/" />
     </section>
 
-    <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+    <div class="flex items-center justify-between gap-3 md:hidden">
+      <div class="flex min-w-0 flex-wrap gap-2 text-[11px] font-semibold text-muted">
+        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 dark:border-slate-800 dark:bg-slate-900">
+          <UIcon name="i-lucide-calendar-range" class="size-4" />
+          {{ selectedPeriodLabel }}
+        </span>
+        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 dark:border-slate-800 dark:bg-slate-900">
+          <UIcon name="i-lucide-wallet" class="size-4" />
+          {{ selectedWalletLabel }}
+        </span>
+      </div>
+
+      <UButton
+        size="sm"
+        color="neutral"
+        variant="soft"
+        class="shrink-0 rounded-full"
+        :icon="reportFiltersOpen ? 'i-lucide-x' : 'i-lucide-sliders-horizontal'"
+        @click="reportFiltersOpen = !reportFiltersOpen"
+      >
+        {{ reportFiltersOpen ? reportCopy.close : reportCopy.filter }}
+      </UButton>
+    </div>
+
+    <div v-if="reportFiltersOpen" class="space-y-3 rounded-[1.25rem] border border-slate-200/80 bg-white/90 px-4 py-4 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.18)] dark:border-slate-800 dark:bg-slate-950/80 md:hidden">
+      <div class="grid grid-cols-1 gap-3">
+        <label class="space-y-1.5">
+          <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.period }}</span>
+          <div class="grid grid-cols-3 gap-2 rounded-[1rem] bg-slate-100 p-1 dark:bg-slate-900">
+            <button
+              v-for="item in viewModeOptions"
+              :key="item.value"
+              type="button"
+              class="inline-flex items-center justify-center gap-2 rounded-[0.9rem] px-3 py-2 text-[11px] font-bold transition active:scale-95"
+              :class="selectedViewMode === item.value ? 'bg-white text-primary shadow-sm dark:bg-slate-800' : 'text-muted'"
+              @click="selectedViewMode = item.value"
+            >
+              <UIcon :name="item.icon" class="size-4" />
+              <span class="whitespace-nowrap">{{ item.label }}</span>
+            </button>
+          </div>
+        </label>
+
+        <label v-if="selectedViewMode === 'year'" class="space-y-1.5">
+          <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.year }}</span>
+          <select
+            v-model="selectedYear"
+            class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
+          >
+            <option v-for="year in availableYears" :key="year" :value="year">
+              {{ year }}
+            </option>
+          </select>
+        </label>
+
+        <label v-else-if="selectedViewMode === 'month'" class="space-y-1.5">
+          <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.month }}</span>
+          <input
+            v-model="selectedMonth"
+            type="month"
+            class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
+          >
+        </label>
+
+        <div v-else class="grid grid-cols-2 gap-3">
+          <label class="space-y-1.5">
+            <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.from }}</span>
+            <input
+              v-model="rangeFrom"
+              type="date"
+              class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
+            >
+          </label>
+          <label class="space-y-1.5">
+            <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.to }}</span>
+            <input
+              v-model="rangeTo"
+              type="date"
+              class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
+            >
+          </label>
+        </div>
+
+        <label class="space-y-1.5">
+          <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.wallet }}</span>
+          <select
+            v-model="selectedWalletId"
+            class="h-12 w-full rounded-[1rem] border border-slate-200 bg-white px-3 text-sm font-semibold text-default outline-none transition focus:border-primary dark:border-slate-800 dark:bg-slate-900"
+          >
+            <option v-for="option in walletOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+
+        <div class="space-y-1.5">
+          <span class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ reportCopy.currency }}</span>
+          <div class="grid grid-cols-3 gap-2 rounded-[1rem] bg-slate-100 p-1 dark:bg-slate-900">
+            <button
+              v-for="item in enabledCurrencyOptions"
+              :key="item.value"
+              type="button"
+              class="rounded-[0.9rem] px-3 py-2 text-[11px] font-bold transition active:scale-95"
+              :class="selectedCurrency === item.value ? 'bg-white text-primary shadow-sm dark:bg-slate-800' : 'text-muted'"
+              @click="selectedCurrency = item.value"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <UCard class="hidden overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80 md:block">
       <div class="space-y-4">
         <div class="grid gap-3 md:grid-cols-[repeat(3,minmax(0,1fr))]">
           <div class="space-y-1.5 md:col-span-3">
@@ -587,7 +719,34 @@ const hasCategoryIncomeData = computed(() => incomeCategoryData.value.length > 0
       />
     </section>
 
-    <section class="grid gap-4">
+    <section class="md:hidden -mx-4 space-y-3 sm:-mx-6">
+      <div class="px-4 sm:px-6">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">{{ chartTitle }}</p>
+            <h2 class="mt-1 text-xl font-black tracking-tight text-default">{{ selectedPeriodLabel }}</h2>
+          </div>
+          <div :class="['flex size-9 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-lg', activeTheme.accent]">
+            <UIcon name="i-lucide-chart-column" class="size-4" />
+          </div>
+        </div>
+      </div>
+
+      <div class="px-4 sm:px-6">
+        <TrendLineChart
+          :labels="chartLabels"
+          :series="chartSeries"
+          :height="260"
+          :axis-formatter="chartAxisFormatter"
+          :mobile-axis-formatter="chartCompactCurrencyFormatter"
+          :mobile-legend-formatter="chartCompactCurrencyFormatter"
+          :value-formatter="chartValueFormatter"
+          mobile-fullscreen
+        />
+      </div>
+    </section>
+
+    <section class="hidden gap-4 md:grid">
       <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
         <template #header>
           <div class="flex items-start justify-between gap-3">
@@ -601,27 +760,30 @@ const hasCategoryIncomeData = computed(() => incomeCategoryData.value.length > 0
           </div>
         </template>
 
-        <TrendLineChart
-          :labels="chartLabels"
-          :series="chartSeries"
-          :height="300"
-          :value-formatter="chartValueFormatter"
-        />
-
-        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div class="rounded-[1.1rem] bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{{ reportCopy.income }}</p>
+        <div class="hidden gap-2 sm:grid sm:grid-cols-3">
+          <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50/80 px-3 py-3 dark:border-slate-800 dark:bg-slate-900/70">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ reportCopy.income }}</p>
             <p class="mt-1 text-lg font-black tracking-tight text-default">{{ formatCurrency(summaryIncome, selectedCurrency) }}</p>
           </div>
-          <div class="rounded-[1.1rem] bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{{ reportCopy.expense }}</p>
+          <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50/80 px-3 py-3 dark:border-slate-800 dark:bg-slate-900/70">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ reportCopy.expense }}</p>
             <p class="mt-1 text-lg font-black tracking-tight text-default">{{ formatCurrency(summaryExpense, selectedCurrency) }}</p>
           </div>
-          <div class="rounded-[1.1rem] bg-slate-50/80 px-3 py-3 dark:bg-slate-900/70">
-            <p class="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted">{{ reportCopy.net }}</p>
+          <div class="rounded-[1rem] border border-slate-200/80 bg-slate-50/80 px-3 py-3 dark:border-slate-800 dark:bg-slate-900/70">
+            <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted">{{ reportCopy.net }}</p>
             <p class="mt-1 text-lg font-black tracking-tight text-default">{{ formatCurrency(summaryNet, selectedCurrency, true) }}</p>
           </div>
         </div>
+
+        <TrendLineChart
+          :labels="chartLabels"
+          :series="chartSeries"
+          :height="340"
+          :axis-formatter="chartAxisFormatter"
+          :mobile-axis-formatter="chartCompactCurrencyFormatter"
+          :mobile-legend-formatter="chartCompactCurrencyFormatter"
+          :value-formatter="chartValueFormatter"
+        />
       </UCard>
 
       <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">

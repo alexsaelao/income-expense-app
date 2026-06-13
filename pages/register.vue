@@ -18,6 +18,10 @@ const isSubmitting = ref(false)
 const errorMessage = ref('')
 const identifierInput = ref<HTMLInputElement | null>(null)
 const pinInput = ref<HTMLInputElement | null>(null)
+const confirmPinInput = ref<HTMLInputElement | null>(null)
+const showPinValue = ref(false)
+const showConfirmPinValue = ref(false)
+const PIN_LENGTH = 6
 
 const registerCopy = computed(() => selectedLanguage.value === 'lo'
   ? {
@@ -34,7 +38,7 @@ const registerCopy = computed(() => selectedLanguage.value === 'lo'
       creating: 'ກຳລັງສ້າງ',
       backToSignIn: 'ກັບໄປເຂົ້າລະບົບ',
       changeAccount: 'ປ່ຽນບັນຊີ',
-      digits: '6 ຫຼັກ',
+      digits: '6 ຫຼັກເທົ່ານັ້ນ',
       createPin: 'ສ້າງ PIN',
       createPinHint: 'ໃສ່ PIN 6 ຫຼັກ.',
       confirmPin: 'ຢືນຢັນ PIN',
@@ -64,7 +68,7 @@ const registerCopy = computed(() => selectedLanguage.value === 'lo'
       creating: 'Creating',
       backToSignIn: 'Back to sign in',
       changeAccount: 'Change account',
-      digits: '6 digits',
+      digits: '6 digits only',
       createPin: 'Create PIN',
       createPinHint: 'Enter a 6-digit PIN.',
       confirmPin: 'Confirm PIN',
@@ -81,11 +85,11 @@ const registerCopy = computed(() => selectedLanguage.value === 'lo'
       couldNotCreate: 'Could not create your account right now.'
     })
 
-const pinSlots = computed(() => Array.from({ length: 6 }, (_, index) => pinValue.value[index] ?? ''))
-const confirmPinSlots = computed(() => Array.from({ length: 6 }, (_, index) => confirmPinValue.value[index] ?? ''))
+const pinSlots = computed(() => Array.from({ length: PIN_LENGTH }, (_, index) => Boolean(pinValue.value[index])))
+const confirmPinSlots = computed(() => Array.from({ length: PIN_LENGTH }, (_, index) => Boolean(confirmPinValue.value[index])))
 const canContinue = computed(() => identifier.value.trim().length >= 3)
 const nextButtonLabel = computed(() => step.value === 'account' ? registerCopy.value.next : registerCopy.value.createAccount)
-const pinMatch = computed(() => pinValue.value.length === 6 && confirmPinValue.value.length === 6 && pinValue.value === confirmPinValue.value)
+const pinMatch = computed(() => pinValue.value.length === PIN_LENGTH && confirmPinValue.value.length === PIN_LENGTH && pinValue.value === confirmPinValue.value)
 
 watch(
   authReady,
@@ -106,10 +110,16 @@ function focusPin() {
   nextTick(() => pinInput.value?.focus())
 }
 
+function focusConfirmPin() {
+  nextTick(() => confirmPinInput.value?.focus())
+}
+
 function goBackToAccount() {
   step.value = 'account'
   pinValue.value = ''
   confirmPinValue.value = ''
+  showPinValue.value = false
+  showConfirmPinValue.value = false
   errorMessage.value = ''
   focusIdentifier()
 }
@@ -138,6 +148,8 @@ async function goToPin() {
     step.value = 'pin'
     pinValue.value = ''
     confirmPinValue.value = ''
+    showPinValue.value = false
+    showConfirmPinValue.value = false
     focusPin()
   }
   catch {
@@ -149,12 +161,28 @@ async function goToPin() {
 }
 
 function sanitizePin(value: string) {
-  pinValue.value = value.replace(/\D/g, '').slice(0, 6)
+  const nextValue = value.replace(/\D/g, '')
+
+  if (pinValue.value.length === PIN_LENGTH && nextValue.length > PIN_LENGTH) {
+    return
+  }
+
+  pinValue.value = nextValue.slice(0, PIN_LENGTH)
   errorMessage.value = ''
+
+  if (pinValue.value.length === PIN_LENGTH) {
+    focusConfirmPin()
+  }
 }
 
 function sanitizeConfirmPin(value: string) {
-  confirmPinValue.value = value.replace(/\D/g, '').slice(0, 6)
+  const nextValue = value.replace(/\D/g, '')
+
+  if (confirmPinValue.value.length === PIN_LENGTH && nextValue.length > PIN_LENGTH) {
+    return
+  }
+
+  confirmPinValue.value = nextValue.slice(0, PIN_LENGTH)
   errorMessage.value = ''
 }
 
@@ -170,20 +198,19 @@ async function submitRegister() {
     return
   }
 
-  if (pinValue.value.length !== 6) {
+  if (pinValue.value.length !== PIN_LENGTH) {
     errorMessage.value = registerCopy.value.pinNumbers
     focusPin()
     return
   }
 
-  if (confirmPinValue.value.length !== 6) {
+  if (confirmPinValue.value.length !== PIN_LENGTH) {
     errorMessage.value = registerCopy.value.confirmPinAgain
     return
   }
 
   if (!pinMatch.value) {
     errorMessage.value = registerCopy.value.pinMismatch
-    confirmPinValue.value = ''
     return
   }
 
@@ -221,20 +248,6 @@ async function submitRegister() {
     isSubmitting.value = false
   }
 }
-
-watch([pinValue, confirmPinValue], () => {
-  if (step.value !== 'pin' || isSubmitting.value) return
-
-  if (pinValue.value.length !== 6 || confirmPinValue.value.length !== 6) return
-
-  if (pinMatch.value) {
-    void submitRegister()
-    return
-  }
-
-  errorMessage.value = 'PIN codes do not match. Please try again.'
-  confirmPinValue.value = ''
-})
 
 onMounted(() => {
   if (isAuthenticated.value) {
@@ -344,6 +357,11 @@ onMounted(() => {
             </UBadge>
           </div>
 
+          <div class="rounded-[1.2rem] border border-sky-200/70 bg-sky-50/80 px-4 py-3 dark:border-sky-900/50 dark:bg-sky-950/30">
+            <p class="text-[9px] font-semibold uppercase tracking-[0.24em] text-sky-700 dark:text-sky-100">{{ registerCopy.emailOrPhone }}</p>
+            <p class="mt-1 break-all text-base font-black text-default">{{ identifier }}</p>
+          </div>
+
           <div class="space-y-3">
             <div class="flex items-center gap-2">
               <div class="flex size-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200">
@@ -352,18 +370,32 @@ onMounted(() => {
               <p class="text-[9px] font-semibold uppercase tracking-[0.24em] text-muted sm:text-[10px]">{{ registerCopy.createPin }}</p>
             </div>
 
-            <input
-              ref="pinInput"
-              :value="pinValue"
-              type="password"
-              inputmode="numeric"
-              autocomplete="new-password"
-              autocapitalize="off"
-              spellcheck="false"
-              placeholder="••••••"
-              class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold tracking-[0.35em] text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950"
-              @input="sanitizePin(($event.target as HTMLInputElement).value)"
-            >
+            <div class="relative">
+              <input
+                ref="pinInput"
+                :value="pinValue"
+                :type="showPinValue ? 'text' : 'password'"
+                inputmode="numeric"
+                minlength="6"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                autocomplete="new-password"
+                autocapitalize="off"
+                spellcheck="false"
+                placeholder="••••••"
+                class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 pr-12 text-[16px] font-semibold tracking-[0.35em] text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950"
+                @input="sanitizePin(($event.target as HTMLInputElement).value)"
+              >
+
+              <button
+                type="button"
+                class="absolute inset-y-0 right-0 flex items-center justify-center px-4 text-muted transition hover:text-default"
+                :aria-label="showPinValue ? 'Hide PIN' : 'Show PIN'"
+                @click="showPinValue = !showPinValue"
+              >
+                <UIcon :name="showPinValue ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="size-4.5" />
+              </button>
+            </div>
           </div>
 
           <div class="space-y-3">
@@ -374,26 +406,51 @@ onMounted(() => {
               <p class="text-[9px] font-semibold uppercase tracking-[0.24em] text-muted sm:text-[10px]">{{ registerCopy.confirmPin }}</p>
             </div>
 
-            <input
-              :value="confirmPinValue"
-              type="password"
-              inputmode="numeric"
-              autocomplete="new-password"
-              autocapitalize="off"
-              spellcheck="false"
-              placeholder="••••••"
-              class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold tracking-[0.35em] text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950"
-              @input="sanitizeConfirmPin(($event.target as HTMLInputElement).value)"
-            >
+            <div class="relative">
+              <input
+                :value="confirmPinValue"
+                ref="confirmPinInput"
+                :type="showConfirmPinValue ? 'text' : 'password'"
+                inputmode="numeric"
+                minlength="6"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                autocomplete="new-password"
+                autocapitalize="off"
+                spellcheck="false"
+                placeholder="••••••"
+                class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 pr-12 text-[16px] font-semibold tracking-[0.35em] text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950"
+                @input="sanitizeConfirmPin(($event.target as HTMLInputElement).value)"
+              >
+
+              <button
+                type="button"
+                class="absolute inset-y-0 right-0 flex items-center justify-center px-4 text-muted transition hover:text-default"
+                :aria-label="showConfirmPinValue ? 'Hide confirm PIN' : 'Show confirm PIN'"
+                @click="showConfirmPinValue = !showConfirmPinValue"
+              >
+                <UIcon :name="showConfirmPinValue ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="size-4.5" />
+              </button>
+            </div>
           </div>
 
           <div class="grid grid-cols-6 gap-2">
             <div
               v-for="(slot, index) in pinSlots"
               :key="index"
-              class="flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-xl font-black text-default dark:border-slate-800 dark:bg-slate-950"
+              class="flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950"
             >
-              {{ slot || '·' }}
+              <span
+                class="flex size-4 items-center justify-center rounded-full border transition-all duration-200"
+                :class="slot
+                  ? 'border-slate-900/70 bg-slate-900/10 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.14)] dark:border-white/70 dark:bg-white/10'
+                  : 'border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-slate-900'"
+              >
+                <span
+                  class="size-1.5 rounded-full transition-all duration-200"
+                  :class="slot ? 'bg-slate-900 dark:bg-white' : 'bg-slate-400/35 dark:bg-slate-500/40'"
+                />
+              </span>
             </div>
           </div>
 
@@ -401,9 +458,19 @@ onMounted(() => {
             <div
               v-for="(slot, index) in confirmPinSlots"
               :key="index"
-              class="flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-xl font-black text-default dark:border-slate-800 dark:bg-slate-950"
+              class="flex h-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950"
             >
-              {{ slot || '·' }}
+              <span
+                class="flex size-4 items-center justify-center rounded-full border transition-all duration-200"
+                :class="slot
+                  ? 'border-cyan-900/70 bg-cyan-900/10 shadow-[inset_0_0_0_1px_rgba(14,116,144,0.14)] dark:border-cyan-200/70 dark:bg-cyan-200/10'
+                  : 'border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-slate-900'"
+              >
+                <span
+                  class="size-1.5 rounded-full transition-all duration-200"
+                  :class="slot ? 'bg-cyan-900 dark:bg-cyan-100' : 'bg-slate-400/35 dark:bg-slate-500/40'"
+                />
+              </span>
             </div>
           </div>
 
@@ -413,7 +480,7 @@ onMounted(() => {
 
           <UButton
             type="submit"
-            :disabled="pinValue.length !== 6 || isSubmitting"
+            :disabled="pinValue.length !== PIN_LENGTH || confirmPinValue.length !== PIN_LENGTH || !pinMatch || isSubmitting"
             :class="['h-12 w-full rounded-full bg-gradient-to-r text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98] sm:text-base', activeTheme.accent]"
           >
             <span class="flex w-full items-center justify-center gap-2 text-center">

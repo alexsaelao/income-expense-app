@@ -14,7 +14,11 @@ const props = withDefaults(defineProps<{
   labels: string[]
   series: ChartSeries[]
   height?: number
+  axisFormatter?: (value: number) => string
+  mobileAxisFormatter?: (value: number) => string
+  mobileLegendFormatter?: (value: number) => string
   valueFormatter?: (value: number) => string
+  mobileFullscreen?: boolean
 }>(), {
   height: 280
 })
@@ -24,16 +28,38 @@ const viewBoxHeight = 380
 const viewportWidth = ref(1024)
 
 const chartPadding = computed(() => ({
-  top: viewportWidth.value < 640 ? 18 : 20,
-  right: viewportWidth.value < 640 ? 14 : 24,
-  bottom: viewportWidth.value < 640 ? 46 : 54,
-  left: viewportWidth.value < 640 ? 78 : 56
+  top: viewportWidth.value < 640 ? 16 : 22,
+  right: viewportWidth.value < 640 ? 16 : 24,
+  bottom: viewportWidth.value < 640 ? 52 : 58,
+  left: viewportWidth.value < 640 ? 88 : 132
 }))
 
-const compactLabels = computed(() => props.labels.length > 12)
 const isMobile = computed(() => viewportWidth.value < 640)
+const fullscreenMobile = computed(() => props.mobileFullscreen && isMobile.value)
 const innerWidth = computed(() => viewBoxWidth - chartPadding.value.left - chartPadding.value.right)
 const innerHeight = computed(() => viewBoxHeight - chartPadding.value.top - chartPadding.value.bottom)
+const renderHeight = computed(() => {
+  if (!isMobile.value) {
+    return props.height ?? 280
+  }
+
+  return Math.min(props.height ?? 280, fullscreenMobile.value ? 300 : 250)
+})
+const xLabelStep = computed(() => {
+  if (props.labels.length <= 6) return 1
+  if (isMobile.value) return props.labels.length > 14 ? 3 : 2
+  return props.labels.length > 16 ? 2 : 1
+})
+
+const chartShellClass = computed(() => fullscreenMobile.value
+  ? 'overflow-hidden rounded-none border-0 bg-transparent p-0 shadow-none dark:bg-transparent'
+  : 'overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-gradient-to-b from-slate-50 via-white to-white p-4 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.25)] dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 sm:p-5')
+
+const xLabelBottomOffset = computed(() => {
+  if (fullscreenMobile.value) return 34
+  if (isMobile.value) return 22
+  return 20
+})
 
 function updateViewportWidth() {
   if (typeof window === 'undefined') return
@@ -56,6 +82,22 @@ function formatCompactNumber(value: number) {
 
 function formatValue(value: number) {
   return props.valueFormatter ? props.valueFormatter(value) : formatCompactNumber(value)
+}
+
+function formatAxisValue(value: number) {
+  if (isMobile.value && props.mobileAxisFormatter) {
+    return props.mobileAxisFormatter(value)
+  }
+
+  return props.axisFormatter ? props.axisFormatter(value) : formatCompactNumber(value)
+}
+
+function formatLegendValue(value: number) {
+  if (isMobile.value && props.mobileLegendFormatter) {
+    return props.mobileLegendFormatter(value)
+  }
+
+  return formatValue(value)
 }
 
 const allValues = computed(() => props.series.flatMap(series => series.values))
@@ -132,12 +174,7 @@ function yTicks() {
 }
 
 function showLabel(index: number) {
-  if (isMobile.value) {
-    return index % 2 === 0
-  }
-
-  if (!compactLabels.value) return true
-  return index % 2 === 0
+  return index % xLabelStep.value === 0 || index === props.labels.length - 1
 }
 
 function seriesAreaPath(series: ChartSeries) {
@@ -152,16 +189,8 @@ function seriesPointRadius(series: ChartSeries) {
   return series.pointRadius ? Math.max(series.pointRadius * 5, 4) : 5
 }
 
-function axisFontSize() {
-  return isMobile.value ? 14 : 20
-}
-
-function xLabelFontSize() {
-  return isMobile.value ? 13 : 20
-}
-
 function yLabelX() {
-  return isMobile.value ? chartPadding.value.left - 8 : chartPadding.value.left - 14
+  return isMobile.value ? chartPadding.value.left - 10 : chartPadding.value.left - 14
 }
 
 onMounted(() => {
@@ -177,8 +206,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="space-y-4">
-    <div class="overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-gradient-to-b from-slate-50 via-white to-white p-4 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.25)] dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 sm:p-5">
-      <div class="flex items-center justify-between gap-3 pb-3">
+    <div :class="chartShellClass">
+      <div v-if="!fullscreenMobile" class="flex items-center justify-between gap-3 pb-3">
         <div class="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">
           <span class="size-2 rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400 shadow-[0_0_18px_rgba(34,211,238,0.35)]" />
           <span>Responsive line chart</span>
@@ -188,15 +217,16 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-slate-50/70 px-2 py-2 dark:border-slate-800 dark:bg-slate-950/70 sm:px-3 sm:py-3">
-        <svg
-          :viewBox="`0 0 ${viewBoxWidth} ${viewBoxHeight}`"
-          :style="{ height: `${height}px` }"
-          class="h-full w-full"
-          role="img"
-          aria-label="Line chart"
-          preserveAspectRatio="none"
-        >
+      <div :class="fullscreenMobile ? 'relative overflow-hidden bg-transparent px-0 py-0' : 'relative overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-slate-50/70 px-2 py-2 dark:border-slate-800 dark:bg-slate-950/70 sm:px-3 sm:py-3'">
+        <div class="relative overflow-visible">
+          <svg
+            :viewBox="`0 0 ${viewBoxWidth} ${viewBoxHeight}`"
+            :style="{ height: `${renderHeight}px`, width: '100%' }"
+            class="block w-full"
+            role="img"
+            aria-label="Line chart"
+            preserveAspectRatio="none"
+          >
           <defs>
             <linearGradient id="chart-grid-fade" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stop-color="rgba(148, 163, 184, 0.18)" />
@@ -230,21 +260,6 @@ onBeforeUnmount(() => {
             />
           </g>
 
-          <g class="select-none">
-            <text
-              v-for="tick in yTicks()"
-              :key="`label-${tick.y}`"
-              :x="yLabelX()"
-              :y="tick.y + 4"
-              fill="rgba(148, 163, 184, 0.95)"
-              :font-size="axisFontSize()"
-              font-weight="700"
-              text-anchor="end"
-            >
-              {{ formatCompactNumber(tick.value) }}
-            </text>
-          </g>
-
           <g v-for="series in props.series" :key="series.label">
             <path
               v-if="series.area"
@@ -273,33 +288,55 @@ onBeforeUnmount(() => {
               <title>{{ `${series.label}: ${formatValue(value)} (${props.labels[index] ?? ''})` }}</title>
             </circle>
           </g>
+          </svg>
 
-          <g class="select-none">
-            <text
+          <div class="pointer-events-none absolute inset-0 select-none">
+            <div
+              v-for="tick in yTicks()"
+              :key="`axis-${tick.y}`"
+              class="absolute flex -translate-y-1/2"
+              :style="{ left: `${(yLabelX() / viewBoxWidth) * 100}%`, top: `${(tick.y / viewBoxHeight) * 100}%` }"
+            >
+              <span
+                class="inline-flex -translate-x-full rounded-full border border-slate-200/80 bg-white/85 px-2 py-0.5 font-bold tabular-nums text-slate-500 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/85 dark:text-slate-300"
+                :class="fullscreenMobile ? 'text-[10px]' : 'text-[11px]'"
+              >
+                {{ formatAxisValue(tick.value) }}
+              </span>
+            </div>
+
+            <div
               v-for="(label, index) in props.labels"
               :key="label + index"
               v-show="showLabel(index)"
-              :x="getX(index)"
-              :y="viewBoxHeight - (isMobile ? 16 : 18)"
-              fill="rgba(148, 163, 184, 0.95)"
-              :font-size="xLabelFontSize()"
-              font-weight="700"
-              text-anchor="middle"
+              class="absolute -translate-x-1/2"
+              :style="{ left: `${(getX(index) / viewBoxWidth) * 100}%`, top: `${((viewBoxHeight - xLabelBottomOffset) / viewBoxHeight) * 100}%` }"
             >
-              {{ label }}
-            </text>
-          </g>
-        </svg>
+              <span
+                class="inline-flex rounded-full border border-slate-200/80 bg-white/85 px-2 py-0.5 font-bold text-slate-500 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/85 dark:text-slate-300"
+                :class="fullscreenMobile ? 'text-[9px]' : 'text-[10px]'"
+              >
+                {{ label }}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="mt-4 flex flex-wrap items-center gap-2">
+      <div class="mt-4 grid gap-2 sm:grid-cols-3" :class="fullscreenMobile ? 'gap-1.5' : ''">
         <div
           v-for="item in series"
           :key="item.label"
-          class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-default shadow-sm dark:border-slate-800 dark:bg-slate-950"
+          class="flex items-center justify-between gap-3 rounded-[1rem] border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-default shadow-sm dark:border-slate-800 dark:bg-slate-950"
+          :class="fullscreenMobile ? 'px-2.5 py-2 text-[11px]' : ''"
         >
-          <span class="size-2.5 rounded-full" :style="{ backgroundColor: item.color }" />
-          <span>{{ item.label }}</span>
+          <div class="min-w-0 flex items-center gap-2">
+            <span class="size-2.5 shrink-0 rounded-full" :style="{ backgroundColor: item.color }" />
+            <span class="truncate">{{ item.label }}</span>
+          </div>
+          <span class="shrink-0 tabular-nums text-muted">
+            {{ formatLegendValue(item.values[item.values.length - 1] ?? 0) }}
+          </span>
         </div>
       </div>
     </div>

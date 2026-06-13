@@ -265,7 +265,7 @@ onMounted(() => {
 
     <section class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
       <form class="space-y-2 px-4 py-3 sm:space-y-3 sm:py-4" @submit.prevent="step === 'account' ? goToPin() : submitLogin()">
-        <div v-if="hasSavedAccount" class="mb-3 rounded-[1.2rem] border border-slate-200/80 bg-slate-50 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:mb-4">
+        <div v-if="hasSavedAccount && step === 'account'" class="mb-3 rounded-[1.2rem] border border-slate-200/80 bg-slate-50 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:mb-4">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <p class="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted">{{ copy.savedAccount }}</p>
@@ -349,6 +349,11 @@ onMounted(() => {
             <UBadge color="neutral" variant="soft" class="rounded-full">
               {{ copy.digits }}
             </UBadge>
+          </div>
+
+          <div class="rounded-[1.2rem] border border-sky-200/70 bg-sky-50/80 px-4 py-3 dark:border-sky-900/50 dark:bg-sky-950/30">
+            <p class="text-[9px] font-semibold uppercase tracking-[0.24em] text-sky-700 dark:text-sky-100">{{ copy.emailOrPhone }}</p>
+            <p class="mt-1 break-all text-base font-black text-default">{{ identifier }}</p>
           </div>
 
           <IosPinKeypad
