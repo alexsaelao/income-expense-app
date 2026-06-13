@@ -31,6 +31,13 @@ const pinSlots = computed(() => Array.from({ length: props.length }, (_, index) 
 })))
 const isDisabled = computed(() => props.disabled)
 
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false
+  return target.tagName === 'INPUT'
+    || target.tagName === 'TEXTAREA'
+    || target.isContentEditable
+}
+
 function updateValue(nextValue: string) {
   const sanitized = nextValue.replace(/\D/g, '').slice(0, props.length)
   modelValue.value = sanitized
@@ -55,6 +62,38 @@ function clearValue() {
   modelValue.value = ''
   emit('clear')
 }
+
+function handleKeydown(event: KeyboardEvent) {
+  if (isDisabled.value || isEditableTarget(event.target)) return
+  if (event.metaKey || event.ctrlKey || event.altKey) return
+
+  if (/^\d$/.test(event.key)) {
+    event.preventDefault()
+    pressDigit(event.key)
+    return
+  }
+
+  if (event.key === 'Backspace' || event.key === 'Delete') {
+    event.preventDefault()
+    backspace()
+    return
+  }
+
+  if (event.key === 'Enter' && modelValue.value.length === props.length) {
+    event.preventDefault()
+    emit('complete', modelValue.value)
+  }
+}
+
+onMounted(() => {
+  if (typeof window === 'undefined') return
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onBeforeUnmount(() => {
+  if (typeof window === 'undefined') return
+  window.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <template>

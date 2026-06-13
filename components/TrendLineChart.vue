@@ -198,8 +198,8 @@ function seriesPointRadius(series: ChartSeries) {
 }
 
 function yLabelX() {
-  if (fullscreenMobile.value) return chartPadding.value.left + 24
-  return isMobile.value ? chartPadding.value.left + 28 : chartPadding.value.left - 14
+  if (fullscreenMobile.value) return chartPadding.value.left + 40
+  return isMobile.value ? chartPadding.value.left + 50 : chartPadding.value.left - 14
 }
 
 onMounted(() => {
