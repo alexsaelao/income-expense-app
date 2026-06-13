@@ -1,6 +1,7 @@
 export type ProfileAvatarType = 'emoji' | 'icon'
 
 export const AUTH_SERVER_SESSION_STATE_KEY = 'income-expense-note-auth-server-session'
+export const AUTH_HYDRATED_STATE_KEY = 'income-expense-note-auth-hydrated'
 
 export type ServerAuthSessionSnapshot = {
   loaded: boolean
@@ -28,6 +29,8 @@ type AuthSession = {
   avatarType?: ProfileAvatarType
   avatarValue?: string
 }
+
+export type StoredAuthSession = AuthSession
 
 const REMEMBER_KEY = 'income-expense-note-auth-remember-v1'
 const SESSION_KEY = 'income-expense-note-auth-session-v1'
@@ -79,6 +82,10 @@ function readSession<T>(key: string): T | null {
   }
 }
 
+export function readStoredAuthSession() {
+  return readSession<StoredAuthSession>(SESSION_KEY)
+}
+
 function writeStorage<T>(key: string, value: T | null) {
   if (import.meta.server) return
 
@@ -103,14 +110,15 @@ function writeSession<T>(key: string, value: T | null) {
 
 export function useDeviceAuth() {
   const authReady = useState('income-expense-note-auth-ready', () => false)
-  const hydrated = useState('income-expense-note-auth-hydrated', () => false)
+  const hydrated = useState(AUTH_HYDRATED_STATE_KEY, () => false)
   const hydrating = useState('income-expense-note-auth-hydrating', () => false)
   const rememberedProfile = useState<AuthProfile | null>('income-expense-note-auth-remembered', () => null)
   const sessionProfile = useState<AuthSession | null>('income-expense-note-auth-session', () => {
     if (import.meta.server) return null
-    return readSession<AuthSession>(SESSION_KEY)
+    return readStoredAuthSession()
   })
   const serverAuthSession = useState<ServerAuthSessionSnapshot>(AUTH_SERVER_SESSION_STATE_KEY, createServerAuthSnapshot)
+  const storedSession = import.meta.client ? readStoredAuthSession() : null
 
   if (!import.meta.server && !rememberedProfile.value) {
     const storedRememberedProfile = readStorage<AuthProfile>(REMEMBER_KEY)
@@ -123,7 +131,20 @@ export function useDeviceAuth() {
   }
 
   if (serverAuthSession.value.loaded) {
-    applyServerAuthSession(serverAuthSession.value, rememberedProfile.value)
+    if (serverAuthSession.value.authenticated) {
+      applyServerAuthSession(serverAuthSession.value, rememberedProfile.value)
+    }
+    else if (storedSession) {
+      sessionProfile.value = storedSession
+      serverAuthSession.value = {
+        loaded: true,
+        authenticated: true,
+        session: {
+          identifier: storedSession.identifier,
+          plan: storedSession.plan ?? 'free'
+        }
+      }
+    }
     authReady.value = true
   }
   else if (sessionProfile.value) {
@@ -161,6 +182,8 @@ export function useDeviceAuth() {
 
     hydrating.value = true
 
+    const storedSession = readStoredAuthSession()
+
     try {
       const storedRememberedProfile = readStorage<AuthProfile>(REMEMBER_KEY)
 
@@ -170,6 +193,20 @@ export function useDeviceAuth() {
             avatarValue: normalizeAvatarValue(storedRememberedProfile.avatarType, storedRememberedProfile.avatarValue)
           }
         : null
+
+      if (storedSession) {
+        sessionProfile.value = storedSession
+        serverAuthSession.value = {
+          loaded: true,
+          authenticated: true,
+          session: {
+            identifier: storedSession.identifier,
+            plan: storedSession.plan ?? 'free'
+          }
+        }
+        authReady.value = true
+        return
+      }
 
       if (!serverAuthSession.value.loaded) {
         const serverSession = await $fetch<{ authenticated: boolean; session: { identifier: string; plan: 'free' | 'pro' } | null }>('/api/auth/me')
@@ -185,16 +222,48 @@ export function useDeviceAuth() {
         }
       }
 
-      applyServerAuthSession(serverAuthSession.value, rememberedProfile.value)
+      if (serverAuthSession.value.authenticated) {
+        applyServerAuthSession(serverAuthSession.value, rememberedProfile.value)
+      }
+      else {
+        if (storedSession) {
+          sessionProfile.value = storedSession
+          serverAuthSession.value = {
+            loaded: true,
+            authenticated: true,
+            session: {
+              identifier: storedSession.identifier,
+              plan: storedSession.plan ?? 'free'
+            }
+          }
+        }
+        else {
+          sessionProfile.value = null
+          writeSession<AuthSession>(SESSION_KEY, null)
+        }
+      }
     }
     catch {
-      serverAuthSession.value = {
-        loaded: true,
-        authenticated: false,
-        session: null
+      if (storedSession) {
+        sessionProfile.value = storedSession
+        serverAuthSession.value = {
+          loaded: true,
+          authenticated: true,
+          session: {
+            identifier: storedSession.identifier,
+            plan: storedSession.plan ?? 'free'
+          }
+        }
       }
-      sessionProfile.value = null
-      writeSession<AuthSession>(SESSION_KEY, null)
+      else {
+        serverAuthSession.value = {
+          loaded: true,
+          authenticated: false,
+          session: null
+        }
+        sessionProfile.value = null
+        writeSession<AuthSession>(SESSION_KEY, null)
+      }
     }
     finally {
       hydrated.value = true
@@ -362,6 +431,10 @@ export function useDeviceAuth() {
   onMounted(() => {
     ensureHydrated()
   })
+
+  if (!import.meta.server) {
+    void hydrateAuth()
+  }
 
   return {
     authReady,

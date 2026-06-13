@@ -61,6 +61,14 @@ const xLabelBottomOffset = computed(() => {
   return 20
 })
 
+const yAxisLabelClass = computed(() => fullscreenMobile.value
+  ? 'text-[9px]'
+  : isMobile.value
+    ? 'text-[10px]'
+    : 'text-[11px]')
+
+const yAxisLabelOffsetClass = computed(() => '-translate-x-full')
+
 function updateViewportWidth() {
   if (typeof window === 'undefined') return
   viewportWidth.value = window.innerWidth
@@ -190,7 +198,8 @@ function seriesPointRadius(series: ChartSeries) {
 }
 
 function yLabelX() {
-  return isMobile.value ? chartPadding.value.left - 10 : chartPadding.value.left - 14
+  if (fullscreenMobile.value) return chartPadding.value.left + 24
+  return isMobile.value ? chartPadding.value.left + 28 : chartPadding.value.left - 14
 }
 
 onMounted(() => {
@@ -298,8 +307,8 @@ onBeforeUnmount(() => {
               :style="{ left: `${(yLabelX() / viewBoxWidth) * 100}%`, top: `${(tick.y / viewBoxHeight) * 100}%` }"
             >
               <span
-                class="inline-flex -translate-x-full rounded-full border border-slate-200/80 bg-white/85 px-2 py-0.5 font-bold tabular-nums text-slate-500 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/85 dark:text-slate-300"
-                :class="fullscreenMobile ? 'text-[10px]' : 'text-[11px]'"
+                class="inline-flex rounded-full border border-slate-200/80 bg-white/85 px-2 py-0.5 font-bold tabular-nums text-slate-500 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/85 dark:text-slate-300"
+                :class="[yAxisLabelClass, yAxisLabelOffsetClass]"
               >
                 {{ formatAxisValue(tick.value) }}
               </span>

@@ -1,4 +1,4 @@
-import { AUTH_SERVER_SESSION_STATE_KEY, type ServerAuthSessionSnapshot } from '~/composables/useDeviceAuth'
+import { AUTH_HYDRATED_STATE_KEY, AUTH_SERVER_SESSION_STATE_KEY, type ServerAuthSessionSnapshot } from '~/composables/useDeviceAuth'
 
 const AUTH_PAGES = new Set(['/login', '/register'])
 const ADMIN_AUTH_PAGES = new Set(['/admin-login'])
@@ -25,8 +25,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   const serverAuthSession = useState<ServerAuthSessionSnapshot>(AUTH_SERVER_SESSION_STATE_KEY, createEmptyServerAuthSession)
+  const authHydrated = useState(AUTH_HYDRATED_STATE_KEY, () => false)
 
   if (!serverAuthSession.value.loaded) {
+    if (import.meta.client && !authHydrated.value) {
+      return
+    }
+
     try {
       const headers = import.meta.server ? useRequestHeaders(['cookie']) : undefined
       const result = await $fetch<{ authenticated: boolean; session: { identifier: string; plan: 'free' | 'pro' } | null }>('/api/auth/me', {
@@ -60,6 +65,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!serverAuthSession.value.authenticated && !isAuthPage) {
+    if (import.meta.server || !authHydrated.value) {
+      return
+    }
+
     return navigateTo('/login', { replace: true })
   }
 })
