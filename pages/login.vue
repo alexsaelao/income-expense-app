@@ -289,14 +289,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex h-full flex-1 items-center justify-center overflow-hidden py-1 sm:py-2">
-    <div class="w-full max-w-[26rem] space-y-3 sm:space-y-4">
-      <section v-if="step === 'account'" class="space-y-2 text-center">
-        <div :class="['mx-auto flex size-12 items-center justify-center overflow-hidden rounded-[1.25rem] bg-gradient-to-br text-white shadow-[0_16px_36px_-18px_rgba(37,99,235,0.7)] sm:size-14', activeTheme.accent]">
+  <div class="flex h-full min-h-0 flex-1 items-stretch justify-center overflow-hidden py-0 sm:py-2">
+    <div class="flex h-full min-h-0 w-full max-w-[26rem] flex-col justify-center space-y-2 overflow-hidden sm:space-y-4">
+      <section v-if="step === 'account'" class="space-y-1.5 text-center sm:space-y-2">
+        <div :class="['mx-auto flex size-11 items-center justify-center overflow-hidden rounded-[1.1rem] bg-gradient-to-br text-white shadow-[0_14px_30px_-18px_rgba(37,99,235,0.7)] sm:size-14', activeTheme.accent]">
           <img src="/wallet-codesabai-mark.svg" alt="" class="h-full w-full" />
         </div>
 
-        <div class="space-y-0.5 sm:space-y-1">
+        <div class="space-y-0.5">
           <p class="text-[9px] font-semibold uppercase tracking-[0.28em] text-muted sm:text-[10px]">
             {{ loginCopy.welcomeBack }}
           </p>
@@ -309,8 +309,8 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
-        <form class="space-y-2 sm:space-y-3" @submit.prevent="step === 'account' ? goToPin() : submitLogin()">
+      <UCard class="max-h-[calc(100dvh-0.75rem)] overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+        <form class="flex min-h-0 flex-col gap-2 sm:gap-3" @submit.prevent="step === 'account' ? goToPin() : submitLogin()">
         <div
           v-if="hasSavedAccount && step === 'account'"
           class="rounded-[1.2rem] border border-sky-200/70 bg-sky-50/80 p-3 dark:border-sky-900/50 dark:bg-sky-950/30 sm:p-4"
@@ -333,7 +333,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="step === 'account'" class="space-y-3 sm:space-y-4">
+        <div v-if="step === 'account'" class="space-y-2.5 sm:space-y-4">
           <div v-if="!hasSavedAccount">
             <div class="flex items-center gap-2">
               <div class="flex size-8 items-center justify-center rounded-full bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-200">
@@ -352,7 +352,7 @@ onBeforeUnmount(() => {
               autocorrect="off"
               spellcheck="false"
               :placeholder="loginCopy.emailPlaceholder"
-              class="mt-3 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950 sm:h-12"
+            class="mt-2.5 h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[16px] font-semibold text-default shadow-none outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-slate-800 dark:bg-slate-950 sm:mt-3 sm:h-12"
             >
           </div>
 
@@ -412,7 +412,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-else class="space-y-3 sm:space-y-4">
+        <div v-else class="space-y-2.5 sm:space-y-4">
           <div class="flex items-center justify-between gap-3">
             <button
               type="button"
@@ -428,7 +428,7 @@ onBeforeUnmount(() => {
             </UBadge>
           </div>
 
-          <div class="rounded-[1.2rem] border border-sky-200/70 bg-sky-50/80 px-4 py-3 dark:border-sky-900/50 dark:bg-sky-950/30">
+          <div class="rounded-[1.2rem] border border-sky-200/70 bg-sky-50/80 px-4 py-2.5 dark:border-sky-900/50 dark:bg-sky-950/30 sm:py-3">
             <p class="text-[9px] font-semibold uppercase tracking-[0.24em] text-sky-700 dark:text-sky-100">{{ loginCopy.emailOrPhone }}</p>
             <p class="mt-1 break-all text-base font-black text-default">{{ identifier }}</p>
           </div>
@@ -437,11 +437,12 @@ onBeforeUnmount(() => {
             v-model="pinValue"
             :disabled="isSubmitting || isCheckingAccount"
             :error="pinError"
+            compact
             @clear="errorMessage = ''"
           />
         </div>
 
-        <p v-if="errorMessage" class="mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+        <p v-if="errorMessage" class="mt-1 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100 sm:mt-2">
           {{ errorMessage }}
         </p>
         </form>

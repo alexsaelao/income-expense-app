@@ -5,10 +5,12 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   length?: number
   error?: boolean
+  compact?: boolean
 }>(), {
   disabled: false,
   length: 6,
-  error: false
+  error: false,
+  compact: false
 })
 
 const emit = defineEmits<{
@@ -33,6 +35,32 @@ const pinSlots = computed(() => Array.from({ length: props.length }, (_, index) 
   error: props.error
 })))
 const isDisabled = computed(() => props.disabled)
+const isCompact = computed(() => props.compact)
+const keypadOuterClass = computed(() => isCompact.value
+  ? 'rounded-[1.6rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f7fbff)] px-2.5 py-3 shadow-[0_18px_40px_-26px_rgba(15,23,42,0.16)] sm:rounded-[2rem] sm:px-4 sm:py-4 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(15,23,42,0.98))] dark:shadow-[0_24px_60px_-34px_rgba(15,23,42,0.8)]'
+  : 'rounded-[2rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f7fbff)] px-3 py-4 shadow-[0_24px_60px_-34px_rgba(15,23,42,0.18)] sm:px-4 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(15,23,42,0.98))] dark:shadow-[0_24px_60px_-34px_rgba(15,23,42,0.8)]'
+)
+const keypadGridClass = computed(() => isCompact.value ? 'grid grid-cols-3 gap-2.5 sm:gap-4' : 'grid grid-cols-3 gap-3 sm:gap-4')
+const keypadButtonClass = computed(() => isCompact.value
+  ? 'flex h-14 flex-col items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-[0_10px_20px_-15px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.9)] transition active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 dark:border-transparent dark:bg-white/10 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_20px_-15px_rgba(0,0,0,0.55)] sm:h-[4.75rem]'
+  : 'flex h-16 flex-col items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-[0_12px_24px_-16px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.9)] transition active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 dark:border-transparent dark:bg-white/10 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_24px_-16px_rgba(0,0,0,0.55)] sm:h-[4.75rem]'
+)
+const keypadControlClass = computed(() => isCompact.value
+  ? 'flex h-14 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-[0_10px_20px_-15px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.9)] transition active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 dark:border-transparent dark:bg-white/10 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_10px_20px_-15px_rgba(0,0,0,0.55)] sm:h-[4.75rem]'
+  : 'flex h-16 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-[0_12px_24px_-16px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.9)] transition active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 dark:border-transparent dark:bg-white/10 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_24px_-16px_rgba(0,0,0,0.55)] sm:h-[4.75rem]'
+)
+const keypadLabelClass = computed(() => isCompact.value
+  ? 'mt-0.5 text-[0.55rem] font-semibold uppercase tracking-[0.26em] text-slate-400 dark:text-white/40 sm:text-[0.65rem]'
+  : 'mt-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.28em] text-slate-400 dark:text-white/40 sm:text-[0.65rem]'
+)
+const keypadValueClass = computed(() => isCompact.value
+  ? 'text-[1.55rem] font-medium leading-none tracking-tight sm:text-[2rem]'
+  : 'text-[1.75rem] font-medium leading-none tracking-tight sm:text-[2rem]'
+)
+const keypadClearClass = computed(() => isCompact.value
+  ? 'rounded-full px-4 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white/55'
+  : 'rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white/55'
+)
 
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
@@ -126,20 +154,19 @@ onBeforeUnmount(() => {
     </div>
 
     <div
-      class="rounded-[2rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f7fbff)] px-3 py-4 shadow-[0_24px_60px_-34px_rgba(15,23,42,0.18)] sm:px-4 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(15,23,42,0.98))] dark:shadow-[0_24px_60px_-34px_rgba(15,23,42,0.8)]"
-      :class="error ? 'pin-shake' : ''"
+      :class="[keypadOuterClass, error ? 'pin-shake' : '']"
     >
-      <div class="grid grid-cols-3 gap-3 sm:gap-4">
+      <div :class="keypadGridClass">
         <button
           v-for="item in digitRows"
           :key="item.digit"
           type="button"
-          class="flex h-16 flex-col items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-[0_12px_24px_-16px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.9)] transition active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 dark:border-transparent dark:bg-white/10 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_24px_-16px_rgba(0,0,0,0.55)] sm:h-[4.75rem]"
+          :class="keypadButtonClass"
           :disabled="isDisabled"
           @click="pressDigit(item.digit)"
         >
-          <span class="text-[1.75rem] font-medium leading-none tracking-tight sm:text-[2rem]">{{ item.digit }}</span>
-          <span class="mt-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.28em] text-slate-400 dark:text-white/40 sm:text-[0.65rem]">
+          <span :class="keypadValueClass">{{ item.digit }}</span>
+          <span :class="keypadLabelClass">
             {{ item.letters }}
           </span>
         </button>
@@ -148,16 +175,16 @@ onBeforeUnmount(() => {
 
         <button
           type="button"
-          class="flex h-16 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-900 shadow-[0_12px_24px_-16px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.9)] transition active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 dark:border-transparent dark:bg-white/10 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_24px_-16px_rgba(0,0,0,0.55)] sm:h-[4.75rem]"
+          :class="keypadControlClass"
           :disabled="isDisabled"
           @click="pressDigit('0')"
         >
-          <span class="text-[1.75rem] font-medium leading-none tracking-tight sm:text-[2rem]">0</span>
+          <span :class="keypadValueClass">0</span>
         </button>
 
         <button
           type="button"
-          class="flex h-16 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-[0_12px_24px_-16px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.9)] transition active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 dark:border-transparent dark:bg-white/10 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_24px_-16px_rgba(0,0,0,0.55)] sm:h-[4.75rem]"
+          :class="keypadControlClass"
           :disabled="isDisabled || !modelValue"
           aria-label="Delete digit"
           @click="backspace"
@@ -169,7 +196,7 @@ onBeforeUnmount(() => {
       <div class="mt-3 flex items-center justify-center">
         <button
           type="button"
-          class="rounded-full px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 dark:text-white/55"
+          :class="keypadClearClass"
           :disabled="isDisabled || !modelValue"
           @click="clearValue"
         >
