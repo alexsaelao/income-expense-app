@@ -2,6 +2,21 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui', '@vite-pwa/nuxt'],
   css: ['~/assets/css/main.css'],
   devtools: { enabled: false },
+  runtimeConfig: {
+    tursoDatabaseUrl: process.env.TURSO_DATABASE_URL ?? '',
+    tursoAuthToken: process.env.TURSO_AUTH_TOKEN ?? '',
+    adminLoginIdentifier: process.env.ADMIN_LOGIN_IDENTIFIER ?? process.env.ADMIN_LOGIN_EMAIL ?? 'admin@local',
+    adminLoginPin: process.env.ADMIN_LOGIN_PIN ?? '123456',
+    adminSessionSecret: process.env.ADMIN_SESSION_SECRET ?? 'wallet-codesabai-admin-secret',
+    userSessionSecret: process.env.USER_SESSION_SECRET ?? 'wallet-codesabai-user-secret',
+    public: {
+      appBuildId:
+        process.env.NUXT_PUBLIC_APP_BUILD_ID
+        ?? process.env.NUXT_PUBLIC_GIT_SHA
+        ?? process.env.GITHUB_SHA
+        ?? new Date().toISOString()
+    }
+  },
   ignore: [
     'landing',
     'landing/**',
@@ -25,14 +40,6 @@ export default defineNuxtConfig({
         ]
       }
     }
-  },
-  runtimeConfig: {
-    tursoDatabaseUrl: process.env.TURSO_DATABASE_URL ?? '',
-    tursoAuthToken: process.env.TURSO_AUTH_TOKEN ?? '',
-    adminLoginIdentifier: process.env.ADMIN_LOGIN_IDENTIFIER ?? process.env.ADMIN_LOGIN_EMAIL ?? 'admin@local',
-    adminLoginPin: process.env.ADMIN_LOGIN_PIN ?? '123456',
-    adminSessionSecret: process.env.ADMIN_SESSION_SECRET ?? 'wallet-codesabai-admin-secret',
-    userSessionSecret: process.env.USER_SESSION_SECRET ?? 'wallet-codesabai-user-secret'
   },
   app: {
     head: {
@@ -74,7 +81,7 @@ export default defineNuxtConfig({
       display_override: ['fullscreen', 'standalone'],
       display: 'standalone',
       orientation: 'portrait-primary',
-      start_url: '/login',
+      start_url: '/',
       scope: '/',
       lang: 'th',
       dir: 'ltr',
@@ -94,6 +101,8 @@ export default defineNuxtConfig({
       navigateFallback: '/offline',
       globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,webmanifest,json}'],
       cleanupOutdatedCaches: true,
+      clientsClaim: true,
+      skipWaiting: true
     }
   }
 })
