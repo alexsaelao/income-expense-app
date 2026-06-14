@@ -11,6 +11,8 @@ const { authReady, isAuthenticated, rememberedProfile, clearRememberedProfile, s
 const identifier = ref('')
 const rememberDevice = ref(false)
 const pinValue = ref('')
+const pinError = ref(false)
+let pinErrorTimer: ReturnType<typeof setTimeout> | undefined
 const step = ref<'account' | 'pin'>('account')
 const isCheckingAccount = ref(false)
 const isSubmitting = ref(false)
@@ -97,10 +99,22 @@ function focusPin() {
   // iOS-style keypad does not use a text input.
 }
 
+function flashPinError() {
+  pinError.value = true
+  if (pinErrorTimer) {
+    clearTimeout(pinErrorTimer)
+  }
+  pinErrorTimer = setTimeout(() => {
+    pinError.value = false
+    pinErrorTimer = undefined
+  }, 550)
+}
+
 function clearSavedAccount() {
   clearRememberedProfile()
   identifier.value = ''
   pinValue.value = ''
+  pinError.value = false
   step.value = 'account'
   errorMessage.value = ''
   rememberDevice.value = true
@@ -115,11 +129,12 @@ async function goToPin() {
     return
   }
 
-  step.value = 'pin'
-  pinValue.value = ''
-  errorMessage.value = ''
-  focusPin()
-  isCheckingAccount.value = true
+    step.value = 'pin'
+    pinValue.value = ''
+    pinError.value = false
+    errorMessage.value = ''
+    focusPin()
+    isCheckingAccount.value = true
 
   try {
     const result = await $fetch<{ exists: boolean }>('/api/admin/check', {
@@ -159,6 +174,7 @@ async function goToPin() {
 function goBackToAccount() {
   step.value = 'account'
   pinValue.value = ''
+  pinError.value = false
   errorMessage.value = ''
   focusIdentifier()
 }
@@ -215,6 +231,7 @@ async function submitLogin() {
 
     if (status === 401) {
       errorMessage.value = copy.value.pinWrong
+      flashPinError()
       pinValue.value = ''
       focusPin()
       return
@@ -232,6 +249,9 @@ watch(pinValue, (value) => {
   if (errorMessage.value) {
     errorMessage.value = ''
   }
+  if (pinError.value && value.length > 0) {
+    pinError.value = false
+  }
   if (value.length === 6 && !isSubmitting.value) {
     submitLogin()
   }
@@ -246,6 +266,12 @@ onMounted(() => {
   }
 
   focusIdentifier()
+})
+
+onBeforeUnmount(() => {
+  if (pinErrorTimer) {
+    clearTimeout(pinErrorTimer)
+  }
 })
 </script>
 
@@ -359,6 +385,7 @@ onMounted(() => {
           <IosPinKeypad
             v-model="pinValue"
             :disabled="isSubmitting || isCheckingAccount"
+            :error="pinError"
             @clear="errorMessage = ''"
           />
         </div>

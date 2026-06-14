@@ -57,7 +57,7 @@ onMounted(() => {
     <main
       class="mx-auto flex w-full flex-col"
       :class="isAdminLogin
-        ? 'max-w-md min-h-screen items-center justify-center px-4 py-4'
+        ? 'max-w-md min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(125,211,252,0.18),_transparent_36%),linear-gradient(180deg,_#f8fbff_0%,_#eef4ff_100%)] px-4 py-4 text-slate-900'
         : isSuperadminWorkspace
           ? 'min-h-screen pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(env(safe-area-inset-bottom)+6.5rem)] md:max-w-[1440px] md:px-6 md:pb-6'
           : 'max-w-md min-h-screen px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(env(safe-area-inset-bottom)+6.5rem)]'"
