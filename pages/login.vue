@@ -406,7 +406,7 @@ onBeforeUnmount(() => {
               Admin login
             </NuxtLink>
 
-            <NuxtLink to="/register" class="hidden items-center justify-center rounded-full border border-transparent px-3.5 py-1.5 text-[11px] font-bold text-primary transition active:scale-95 sm:inline-flex">
+            <NuxtLink to="/register" class="inline-flex items-center justify-center rounded-full border border-transparent px-3.5 py-1.5 text-[11px] font-bold text-primary transition active:scale-95">
               {{ loginCopy.createAccount }}
             </NuxtLink>
           </div>
