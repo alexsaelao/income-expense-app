@@ -21,6 +21,7 @@ const {
   typeTint,
   updateWallet,
   removeWallet,
+  syncCloudNow,
   canEditMoneyData
 } = useMoneyNote()
 
@@ -128,7 +129,7 @@ function closeDeleteWalletConfirm() {
   walletDeleteOpen.value = false
 }
 
-function submitWalletUpdate() {
+async function submitWalletUpdate() {
   if (!wallet.value || !canEditMoneyData.value) return
 
   const nextName = walletForm.name.trim()
@@ -149,14 +150,16 @@ function submitWalletUpdate() {
     color: walletForm.color,
     note: walletForm.note.trim() || undefined
   })
+  await syncCloudNow()
 
   closeWalletManager()
 }
 
-function confirmDeleteWallet() {
+async function confirmDeleteWallet() {
   if (!wallet.value || !canEditMoneyData.value) return
 
   removeWallet(wallet.value.id)
+  await syncCloudNow()
   closeDeleteWalletConfirm()
   router.push('/wallets')
 }

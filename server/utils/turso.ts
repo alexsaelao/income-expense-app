@@ -9,6 +9,7 @@ export const APP_STATE_TABLE = 'app_state'
 export const AUTH_ACCOUNT_TABLE = 'auth_accounts'
 export const ADMIN_ACCOUNT_TABLE = 'admin_accounts'
 export const PRO_REDEEM_TABLE = 'pro_redeem_keys'
+export const TRANSACTIONS_TABLE = 'transactions'
 
 export function getTursoClient(config: { tursoDatabaseUrl?: string; tursoAuthToken?: string }) {
   const url = config.tursoDatabaseUrl?.trim()
@@ -32,6 +33,35 @@ export async function ensureStateTable(db: Client) {
       state_json TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
+  `)
+}
+
+export async function ensureTransactionsTable(db: Client) {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS ${TRANSACTIONS_TABLE} (
+      owner_key TEXT NOT NULL,
+      transaction_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      wallet_id TEXT NOT NULL,
+      to_wallet_id TEXT,
+      currency TEXT NOT NULL,
+      amount REAL NOT NULL,
+      exchange_rate REAL,
+      category TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      transaction_date TEXT NOT NULL,
+      company TEXT,
+      counterparty TEXT,
+      loan_direction TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (owner_key, transaction_id)
+    )
+  `)
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_transactions_owner_date
+    ON ${TRANSACTIONS_TABLE} (owner_key, transaction_date DESC, created_at DESC)
   `)
 }
 
@@ -210,4 +240,8 @@ export function hashPin(pin: string, salt: string) {
 
 export function stateKeyForIdentifier(identifier: string) {
   return `${APP_STATE_KEY}:${normalizeAuthIdentifier(identifier)}`
+}
+
+export function transactionOwnerKeyForIdentifier(identifier: string) {
+  return normalizeAuthIdentifier(identifier)
 }

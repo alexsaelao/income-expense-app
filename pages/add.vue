@@ -3,11 +3,12 @@ import type { TransactionInput } from '~/composables/useMoneyNote'
 import { useMoneyNote } from '~/composables/useMoneyNote'
 
 const router = useRouter()
-const { addTransaction, canEditMoneyData } = useMoneyNote()
+const { addTransaction, syncCloudNow, canEditMoneyData } = useMoneyNote()
 const transactionFormRef = ref<{ canSubmit: boolean } | null>(null)
 
 async function handleSubmit(payload: TransactionInput) {
   await addTransaction(payload)
+  await syncCloudNow()
   router.push('/transactions')
 }
 </script>

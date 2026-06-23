@@ -4,7 +4,7 @@ import type { CurrencyCode, Transaction } from '~/composables/useMoneyNote'
 
 const { selectedLanguage } = useAppLanguage()
 const { activeTheme } = useAppThemeColor()
-const { wallets, filterTransactions, groupTransactions, removeTransaction, enabledCurrencyOptions, formatCurrency, canEditMoneyData } = useMoneyNote()
+const { transactionsHydrated, wallets, filterTransactions, groupTransactions, removeTransaction, syncCloudNow, enabledCurrencyOptions, formatCurrency, canEditMoneyData } = useMoneyNote()
 
 const searchDraft = ref('')
 const appliedSearch = ref('')
@@ -16,6 +16,8 @@ const toDate = ref('')
 const deleteConfirmOpen = ref(false)
 const deleteTarget = ref<Transaction | null>(null)
 const filtersOpen = ref(false)
+const isReloading = ref(false)
+const isTransactionsReady = computed(() => transactionsHydrated.value)
 const transactionsCopy = computed(() => {
   if (selectedLanguage.value === 'lo') {
     return {
@@ -57,7 +59,10 @@ const transactionsCopy = computed(() => {
       delete: 'ລຶບ',
       edit: 'ແກ້ໄຂ',
       addIcon: 'ເພີ່ມ',
-    quickDates: 'ວັນທີໄວ'
+      quickDates: 'ວັນທີໄວ',
+      reload: 'ໂຫຼດໜ້າໃໝ່',
+      reloading: 'ກຳລັງໂຫຼດ...',
+      loading: 'ກຳລັງໂຫຼດທຸລະກຳ...'
     }
   }
 
@@ -100,7 +105,10 @@ const transactionsCopy = computed(() => {
     delete: 'Delete',
     edit: 'Edit',
     addIcon: 'Add',
-    quickDates: 'Quick dates'
+    quickDates: 'Quick dates',
+    reload: 'Reload page',
+    reloading: 'Reloading...',
+    loading: 'Loading transactions...'
   }
 })
 
@@ -275,10 +283,11 @@ function openDeleteConfirm(transaction: Transaction) {
   deleteConfirmOpen.value = true
 }
 
-function confirmDelete() {
+async function confirmDelete() {
   if (!deleteTarget.value) return
 
   removeTransaction(deleteTarget.value.id)
+  await syncCloudNow()
   deleteTarget.value = null
   deleteConfirmOpen.value = false
 }
@@ -286,6 +295,12 @@ function confirmDelete() {
 function closeDeleteConfirm() {
   deleteConfirmOpen.value = false
   deleteTarget.value = null
+}
+
+function reloadTransactionPage() {
+  if (!import.meta.client || isReloading.value) return
+  isReloading.value = true
+  window.location.reload()
 }
 </script>
 
@@ -295,6 +310,19 @@ function closeDeleteConfirm() {
       <div>
         <h1 class="mt-1 text-3xl font-black tracking-tight text-default">{{ transactionsCopy.title }}</h1>
       </div>
+      <button
+        type="button"
+        class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-default shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900"
+        :disabled="isReloading"
+        @click="reloadTransactionPage"
+      >
+        <UIcon
+          name="i-lucide-refresh-cw"
+          class="size-3.5"
+          :class="isReloading ? 'animate-spin' : ''"
+        />
+        <span>{{ isReloading ? transactionsCopy.reloading : transactionsCopy.reload }}</span>
+      </button>
     </section>
 
     <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
@@ -474,7 +502,14 @@ function closeDeleteConfirm() {
       </div>
     </UCard>
 
-    <div v-if="filterCards.length" class="space-y-4.5">
+    <UCard v-if="!isTransactionsReady" class="overflow-hidden rounded-[1.4rem] border border-white/50 bg-white/85 p-8 text-center shadow-[0_18px_50px_-24px_rgba(15,23,42,0.25)] dark:border-white/10 dark:bg-slate-950/80">
+      <div :class="['mx-auto flex size-14 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.65)]', activeTheme.accent]">
+        <UIcon name="i-lucide-loader-circle" class="size-7 animate-spin" />
+      </div>
+      <h2 class="mt-4 text-lg font-black text-default">{{ transactionsCopy.loading }}</h2>
+    </UCard>
+
+    <div v-else-if="filterCards.length" class="space-y-4.5">
       <section v-for="group in filterCards" :key="group.date" class="space-y-2.5">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-black tracking-tight text-default">{{ group.label }}</h2>

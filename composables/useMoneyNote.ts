@@ -833,6 +833,7 @@ export function useMoneyNote() {
     () => defaultCurrencySupport()
   )
   const hydrated = useState('money-note-hydrated', () => false)
+  const transactionsHydrated = useState('money-note-transactions-hydrated', () => false)
   const hydratedAccountKey = useState('money-note-hydrated-account-key', () => '')
   const hydratedCloudSyncEnabled = useState('money-note-hydrated-cloud-sync-enabled', () => false)
   const hydratedSnapshotWasPristine = useState('money-note-hydrated-snapshot-pristine', () => true)
@@ -1190,6 +1191,7 @@ export function useMoneyNote() {
     autoSyncReady.value = false
     hydrating.value = true
     hydrated.value = false
+    transactionsHydrated.value = false
 
     try {
       syncError.value = ''
@@ -1356,11 +1358,6 @@ export function useMoneyNote() {
       const resolvedCurrencySupport = useRemoteMetadata
         ? (remoteSnapshotParsed?.currencySupport ?? localSnapshotParsed.currencySupport)
         : localSnapshotParsed.currencySupport
-      const resolvedSignature = buildStateSignature(
-        resolvedState,
-        resolvedSelectedCurrency,
-        resolvedCurrencySupport
-      )
       const resolvedUpdatedAt = hasRemoteState
         ? latestTimestamp(localSnapshotParsed.updatedAt, remote?.updatedAt, remoteSnapshotParsed?.updatedAt)
         : localSnapshotParsed.updatedAt ?? new Date().toISOString()
@@ -1391,7 +1388,14 @@ export function useMoneyNote() {
       hydratedCloudSyncEnabled.value = isCloudSyncEnabled.value
       hydrated.value = true
 
-      const shouldPushRemote = !hasRemoteState || resolvedSignature !== remoteSignature
+      await hydrateTransactionsFromDatabase(resolvedState.transactions)
+
+      const currentResolvedSignature = buildStateSignature(
+        store.value,
+        resolvedSelectedCurrency,
+        resolvedCurrencySupport
+      )
+      const shouldPushRemote = !hasRemoteState || currentResolvedSignature !== remoteSignature
 
       if (shouldPushRemote) {
         logSyncDebug('refreshCloudState: write merged state to cloud', {
@@ -1407,7 +1411,7 @@ export function useMoneyNote() {
       syncProgress.value = 100
       lastSyncedAt.value = new Date().toISOString()
       initialHydratedSignature.value = buildStateSignature(
-        resolvedState,
+        store.value,
         resolvedSelectedCurrency,
         resolvedCurrencySupport
       )
@@ -1436,6 +1440,53 @@ export function useMoneyNote() {
     }
   }
 
+  function applyTransactionsFromDatabase(transactions: Transaction[]) {
+    store.value = recalculateBalances({
+      ...cloneState(store.value),
+      transactions: transactions.map(transaction => ({ ...transaction }))
+    })
+  }
+
+  async function hydrateTransactionsFromDatabase(fallbackTransactions: Transaction[] = []) {
+    if (!import.meta.client || !authReady.value) {
+      transactionsHydrated.value = true
+      return false
+    }
+
+    transactionsHydrated.value = false
+
+    try {
+      const result = await $fetch<{ connected: boolean; transactions: Transaction[] }>('/api/transactions')
+      const databaseTransactions = Array.isArray(result.transactions) ? result.transactions : []
+
+      if (!databaseTransactions.length && fallbackTransactions.length) {
+        const imported = await $fetch<{ ok: boolean; transactions: Transaction[] }>('/api/transactions/import', {
+          method: 'POST',
+          body: {
+            transactions: fallbackTransactions
+          }
+        })
+
+        applyTransactionsFromDatabase(imported.transactions ?? [])
+        return true
+      }
+
+      applyTransactionsFromDatabase(databaseTransactions)
+      return true
+    }
+    catch (error) {
+      if (fallbackTransactions.length) {
+        applyTransactionsFromDatabase(fallbackTransactions)
+      }
+
+      console.error('[money-note] transactions database hydrate failed', error)
+      return false
+    }
+    finally {
+      transactionsHydrated.value = true
+    }
+  }
+
   const loadState = async () => {
     if (!import.meta.client || !authReady.value) return
 
@@ -1449,10 +1500,9 @@ export function useMoneyNote() {
     autoSyncReady.value = false
     hydrating.value = true
     hydrated.value = false
+    let localSnapshotParsed = parseSnapshotState(buildLocalSnapshot())
 
     try {
-      const localSnapshotParsed = parseSnapshotState(buildLocalSnapshot())
-
       logSyncDebug('loadState: initialize current snapshot', {
         updatedAt: localSnapshotParsed.updatedAt
       })
@@ -1473,6 +1523,8 @@ export function useMoneyNote() {
       hydrating.value = false
       autoSyncReady.value = true
     }
+
+    await hydrateTransactionsFromDatabase(localSnapshotParsed.state.transactions)
 
     if (!isCloudSyncEnabled.value) {
       syncError.value = ''
@@ -2221,56 +2273,48 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
       })
   }
 
-function applyTransactionPayload(payload: TransactionInput, id?: string) {
-  const now = new Date().toISOString()
-  const baseTransaction: Transaction = {
-    id: id ?? `tx-${crypto.randomUUID()}`,
-    type: payload.type,
-    walletId: payload.walletId,
-    toWalletId: payload.toWalletId,
-    currency: payload.currency,
-    amount: Number(payload.amount),
-    exchangeRate: payload.exchangeRate && Number(payload.exchangeRate) > 0 ? Number(payload.exchangeRate) : undefined,
-    category: payload.category,
-    note: payload.note.trim(),
-    date: payload.date,
-    company: payload.company?.trim() || undefined,
-    counterparty: payload.counterparty?.trim() || undefined,
-    loanDirection: payload.loanDirection,
-    createdAt: now,
-    updatedAt: now
-    }
-
-    return baseTransaction
-  }
-
   async function persistSnapshotAfterMutation() {
     if (!import.meta.client || !hydrated.value || hydrating.value || !autoSyncReady.value) return
 
     saveState()
   }
 
+  function applySingleTransaction(transaction: Transaction) {
+    store.value.transactions = [
+      transaction,
+      ...store.value.transactions.filter(item => item.id !== transaction.id)
+    ]
+    store.value = recalculateBalances(cloneState(store.value))
+  }
+
   async function addTransaction(payload: TransactionInput) {
     if (!canEditMoneyData.value) return
-    store.value.transactions = [applyTransactionPayload(payload), ...store.value.transactions]
-    store.value = recalculateBalances(cloneState(store.value))
+    const result = await $fetch<{ ok: boolean; transaction: Transaction }>('/api/transactions', {
+      method: 'POST',
+      body: payload
+    })
+    applySingleTransaction(result.transaction)
     await persistSnapshotAfterMutation()
   }
 
-  function updateTransaction(transactionId: string, payload: TransactionInput) {
+  async function updateTransaction(transactionId: string, payload: TransactionInput) {
     if (!canEditMoneyData.value) return
-    store.value.transactions = store.value.transactions.map(transaction =>
-      transaction.id === transactionId ? { ...applyTransactionPayload(payload, transactionId), createdAt: transaction.createdAt } : transaction
-    )
-    store.value = recalculateBalances(cloneState(store.value))
-    void persistSnapshotAfterMutation()
+    const result = await $fetch<{ ok: boolean; transaction: Transaction }>(`/api/transactions/${transactionId}`, {
+      method: 'PATCH',
+      body: payload
+    })
+    applySingleTransaction(result.transaction)
+    await persistSnapshotAfterMutation()
   }
 
-  function removeTransaction(transactionId: string) {
+  async function removeTransaction(transactionId: string) {
     if (!canEditMoneyData.value) return
+    await $fetch<{ ok: boolean }>(`/api/transactions/${transactionId}`, {
+      method: 'DELETE'
+    })
     store.value.transactions = store.value.transactions.filter(transaction => transaction.id !== transactionId)
     store.value = recalculateBalances(cloneState(store.value))
-    void persistSnapshotAfterMutation()
+    await persistSnapshotAfterMutation()
   }
 
 function addWallet(payload: { name: string; currency: CurrencyCode; openingBalance: number; note?: string; color?: WalletColor; accent?: string; emoji?: string }) {
@@ -2459,6 +2503,11 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
     clearPendingSaveTimers()
   }
 
+  async function syncCloudNow() {
+    clearPendingSaveTimers()
+    return await refreshCloudState({ force: true })
+  }
+
   function toggleCurrencyEnabled(currency: CurrencyCode) {
     if (!canEditMoneyData.value) return
     if (currencySupport.value[currency] && enabledCurrencyOptions.value.length <= 1) {
@@ -2471,6 +2520,7 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
   return {
     store,
     hydrated,
+    transactionsHydrated,
     wallets,
     transactions,
     walletMap,
@@ -2555,6 +2605,7 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
     }),
     importMoneyNoteBackupFile,
     clearLocalAccountState,
+    syncCloudNow,
     toggleCurrencyEnabled,
     walletColorOptions
   }

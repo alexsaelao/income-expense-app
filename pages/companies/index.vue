@@ -14,6 +14,7 @@ const {
   setCustomCompanyEnabled,
   setCompanyPinned,
   moveCompany,
+  syncCloudNow,
   canEditMoneyData
 } = useMoneyNote()
 
@@ -277,7 +278,7 @@ function onSheetPointerCancel() {
   resetSheetDrag()
 }
 
-function submitCompany() {
+async function submitCompany() {
   if (!canEditMoneyData.value) return
   if (editingCompanyId.value && selectedCompany.value && !selectedCompany.value.isDefault) {
     const updated = updateCompany(editingCompanyId.value, {
@@ -290,6 +291,8 @@ function submitCompany() {
       formError.value = companiesCopy.value.nameExists
       return
     }
+
+    await syncCloudNow()
 
     closeCompanyManager()
     companyModalOpen.value = false
@@ -310,6 +313,8 @@ function submitCompany() {
     return
   }
 
+  await syncCloudNow()
+
   resetForm()
   companyModalOpen.value = false
 }
@@ -329,19 +334,21 @@ function toggleEnabled(item: any) {
   setCustomCompanyEnabled(item.id, nextEnabled)
 }
 
-function confirmDeleteCompany() {
+async function confirmDeleteCompany() {
   if (!canEditMoneyData.value) return
   if (!selectedCompany.value) return
 
   if (selectedCompany.value.isDefault) {
     if (selectedCompany.value.name === 'Other') {
       setDefaultCompanyEnabled(selectedCompany.value.name, false)
+      await syncCloudNow()
     }
     closeCompanyManager()
     return
   }
 
   removeCompany(selectedCompany.value.id)
+  await syncCloudNow()
   closeCompanyManager()
 }
 

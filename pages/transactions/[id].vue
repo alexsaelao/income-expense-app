@@ -4,19 +4,22 @@ import { useMoneyNote } from '~/composables/useMoneyNote'
 
 const route = useRoute()
 const router = useRouter()
-const { getTransaction, updateTransaction, removeTransaction, canEditMoneyData } = useMoneyNote()
+const { transactionsHydrated, getTransaction, updateTransaction, removeTransaction, syncCloudNow, canEditMoneyData } = useMoneyNote()
 
 const transaction = computed(() => getTransaction(String(route.params.id)))
+const isTransactionReady = computed(() => transactionsHydrated.value)
 
-function handleSubmit(payload: TransactionInput) {
+async function handleSubmit(payload: TransactionInput) {
   if (!transaction.value) return
   updateTransaction(transaction.value.id, payload)
+  await syncCloudNow()
   router.push('/transactions')
 }
 
-function handleDelete() {
+async function handleDelete() {
   if (!transaction.value) return
   removeTransaction(transaction.value.id)
+  await syncCloudNow()
   router.push('/transactions')
 }
 </script>
@@ -40,7 +43,14 @@ function handleDelete() {
       />
     </section>
 
-    <UCard v-if="transaction" class="overflow-hidden border border-white/60 bg-white/85 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-slate-950/80">
+    <UCard v-if="!isTransactionReady" class="overflow-hidden border border-white/60 bg-white/85 p-8 text-center shadow-[0_18px_50px_-24px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-slate-950/80">
+      <div class="mx-auto flex size-14 items-center justify-center rounded-full bg-primary text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.65)]">
+        <UIcon name="i-lucide-loader-circle" class="size-7 animate-spin" />
+      </div>
+      <h2 class="mt-4 text-lg font-black text-default">Loading transaction...</h2>
+    </UCard>
+
+    <UCard v-else-if="transaction" class="overflow-hidden border border-white/60 bg-white/85 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-slate-950/80">
       <template v-if="canEditMoneyData">
         <div class="mb-5 flex items-center justify-between rounded-[1.5rem] bg-slate-100 p-4 dark:bg-slate-900">
           <div>

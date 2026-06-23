@@ -13,6 +13,7 @@ const {
   setCategoryPinned,
   setCustomCategoryEnabled,
   moveCategory,
+  syncCloudNow,
   canEditMoneyData
 } = useMoneyNote()
 
@@ -298,7 +299,7 @@ function resetForm() {
   formError.value = ''
 }
 
-function submitCategory() {
+async function submitCategory() {
   if (!canEditMoneyData.value) return
   if (editingCategoryId.value && selectedCategory.value && !selectedCategory.value.isDefault) {
     const updated = updateCategory(editingCategoryId.value, {
@@ -311,6 +312,8 @@ function submitCategory() {
       formError.value = categoriesCopy.value.nameExists
       return
     }
+
+    await syncCloudNow()
 
     closeCategoryManager()
     categoryModalOpen.value = false
@@ -330,15 +333,18 @@ function submitCategory() {
     return
   }
 
+  await syncCloudNow()
+
   resetForm()
   categoryModalOpen.value = false
 }
 
-function confirmDeleteCategory() {
+async function confirmDeleteCategory() {
   if (!canEditMoneyData.value) return
   if (!selectedCategory.value || selectedCategory.value.isDefault) return
 
   removeCategory(selectedCategory.value.id)
+  await syncCloudNow()
   closeCategoryManager()
   deleteCategoryOpen.value = false
 }

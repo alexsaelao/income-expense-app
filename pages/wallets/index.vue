@@ -18,6 +18,7 @@ const {
   hasWalletTransactions,
   setWalletPinned,
   moveWallet,
+  syncCloudNow,
   canEditMoneyData
 } = useMoneyNote()
 const currencySymbols: Record<CurrencyCode, string> = {
@@ -121,7 +122,7 @@ watch(
   { immediate: true }
 )
 
-function submitWallet() {
+async function submitWallet() {
   if (!canEditMoneyData.value) return
   if (!form.name || !form.openingBalance) return
   addWallet({
@@ -132,6 +133,7 @@ function submitWallet() {
     emoji: form.emoji,
     color: form.color
   })
+  await syncCloudNow()
 
   form.name = ''
   form.currency = 'LAK'
