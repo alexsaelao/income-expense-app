@@ -18,7 +18,6 @@ const {
   hasWalletTransactions,
   setWalletPinned,
   moveWallet,
-  syncCloudNow,
   canEditMoneyData
 } = useMoneyNote()
 const currencySymbols: Record<CurrencyCode, string> = {
@@ -59,7 +58,8 @@ const walletCopy = computed(() => {
       saveWallet: 'ບັນທຶກກະເປົ໋າ',
       cancel: 'ຍົກເລີກ',
       everydayCash: 'ເງິນສົດປະຈໍາວັນ',
-      optionalNote: 'ຫມາຍເຫດເພີ່ມເຕີມ'
+      optionalNote: 'ຫມາຍເຫດເພີ່ມເຕີມ',
+      invalidOpeningBalance: 'ຍອດເລີ່ມຕົ້ນຕ້ອງເປັນຕົວເລກ'
     }
   }
 
@@ -87,12 +87,14 @@ const walletCopy = computed(() => {
     saveWallet: 'Save wallet',
     cancel: 'Cancel',
     everydayCash: 'Everyday cash',
-    optionalNote: 'Optional note'
+    optionalNote: 'Optional note',
+    invalidOpeningBalance: 'Opening balance must be a number'
   }
 })
 
 const walletList = computed(() => walletEntries())
 const walletModalOpen = ref(false)
+const walletFormError = ref('')
 const dragState = reactive({
   key: ''
 })
@@ -112,6 +114,20 @@ const form = reactive({
 
 const currencyCards = computed(() => currencyBalances.value)
 
+function resolveActionErrorMessage(error: unknown) {
+  const maybeResponse = error as {
+    data?: { statusMessage?: string; message?: string }
+    message?: string
+    statusMessage?: string
+  }
+
+  return maybeResponse?.data?.statusMessage
+    || maybeResponse?.data?.message
+    || maybeResponse?.statusMessage
+    || maybeResponse?.message
+    || 'Unable to save wallet'
+}
+
 watch(
   enabledCurrencyOptions,
   () => {
@@ -124,24 +140,39 @@ watch(
 
 async function submitWallet() {
   if (!canEditMoneyData.value) return
-  if (!form.name || !form.openingBalance) return
-  addWallet({
-    name: form.name,
-    currency: form.currency,
-    openingBalance: Number(form.openingBalance),
-    note: form.note,
-    emoji: form.emoji,
-    color: form.color
-  })
-  await syncCloudNow()
+  if (!form.name) return
+  walletFormError.value = ''
 
-  form.name = ''
-  form.currency = 'LAK'
-  form.openingBalance = ''
-  form.note = ''
-  form.emoji = '💳'
-  form.color = 'sky'
-  walletModalOpen.value = false
+  const openingBalance = form.openingBalance === '' || form.openingBalance === null || form.openingBalance === undefined
+    ? 0
+    : Number(form.openingBalance)
+
+  if (!Number.isFinite(openingBalance)) {
+    walletFormError.value = walletCopy.value.invalidOpeningBalance
+    return
+  }
+
+  try {
+    await addWallet({
+      name: form.name,
+      currency: form.currency,
+      openingBalance,
+      note: form.note,
+      emoji: form.emoji,
+      color: form.color
+    })
+
+    form.name = ''
+    form.currency = 'LAK'
+    form.openingBalance = ''
+    form.note = ''
+    form.emoji = '💳'
+    form.color = 'sky'
+    walletModalOpen.value = false
+  }
+  catch (error) {
+    walletFormError.value = resolveActionErrorMessage(error)
+  }
 }
 
 function walletKeyForItem(item: any) {
@@ -152,8 +183,15 @@ function walletSummary(walletId: string) {
   return walletMonthTotals(walletId)
 }
 
-function togglePinned(item: any) {
-  setWalletPinned(item.id, !item.pinned)
+async function togglePinned(item: any) {
+  walletFormError.value = ''
+
+  try {
+    await setWalletPinned(item.id, !item.pinned)
+  }
+  catch (error) {
+    walletFormError.value = resolveActionErrorMessage(error)
+  }
 }
 
 function onWalletDragStart(item: any, event: DragEvent) {
@@ -164,12 +202,19 @@ function onWalletDragStart(item: any, event: DragEvent) {
   event.dataTransfer.setData('text/plain', dragState.key)
 }
 
-function onWalletDrop(item: any) {
+async function onWalletDrop(item: any) {
   const fromKey = dragState.key
   const toKey = walletKeyForItem(item)
 
   if (fromKey && fromKey !== toKey) {
-    moveWallet(fromKey, toKey)
+    walletFormError.value = ''
+
+    try {
+      await moveWallet(fromKey, toKey)
+    }
+    catch (error) {
+      walletFormError.value = resolveActionErrorMessage(error)
+    }
   }
 
   dragState.key = ''
@@ -222,20 +267,24 @@ function onSheetPointerCancel() {
 <template>
   <div class="space-y-5 pb-4">
     <section class="flex items-start justify-between gap-3">
-      <div>
+      <div class="min-w-0">
         <h1 class="text-3xl font-black tracking-tight text-default">{{ walletCopy.title }}</h1>
       </div>
 
-      <UButton
-        icon="i-lucide-plus"
-        size="lg"
-        :disabled="!canEditMoneyData"
-        :to="canEditMoneyData ? undefined : '/settings'"
-        :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
-        @click="walletModalOpen = true"
-      >
-        {{ walletCopy.addWallet }}
-      </UButton>
+      <div class="flex shrink-0 items-center gap-2">
+        <PageReloadButton />
+
+        <UButton
+          icon="i-lucide-plus"
+          size="lg"
+          :disabled="!canEditMoneyData"
+          :to="canEditMoneyData ? undefined : '/settings'"
+          :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
+          @click="walletModalOpen = true"
+        >
+          {{ walletCopy.addWallet }}
+        </UButton>
+      </div>
     </section>
 
     <section class="space-y-2">
@@ -517,6 +566,10 @@ function onSheetPointerCancel() {
                 </label>
               </div>
             </div>
+
+            <p v-if="walletFormError" class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+              {{ walletFormError }}
+            </p>
 
             <div class="h-8" aria-hidden="true" />
           </div>

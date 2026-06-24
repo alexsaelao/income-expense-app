@@ -18,6 +18,7 @@ const isCheckingAccount = ref(false)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 const identifierInput = ref<HTMLInputElement | null>(null)
+const pinField = ref<{ focus: () => void } | null>(null)
 
 const copy = computed(() => selectedLanguage.value === 'lo'
   ? {
@@ -96,7 +97,7 @@ function focusIdentifier() {
 }
 
 function focusPin() {
-  // iOS-style keypad does not use a text input.
+  nextTick(() => pinField.value?.focus())
 }
 
 function flashPinError() {
@@ -129,12 +130,12 @@ async function goToPin() {
     return
   }
 
-    step.value = 'pin'
-    pinValue.value = ''
-    pinError.value = false
-    errorMessage.value = ''
-    focusPin()
-    isCheckingAccount.value = true
+  step.value = 'pin'
+  pinValue.value = ''
+  pinError.value = false
+  errorMessage.value = ''
+  focusPin()
+  isCheckingAccount.value = true
 
   try {
     const result = await $fetch<{ exists: boolean }>('/api/admin/check', {
@@ -382,12 +383,25 @@ onBeforeUnmount(() => {
             <p class="mt-1 break-all text-base font-black text-default">{{ identifier }}</p>
           </div>
 
-          <IosPinKeypad
-            v-model="pinValue"
-            :disabled="isSubmitting || isCheckingAccount"
-            :error="pinError"
-            @clear="errorMessage = ''"
-          />
+          <div class="space-y-3">
+            <div class="space-y-1">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">
+                {{ copy.enterPin }}
+              </p>
+              <p class="text-sm leading-6 text-muted">
+                {{ copy.enterPinHint }}
+              </p>
+            </div>
+
+            <PinCodeField
+              ref="pinField"
+              v-model="pinValue"
+              :disabled="isSubmitting || isCheckingAccount"
+              :error="pinError"
+              :aria-label="copy.enterPin"
+              autocomplete="current-password"
+            />
+          </div>
         </div>
 
         <p v-if="errorMessage" class="mt-2 rounded-[0.95rem] border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-100">

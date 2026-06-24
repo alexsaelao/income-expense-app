@@ -10,6 +10,10 @@ export const AUTH_ACCOUNT_TABLE = 'auth_accounts'
 export const ADMIN_ACCOUNT_TABLE = 'admin_accounts'
 export const PRO_REDEEM_TABLE = 'pro_redeem_keys'
 export const TRANSACTIONS_TABLE = 'transactions'
+export const WALLETS_TABLE = 'wallets'
+export const CATEGORIES_TABLE = 'categories'
+export const COMPANIES_TABLE = 'companies'
+export const USER_PREFERENCES_TABLE = 'user_preferences'
 
 export function getTursoClient(config: { tursoDatabaseUrl?: string; tursoAuthToken?: string }) {
   const url = config.tursoDatabaseUrl?.trim()
@@ -62,6 +66,82 @@ export async function ensureTransactionsTable(db: Client) {
   await db.execute(`
     CREATE INDEX IF NOT EXISTS idx_transactions_owner_date
     ON ${TRANSACTIONS_TABLE} (owner_key, transaction_date DESC, created_at DESC)
+  `)
+}
+
+export async function ensureWalletsTable(db: Client) {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS ${WALLETS_TABLE} (
+      owner_key TEXT NOT NULL,
+      wallet_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      currency TEXT NOT NULL,
+      opening_balance REAL NOT NULL DEFAULT 0,
+      color TEXT NOT NULL,
+      emoji TEXT NOT NULL,
+      note TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (owner_key, wallet_id)
+    )
+  `)
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_wallets_owner_updated
+    ON ${WALLETS_TABLE} (owner_key, updated_at DESC, created_at DESC)
+  `)
+}
+
+export async function ensureCategoriesTable(db: Client) {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS ${CATEGORIES_TABLE} (
+      owner_key TEXT NOT NULL,
+      category_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      emoji TEXT NOT NULL,
+      color TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (owner_key, category_id)
+    )
+  `)
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_categories_owner_type_updated
+    ON ${CATEGORIES_TABLE} (owner_key, type, updated_at DESC, created_at DESC)
+  `)
+}
+
+export async function ensureCompaniesTable(db: Client) {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS ${COMPANIES_TABLE} (
+      owner_key TEXT NOT NULL,
+      company_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      emoji TEXT NOT NULL,
+      color TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (owner_key, company_id)
+    )
+  `)
+
+  await db.execute(`
+    CREATE INDEX IF NOT EXISTS idx_companies_owner_updated
+    ON ${COMPANIES_TABLE} (owner_key, updated_at DESC, created_at DESC)
+  `)
+}
+
+export async function ensureUserPreferencesTable(db: Client) {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS ${USER_PREFERENCES_TABLE} (
+      owner_key TEXT PRIMARY KEY,
+      preferences_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
   `)
 }
 

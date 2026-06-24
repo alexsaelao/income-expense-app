@@ -6,6 +6,8 @@
     "dev": "TMPDIR=/tmp nuxt dev --host 0.0.0.0",
     "dev:landing": "npm --prefix landing run dev",
     "build": "nuxt build",
+    "test": "npm run test:integration",
+    "test:integration": "npm run build && node --test --test-concurrency=1 tests/integration/*.test.mjs",
     "build:landing": "npm --prefix landing run build",
     "generate": "nuxt generate",
     "generate:landing": "npm --prefix landing run generate",

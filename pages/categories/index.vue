@@ -13,7 +13,6 @@ const {
   setCategoryPinned,
   setCustomCategoryEnabled,
   moveCategory,
-  syncCloudNow,
   canEditMoneyData
 } = useMoneyNote()
 
@@ -39,6 +38,20 @@ const form = reactive({
   emoji: '🏷️',
   color: 'sky' as WalletColor
 })
+
+function resolveActionErrorMessage(error: unknown) {
+  const maybeResponse = error as {
+    data?: { statusMessage?: string; message?: string }
+    message?: string
+    statusMessage?: string
+  }
+
+  return maybeResponse?.data?.statusMessage
+    || maybeResponse?.data?.message
+    || maybeResponse?.statusMessage
+    || maybeResponse?.message
+    || categoriesCopy.value.nameExists
+}
 
 const accentMap = Object.fromEntries(walletColorOptions.map(item => [item.value, item.accent])) as Record<WalletColor, string>
 const colorLabelMap = computed<Record<WalletColor, string>>(() => selectedLanguage.value === 'lo'
@@ -255,14 +268,21 @@ function onCategoryDragStart(type: CategoryType, item: any, event: DragEvent) {
   event.dataTransfer.setData('text/plain', dragState.key)
 }
 
-function onCategoryDrop(type: CategoryType, item: any) {
+async function onCategoryDrop(type: CategoryType, item: any) {
   if (!dragState || dragState.type !== type) return
 
   const fromKey = dragState.key
   const toKey = categoryKeyForItem(item)
 
   if (fromKey !== toKey) {
-    moveCategory(type, fromKey, toKey)
+    formError.value = ''
+
+    try {
+      await moveCategory(type, fromKey, toKey)
+    }
+    catch (error) {
+      formError.value = resolveActionErrorMessage(error)
+    }
   }
 
   dragState.type = null
@@ -276,19 +296,37 @@ function onCategoryDragEnd() {
   }
 }
 
-function togglePinned(item: any) {
-  setCategoryPinned(item.type, categoryKeyForItem(item), !item.pinned)
+async function togglePinned(item: any) {
+  formError.value = ''
+
+  try {
+    await setCategoryPinned(item.type, categoryKeyForItem(item), !item.pinned)
+  }
+  catch (error) {
+    formError.value = resolveActionErrorMessage(error)
+  }
 }
 
-function toggleEnabled(item: any) {
+async function toggleEnabled(item: any) {
   const nextEnabled = !item.enabled
+  formError.value = ''
 
   if (item.isDefault) {
-    setDefaultCategoryEnabled(item.type, item.name, nextEnabled)
+    try {
+      await setDefaultCategoryEnabled(item.type, item.name, nextEnabled)
+    }
+    catch (error) {
+      formError.value = resolveActionErrorMessage(error)
+    }
     return
   }
 
-  setCustomCategoryEnabled(item.id, nextEnabled)
+  try {
+    await setCustomCategoryEnabled(item.id, nextEnabled)
+  }
+  catch (error) {
+    formError.value = resolveActionErrorMessage(error)
+  }
 }
 
 function resetForm() {
@@ -301,52 +339,55 @@ function resetForm() {
 
 async function submitCategory() {
   if (!canEditMoneyData.value) return
+  formError.value = ''
+
   if (editingCategoryId.value && selectedCategory.value && !selectedCategory.value.isDefault) {
-    const updated = updateCategory(editingCategoryId.value, {
+    try {
+      await updateCategory(editingCategoryId.value, {
+        name: form.name,
+        emoji: form.emoji,
+        color: form.color
+      })
+
+      closeCategoryManager()
+      categoryModalOpen.value = false
+      resetEditState()
+      return
+    }
+    catch (error) {
+      formError.value = resolveActionErrorMessage(error)
+      return
+    }
+  }
+
+  try {
+    await addCategory({
+      type: form.type,
       name: form.name,
       emoji: form.emoji,
       color: form.color
     })
 
-    if (!updated) {
-      formError.value = categoriesCopy.value.nameExists
-      return
-    }
-
-    await syncCloudNow()
-
-    closeCategoryManager()
+    resetForm()
     categoryModalOpen.value = false
-    resetEditState()
-    return
   }
-
-  const created = addCategory({
-    type: form.type,
-    name: form.name,
-    emoji: form.emoji,
-    color: form.color
-  })
-
-  if (!created) {
-    formError.value = categoriesCopy.value.nameExists
-    return
+  catch (error) {
+    formError.value = resolveActionErrorMessage(error)
   }
-
-  await syncCloudNow()
-
-  resetForm()
-  categoryModalOpen.value = false
 }
 
 async function confirmDeleteCategory() {
   if (!canEditMoneyData.value) return
   if (!selectedCategory.value || selectedCategory.value.isDefault) return
 
-  removeCategory(selectedCategory.value.id)
-  await syncCloudNow()
-  closeCategoryManager()
-  deleteCategoryOpen.value = false
+  try {
+    await removeCategory(selectedCategory.value.id)
+    closeCategoryManager()
+    deleteCategoryOpen.value = false
+  }
+  catch (error) {
+    formError.value = resolveActionErrorMessage(error)
+  }
 }
 
 function cancelCategorySheet() {
@@ -403,15 +444,19 @@ function onSheetPointerCancel() {
         <h1 class="text-3xl font-black tracking-tight text-default">{{ categoriesCopy.title }}</h1>
       </div>
 
-      <UButton
-        v-if="canEditMoneyData"
-        icon="i-lucide-plus"
-        size="lg"
-        :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
-        @click="categoryModalOpen = true"
-      >
-        {{ categoriesCopy.add }}
-      </UButton>
+      <div class="flex shrink-0 items-center gap-2">
+        <PageReloadButton />
+
+        <UButton
+          v-if="canEditMoneyData"
+          icon="i-lucide-plus"
+          size="lg"
+          :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
+          @click="categoryModalOpen = true"
+        >
+          {{ categoriesCopy.add }}
+        </UButton>
+      </div>
     </section>
 
     <p v-if="!hasEnabledCategories" class="rounded-[1.25rem] border border-amber-200/80 bg-amber-50 px-4 py-3 text-[12px] font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">

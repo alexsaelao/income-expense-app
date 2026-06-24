@@ -21,7 +21,6 @@ const {
   typeTint,
   updateWallet,
   removeWallet,
-  syncCloudNow,
   canEditMoneyData
 } = useMoneyNote()
 
@@ -43,6 +42,20 @@ const walletForm = reactive({
 })
 
 const walletAccentMap = Object.fromEntries(walletColorOptions.map(item => [item.value, item.accent])) as Record<WalletColor, string>
+
+function resolveActionErrorMessage(error: unknown) {
+  const maybeResponse = error as {
+    data?: { statusMessage?: string; message?: string }
+    message?: string
+    statusMessage?: string
+  }
+
+  return maybeResponse?.data?.statusMessage
+    || maybeResponse?.data?.message
+    || maybeResponse?.statusMessage
+    || maybeResponse?.message
+    || 'Unable to save wallet'
+}
 
 const walletCopy = computed(() => {
   if (selectedLanguage.value === 'lo') {
@@ -144,24 +157,34 @@ async function submitWalletUpdate() {
     return
   }
 
-  updateWallet(wallet.value.id, {
-    name: nextName,
-    emoji: walletForm.emoji.trim() || wallet.value.emoji,
-    color: walletForm.color,
-    note: walletForm.note.trim() || undefined
-  })
-  await syncCloudNow()
+  try {
+    await updateWallet(wallet.value.id, {
+      name: nextName,
+      emoji: walletForm.emoji.trim() || wallet.value.emoji,
+      color: walletForm.color,
+      note: walletForm.note.trim() || undefined
+    })
 
-  closeWalletManager()
+    closeWalletManager()
+  }
+  catch (error) {
+    walletFormError.value = resolveActionErrorMessage(error)
+  }
 }
 
 async function confirmDeleteWallet() {
   if (!wallet.value || !canEditMoneyData.value) return
 
-  removeWallet(wallet.value.id)
-  await syncCloudNow()
-  closeDeleteWalletConfirm()
-  router.push('/wallets')
+  try {
+    await removeWallet(wallet.value.id)
+    closeDeleteWalletConfirm()
+    router.push('/wallets')
+  }
+  catch (error) {
+    walletFormError.value = resolveActionErrorMessage(error)
+    walletDeleteOpen.value = false
+    walletManageOpen.value = true
+  }
 }
 </script>
 

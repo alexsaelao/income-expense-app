@@ -2,15 +2,10 @@
 const route = useRoute()
 const { selectedLanguage } = useAppLanguage()
 const { authReady, isAuthenticated, hydrateAuth } = useDeviceAuth()
-const { refreshCloudState, autoSyncReady, isCloudSyncEnabled } = useMoneyNote()
 
 const isAuthPage = computed(() => route.path === '/login' || route.path === '/register')
 const showProtectedShell = computed(() => authReady.value && isAuthenticated.value)
 const isProtectedPage = computed(() => !isAuthPage.value)
-const shouldSyncRoute = computed(() =>
-  ['/', '/add', '/categories', '/companies', '/settings', '/transactions', '/wallets', '/reports']
-    .some(path => route.path === path || route.path.startsWith(`${path}/`))
-)
 
 useHead(() => ({
   htmlAttrs: {
@@ -36,15 +31,6 @@ watch([authReady, isAuthenticated, isAuthPage], ([ready, authenticated, authPage
     navigateTo('/', { replace: true })
   }
 })
-
-watch(
-  [authReady, isAuthenticated, autoSyncReady, isCloudSyncEnabled, shouldSyncRoute, () => route.fullPath],
-  ([ready, authenticated, syncReady, cloudSyncEnabled, syncRoute]) => {
-    if (!ready || !authenticated || !syncReady || !cloudSyncEnabled || !syncRoute) return
-    void refreshCloudState({ force: true })
-  },
-  { immediate: true, flush: 'post' }
-)
 </script>
 
 <template>

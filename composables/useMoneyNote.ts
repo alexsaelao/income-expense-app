@@ -1,17 +1,10 @@
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, watch } from 'vue'
 
 export type CurrencyCode = 'LAK' | 'THB' | 'USD'
 export type TransactionType = 'income' | 'expense' | 'move' | 'loan'
 export type CategoryType = 'income' | 'expense'
 export type LoanDirection = 'given' | 'received'
 export type WalletColor = 'sky' | 'emerald' | 'indigo' | 'amber' | 'rose' | 'violet' | 'fuchsia' | 'slate'
-type MoneyNoteSnapshot = {
-  stateJson: string
-  selectedCurrency: CurrencyCode
-  currencySupportJson: string
-  updatedAt: string
-}
-
 export interface Wallet {
   id: string
   name: string
@@ -109,14 +102,7 @@ export interface CompanyItem {
   updatedAt?: string
 }
 
-type SyncSource = 'cloud' | 'unknown'
-
-export interface SyncDebugCloudSnapshot {
-  identifier: string
-  updatedAt: string | null
-  connected: boolean
-  state: MoneyNoteState | null
-}
+const SELECTED_CURRENCY_STORAGE_KEY = 'money-note-selected-currency-v1'
 
 const currencyFormatters: Record<CurrencyCode, Intl.NumberFormat> = {
   LAK: new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }),
@@ -201,49 +187,6 @@ function walletColorForAccent(accent?: string | null): WalletColor {
   return match?.[0] ?? 'sky'
 }
 
-function safeTimestamp(value?: string | null) {
-  const time = value ? new Date(value).getTime() : Number.NaN
-  return Number.isFinite(time) ? time : 0
-}
-
-function recordTimestamp(record?: { updatedAt?: string | null; createdAt?: string | null }) {
-  return record?.updatedAt ?? record?.createdAt ?? new Date().toISOString()
-}
-
-function isNewerRecord<T extends { updatedAt?: string | null; createdAt?: string | null }>(candidate: T, current: T) {
-  const candidateTime = safeTimestamp(recordTimestamp(candidate))
-  const currentTime = safeTimestamp(recordTimestamp(current))
-
-  if (candidateTime !== currentTime) {
-    return candidateTime > currentTime
-  }
-
-  return recordTimestamp(candidate) > recordTimestamp(current)
-}
-
-function mergeKeyList(local: string[] = [], remote: string[] = []) {
-  return [...new Set([...local, ...remote])]
-}
-
-function mergeRecordLists<T extends { id: string; updatedAt?: string | null; createdAt?: string | null }>(
-  local: T[] = [],
-  remote: T[] = []
-) {
-  const merged = new Map<string, T>()
-
-  const ingest = (record: T) => {
-    const current = merged.get(record.id)
-    if (!current || isNewerRecord(record, current)) {
-      merged.set(record.id, record)
-    }
-  }
-
-  local.forEach(ingest)
-  remote.forEach(ingest)
-
-  return [...merged.values()]
-}
-
 function normalizeWallet(wallet: Partial<Wallet> & { id: string }): Wallet {
   const color = wallet.color ?? walletColorForAccent(wallet.accent)
 
@@ -286,6 +229,11 @@ function normalizeCompany(company: Partial<CompanyItem> & { id: string }): Compa
     createdAt: company.createdAt ?? new Date().toISOString(),
     updatedAt: company.updatedAt ?? company.createdAt ?? new Date().toISOString()
   }
+}
+
+function isBuiltInCompany(company: { id?: string; name?: string | null }) {
+  const normalizedName = company.name?.trim().toLowerCase() ?? ''
+  return company.id?.startsWith('company-default-') || defaultCompanyDefinitions.some(item => item.name.toLowerCase() === normalizedName)
 }
 
 function defaultCategoryKey(type: CategoryType, name: string) {
@@ -343,6 +291,65 @@ function normalizeCurrencySupport(input?: Partial<Record<CurrencyCode, boolean>>
   return support
 }
 
+function defaultPreferencePayload(currencySupport: Partial<Record<CurrencyCode, boolean>> = defaultCurrencySupport()) {
+  return {
+    walletOrder: [] as string[],
+    pinnedWalletKeys: [] as string[],
+    disabledDefaultCategories: [] as string[],
+    disabledDefaultCompanies: [] as string[],
+    categoryOrder: {
+      income: [] as string[],
+      expense: [] as string[]
+    },
+    pinnedCategoryKeys: {
+      income: [] as string[],
+      expense: [] as string[]
+    },
+    companyOrder: [] as string[],
+    pinnedCompanyKeys: [] as string[],
+    currencySupport: normalizeCurrencySupport(currencySupport)
+  }
+}
+
+function normalizeSelectedCurrency(value: unknown): CurrencyCode {
+  return currencyOptions.some(option => option.value === value)
+    ? value as CurrencyCode
+    : 'LAK'
+}
+
+function readSelectedCurrencyPreference() {
+  if (!import.meta.client) return 'LAK' as CurrencyCode
+
+  try {
+    return normalizeSelectedCurrency(window.localStorage.getItem(SELECTED_CURRENCY_STORAGE_KEY))
+  }
+  catch {
+    return 'LAK'
+  }
+}
+
+function persistSelectedCurrencyPreference(value: CurrencyCode) {
+  if (!import.meta.client) return
+
+  try {
+    window.localStorage.setItem(SELECTED_CURRENCY_STORAGE_KEY, value)
+  }
+  catch {
+    // Ignore storage failures and keep the in-memory selection.
+  }
+}
+
+function clearSelectedCurrencyPreference() {
+  if (!import.meta.client) return
+
+  try {
+    window.localStorage.removeItem(SELECTED_CURRENCY_STORAGE_KEY)
+  }
+  catch {
+    // Ignore storage failures and continue clearing in-memory state.
+  }
+}
+
 function normalizeAccountKey(identifier?: string | null) {
   const value = identifier?.trim()
   if (!value) return 'guest'
@@ -373,7 +380,9 @@ function normalizeState(state?: Partial<MoneyNoteState> | null): MoneyNoteState 
     ? state.categories.map(category => normalizeCategory(category as Partial<CategoryItem> & { id: string; type: CategoryType }))
     : fallback.categories
   const normalizedCompanies = state?.companies?.length
-    ? state.companies.map(company => normalizeCompany(company as Partial<CompanyItem> & { id: string }))
+    ? state.companies
+      .map(company => normalizeCompany(company as Partial<CompanyItem> & { id: string }))
+      .filter(company => !isBuiltInCompany(company))
     : fallback.companies
   const normalizedWallets = state?.wallets?.length
     ? state.wallets.map(wallet => normalizeWallet(wallet as Partial<Wallet> & { id: string }))
@@ -445,91 +454,6 @@ function normalizeState(state?: Partial<MoneyNoteState> | null): MoneyNoteState 
     transactions: state?.transactions?.length ? state.transactions : fallback.transactions,
     categories: normalizedCategories,
     companies: normalizedCompanies
-  })
-}
-
-function isPristineState(state: MoneyNoteState) {
-  const wallet = state.wallets[0]
-  const company = state.companies[0]
-
-  return state.transactions.length === 0
-    && state.categories.length === 0
-    && state.wallets.length === 1
-    && Boolean(wallet)
-    && wallet.id === 'wallet-cash'
-    && wallet.name === 'Cash'
-    && wallet.currency === 'LAK'
-    && wallet.openingBalance === 0
-    && wallet.balance === 0
-    && wallet.color === 'sky'
-    && wallet.emoji === '💳'
-    && state.companies.length === 1
-    && Boolean(company)
-    && company.id === 'company-default-other'
-    && company.name === 'Other'
-    && company.enabled === true
-    && state.pinnedWalletKeys.length === 0
-    && state.pinnedCategoryKeys.income.length === 0
-    && state.pinnedCategoryKeys.expense.length === 0
-    && state.pinnedCompanyKeys.length === 0
-    && state.disabledDefaultCategories.length === 0
-    && state.disabledDefaultCompanies.length === 0
-}
-
-function mergeMoneyNoteState(localState: MoneyNoteState, remoteState: MoneyNoteState): MoneyNoteState {
-  const local = normalizeState(localState)
-  const remote = normalizeState(remoteState)
-
-  const mergedTransactions = mergeRecordLists(local.transactions, remote.transactions)
-    .map(transaction => ({
-      ...transaction,
-      updatedAt: recordTimestamp(transaction),
-      createdAt: transaction.createdAt ?? recordTimestamp(transaction)
-    }))
-    .sort((a, b) => {
-      const timeDelta = safeTimestamp(a.updatedAt) - safeTimestamp(b.updatedAt)
-      if (timeDelta !== 0) return timeDelta
-
-      const createdDelta = safeTimestamp(a.createdAt) - safeTimestamp(b.createdAt)
-      if (createdDelta !== 0) return createdDelta
-
-      return a.id.localeCompare(b.id)
-    })
-
-  const mergedWallets = mergeRecordLists(local.wallets, remote.wallets).map(wallet => ({
-    ...wallet,
-    updatedAt: recordTimestamp(wallet)
-  }))
-
-  const mergedCategories = mergeRecordLists(local.categories, remote.categories).map(category => ({
-    ...category,
-    updatedAt: recordTimestamp(category)
-  }))
-
-  const mergedCompanies = mergeRecordLists(local.companies, remote.companies).map(company => ({
-    ...company,
-    updatedAt: recordTimestamp(company)
-  }))
-
-  return recalculateBalances({
-    walletOrder: mergeKeyList(local.walletOrder, remote.walletOrder),
-    pinnedWalletKeys: mergeKeyList(local.pinnedWalletKeys, remote.pinnedWalletKeys),
-    disabledDefaultCategories: mergeKeyList(local.disabledDefaultCategories, remote.disabledDefaultCategories),
-    disabledDefaultCompanies: mergeKeyList(local.disabledDefaultCompanies, remote.disabledDefaultCompanies),
-    categoryOrder: {
-      income: mergeKeyList(local.categoryOrder.income, remote.categoryOrder.income),
-      expense: mergeKeyList(local.categoryOrder.expense, remote.categoryOrder.expense)
-    },
-    pinnedCategoryKeys: {
-      income: mergeKeyList(local.pinnedCategoryKeys.income, remote.pinnedCategoryKeys.income),
-      expense: mergeKeyList(local.pinnedCategoryKeys.expense, remote.pinnedCategoryKeys.expense)
-    },
-    companyOrder: mergeKeyList(local.companyOrder, remote.companyOrder),
-    pinnedCompanyKeys: mergeKeyList(local.pinnedCompanyKeys, remote.pinnedCompanyKeys),
-    wallets: mergedWallets,
-    transactions: mergedTransactions,
-    categories: mergedCategories,
-    companies: mergedCompanies
   })
 }
 
@@ -609,15 +533,7 @@ function defaultState(): MoneyNoteState {
       }
     ],
     categories: [],
-    companies: defaultCompanyDefinitions.map(company => ({
-      id: `company-default-${company.name.toLowerCase().replace(/\s+/g, '-')}`,
-      name: company.name,
-      emoji: company.emoji,
-      color: company.color,
-      enabled: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    })),
+    companies: [],
     transactions: []
   }
 }
@@ -835,25 +751,10 @@ export function useMoneyNote() {
   const hydrated = useState('money-note-hydrated', () => false)
   const transactionsHydrated = useState('money-note-transactions-hydrated', () => false)
   const hydratedAccountKey = useState('money-note-hydrated-account-key', () => '')
-  const hydratedCloudSyncEnabled = useState('money-note-hydrated-cloud-sync-enabled', () => false)
-  const hydratedSnapshotWasPristine = useState('money-note-hydrated-snapshot-pristine', () => true)
-  const lastSyncSource = useState<SyncSource>('money-note-last-sync-source', () => 'unknown')
   const hydrating = useState('money-note-hydrating', () => false)
-  const autoSyncReady = useState('money-note-auto-sync-ready', () => false)
-  const initialHydratedSignature = useState('money-note-initial-hydrated-signature', () => '')
-  const syncInFlight = useState('money-note-sync-in-flight', () => false)
-  const queuedForceSync = useState('money-note-queued-force-sync', () => false)
   const { selectedLanguage } = useAppLanguage()
   const { authReady, sessionProfile } = useDeviceAuth()
   const { isOnline } = useConnectivity()
-  let remoteSaveTimer: ReturnType<typeof setTimeout> | null = null
-  const syncStatus = useState<'offline' | 'syncing' | 'synced' | 'waiting'>('money-note-sync-status', () => 'waiting')
-  const lastSyncedAt = useState('money-note-last-synced-at', () => '')
-  const syncProgress = useState('money-note-sync-progress', () => 0)
-  const syncError = useState('money-note-sync-error', () => '')
-  const syncDebugCloudSnapshot = useState<SyncDebugCloudSnapshot | null>('money-note-sync-debug-cloud', () => null)
-  const syncDebugLoading = useState('money-note-sync-debug-loading', () => false)
-  const syncDebugError = useState('money-note-sync-debug-error', () => '')
   const defaultCategoriesEnabled = computed(() => store.value.disabledDefaultCategories.length === 0)
 
   const activeAccountIdentifier = computed(() => sessionProfile.value?.identifier ?? '')
@@ -861,208 +762,124 @@ export function useMoneyNote() {
   const isCloudSyncEnabled = computed(() => (sessionProfile.value?.plan ?? 'free') === 'pro')
   const canEditMoneyData = computed(() => isCloudSyncEnabled.value)
 
-  const buildStateSignature = (
-    stateValue: MoneyNoteState = store.value,
-    selectedCurrencyValue: CurrencyCode = selectedCurrency.value,
-    currencySupportValue: Record<CurrencyCode, boolean> = currencySupport.value
-  ) => JSON.stringify({
-    stateJson: JSON.stringify(stateValue),
-    selectedCurrency: selectedCurrencyValue,
-    currencySupportJson: JSON.stringify(currencySupportValue)
-  })
-
-  const buildLocalSnapshot = (
-    updatedAt = new Date().toISOString(),
-    stateValue: MoneyNoteState = store.value,
-    selectedCurrencyValue: CurrencyCode = selectedCurrency.value,
-    currencySupportValue: Record<CurrencyCode, boolean> = currencySupport.value
-  ): MoneyNoteSnapshot => ({
-    stateJson: JSON.stringify(stateValue),
-    selectedCurrency: selectedCurrencyValue,
-    currencySupportJson: JSON.stringify(currencySupportValue),
-    updatedAt
-  })
-
-  const buildLocalSnapshotSignature = () => buildStateSignature()
-
-  function logSyncDebug(step: string, details?: Record<string, unknown>) {
-    if (!import.meta.client) return
-
-    if (details) {
-      console.debug(`[money-note][sync] ${step}`, details)
-      return
-    }
-
-    console.debug(`[money-note][sync] ${step}`)
-  }
-
-  async function refreshSyncDebugData() {
-    if (!import.meta.client || !authReady.value) return false
-
-    syncDebugLoading.value = true
-    syncDebugError.value = ''
-
-    try {
-      const accountKey = activeAccountKey.value
-      const identifier = activeAccountIdentifier.value.trim()
-
-      if (!identifier || accountKey === 'guest') {
-        syncDebugCloudSnapshot.value = null
-        return true
-      }
-
-      const remote = await $fetch<{
-        state: Partial<MoneyNoteState> | null
-        snapshot?: {
-          state?: Partial<MoneyNoteState> | null
-          selectedCurrency?: unknown
-          currencySupport?: unknown
-          updatedAt?: string | null
-        } | null
-        updatedAt?: string | null
-        connected?: boolean
-      }>('/api/app-state', {
-        query: { identifier }
-      })
-
-      if (remote?.connected === false) {
-        syncDebugCloudSnapshot.value = null
-        return true
-      }
-
-      const cloudSnapshot = remote?.snapshot ?? remote?.state ?? null
-      syncDebugCloudSnapshot.value = {
-        identifier,
-        updatedAt: remote?.updatedAt ?? null,
-        connected: true,
-        state: cloudSnapshot
-          ? parseSnapshotState(cloudSnapshot).state
-          : null
-      }
-
-      logSyncDebug('debug: read cloud snapshot', {
-        identifier,
-        hasRemoteState: Boolean(cloudSnapshot),
-        remoteUpdatedAt: remote?.updatedAt ?? null
-      })
-
-      return true
-    }
-    catch (error) {
-      const message = resolveSyncErrorMessage(error)
-      syncDebugError.value = message
-      logSyncDebug('debug: failed to refresh snapshot data', {
-        error: message
-      })
-      return false
-    }
-    finally {
-      syncDebugLoading.value = false
-    }
-  }
-
-  function parseSnapshotState(
-    snapshot?: MoneyNoteSnapshot | {
-      state?: Partial<MoneyNoteState> | null
-      selectedCurrency?: unknown
-      currencySupport?: unknown
-      updatedAt?: string | null
-    } | null
-  ) {
-    if (!snapshot) {
-      return {
-        state: normalizeState(defaultState()),
-        selectedCurrency: 'LAK' as CurrencyCode,
-        currencySupport: defaultCurrencySupport(),
-        updatedAt: new Date().toISOString()
-      }
-    }
-
-    let parsedState = normalizeState(defaultState())
-    let parsedCurrency = 'LAK' as CurrencyCode
-    let parsedSupport = defaultCurrencySupport()
-
-    if ('stateJson' in snapshot) {
-      try {
-        parsedState = normalizeState(JSON.parse(snapshot.stateJson) as Partial<MoneyNoteState>)
-      }
-      catch {
-        parsedState = normalizeState(defaultState())
-      }
-
-      try {
-        parsedSupport = normalizeCurrencySupport(JSON.parse(snapshot.currencySupportJson) as Partial<Record<CurrencyCode, boolean>>)
-      }
-      catch {
-        parsedSupport = defaultCurrencySupport()
-      }
-
-      if (currencyOptions.some(option => option.value === snapshot.selectedCurrency)) {
-        parsedCurrency = snapshot.selectedCurrency
-      }
-    }
-    else if (
-      ('wallets' in snapshot || 'transactions' in snapshot || 'categories' in snapshot || 'companies' in snapshot)
-      && !('state' in snapshot)
-    ) {
-      try {
-        parsedState = normalizeState(snapshot as Partial<MoneyNoteState>)
-      }
-      catch {
-        parsedState = normalizeState(defaultState())
-      }
-
-      parsedCurrency = 'LAK'
-      parsedSupport = defaultCurrencySupport()
-    }
-    else {
-      try {
-        parsedState = normalizeState(snapshot.state ?? defaultState())
-      }
-      catch {
-        parsedState = normalizeState(defaultState())
-      }
-
-      try {
-        parsedSupport = normalizeCurrencySupport(snapshot.currencySupport as Partial<Record<CurrencyCode, boolean>>)
-      }
-      catch {
-        parsedSupport = defaultCurrencySupport()
-      }
-
-      if (currencyOptions.some(option => option.value === snapshot.selectedCurrency)) {
-        parsedCurrency = snapshot.selectedCurrency
-      }
-    }
-
+  function currentPreferencesPayload() {
     return {
-      state: parsedState,
-      selectedCurrency: parsedCurrency,
-      currencySupport: parsedSupport,
-      updatedAt: snapshot.updatedAt ?? new Date().toISOString()
+      walletOrder: [...(store.value.walletOrder ?? [])],
+      pinnedWalletKeys: [...(store.value.pinnedWalletKeys ?? [])],
+      disabledDefaultCategories: [...store.value.disabledDefaultCategories],
+      disabledDefaultCompanies: [...store.value.disabledDefaultCompanies],
+      categoryOrder: {
+        income: [...(store.value.categoryOrder?.income ?? [])],
+        expense: [...(store.value.categoryOrder?.expense ?? [])]
+      },
+      pinnedCategoryKeys: {
+        income: [...(store.value.pinnedCategoryKeys?.income ?? [])],
+        expense: [...(store.value.pinnedCategoryKeys?.expense ?? [])]
+      },
+      companyOrder: [...(store.value.companyOrder ?? [])],
+      pinnedCompanyKeys: [...(store.value.pinnedCompanyKeys ?? [])],
+      currencySupport: normalizeCurrencySupport(currencySupport.value)
     }
   }
 
-  async function pushCloudState(identifier: string, state: MoneyNoteState, updatedAt?: string) {
-    const result = await $fetch<{ ok: boolean; connected?: boolean }>('/api/app-state', {
-      method: 'POST',
+  function applyPreferencesPayload(payload: ReturnType<typeof currentPreferencesPayload>) {
+    store.value = recalculateBalances({
+      ...cloneState(store.value),
+      walletOrder: [...payload.walletOrder],
+      pinnedWalletKeys: [...payload.pinnedWalletKeys],
+      disabledDefaultCategories: [...payload.disabledDefaultCategories],
+      disabledDefaultCompanies: [...payload.disabledDefaultCompanies],
+      categoryOrder: {
+        income: [...payload.categoryOrder.income],
+        expense: [...payload.categoryOrder.expense]
+      },
+      pinnedCategoryKeys: {
+        income: [...payload.pinnedCategoryKeys.income],
+        expense: [...payload.pinnedCategoryKeys.expense]
+      },
+      companyOrder: [...payload.companyOrder],
+      pinnedCompanyKeys: [...payload.pinnedCompanyKeys]
+    })
+    currencySupport.value = normalizeCurrencySupport(payload.currencySupport)
+  }
+
+  function fallbackPreferencesPayload(
+    fallbackState: MoneyNoteState,
+    fallbackCurrencySupport: Record<CurrencyCode, boolean>
+  ) {
+    return {
+      walletOrder: [...(fallbackState.walletOrder ?? [])],
+      pinnedWalletKeys: [...(fallbackState.pinnedWalletKeys ?? [])],
+      disabledDefaultCategories: [...fallbackState.disabledDefaultCategories],
+      disabledDefaultCompanies: [...fallbackState.disabledDefaultCompanies],
+      categoryOrder: {
+        income: [...(fallbackState.categoryOrder?.income ?? [])],
+        expense: [...(fallbackState.categoryOrder?.expense ?? [])]
+      },
+      pinnedCategoryKeys: {
+        income: [...(fallbackState.pinnedCategoryKeys?.income ?? [])],
+        expense: [...(fallbackState.pinnedCategoryKeys?.expense ?? [])]
+      },
+      companyOrder: [...(fallbackState.companyOrder ?? [])],
+      pinnedCompanyKeys: [...(fallbackState.pinnedCompanyKeys ?? [])],
+      currencySupport: normalizeCurrencySupport(fallbackCurrencySupport)
+    }
+  }
+
+  function hasNonDefaultPreferences(payload: ReturnType<typeof currentPreferencesPayload>) {
+    const defaults = defaultPreferencePayload()
+    return JSON.stringify(payload) !== JSON.stringify(defaults)
+  }
+
+  async function persistPreferences(payload = currentPreferencesPayload()) {
+    const result = await $fetch<{
+      ok: boolean
+      preferences: ReturnType<typeof currentPreferencesPayload>
+    }>('/api/preferences', {
+      method: 'PUT',
       body: {
-        identifier,
-        snapshot: buildLocalSnapshot(
-          updatedAt,
-          state,
-          selectedCurrency.value,
-          currencySupport.value
-        ),
-        updatedAt
+        preferences: payload
       }
     })
 
-    if (result?.connected === false) {
-      throw new Error('cloud-unavailable')
+    applyPreferencesPayload(result.preferences)
+    await persistSnapshotAfterMutation()
+    return result.preferences
+  }
+
+  async function hydratePreferencesFromDatabase(
+    fallbackState: MoneyNoteState,
+    fallbackCurrencySupport: Record<CurrencyCode, boolean>
+  ) {
+    if (!import.meta.client || !authReady.value) {
+      return false
     }
 
-    return result
+    try {
+      const result = await $fetch<{
+        ok: boolean
+        preferences: ReturnType<typeof currentPreferencesPayload> | null
+      }>('/api/preferences')
+
+      if (!result.preferences) {
+        const fallbackPayload = fallbackPreferencesPayload(fallbackState, fallbackCurrencySupport)
+        if (hasNonDefaultPreferences(fallbackPayload)) {
+          const imported = await persistPreferences(fallbackPayload)
+          applyPreferencesPayload(imported)
+          return true
+        }
+
+        applyPreferencesPayload(defaultPreferencePayload())
+        return true
+      }
+
+      applyPreferencesPayload(result.preferences)
+      return true
+    }
+    catch (error) {
+      console.error('[money-note] preferences database hydrate failed', error)
+      return false
+    }
   }
 
   function resolveSyncErrorMessage(error: unknown) {
@@ -1089,354 +906,62 @@ export function useMoneyNote() {
       || 'Unknown sync error'
   }
 
-  function latestTimestamp(...values: Array<string | null | undefined>) {
-    const timestamps = values.filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
-    if (!timestamps.length) return new Date().toISOString()
-
-    return timestamps.sort((a, b) => new Date(a).getTime() - new Date(b).getTime()).at(-1) ?? new Date().toISOString()
-  }
-
-  function isRemoteSnapshotNewer(localUpdatedAt?: string | null, remoteUpdatedAt?: string | null) {
-    if (!remoteUpdatedAt) return false
-    if (!localUpdatedAt) return true
-
-    return new Date(remoteUpdatedAt).getTime() >= new Date(localUpdatedAt).getTime()
-  }
-
-  const saveState = (options?: { force?: boolean }) => {
-    if (!import.meta.client || !hydrated.value || hydrating.value || !autoSyncReady.value) return
-
-    const snapshotSignature = buildLocalSnapshotSignature()
-    if (!options?.force && snapshotSignature === initialHydratedSignature.value) return
-
-    hydratedSnapshotWasPristine.value = false
-
-    if (!isCloudSyncEnabled.value) {
-      syncStatus.value = 'waiting'
-      syncProgress.value = 0
-      return
-    }
-
-    if (!isOnline.value) {
-      syncStatus.value = 'offline'
-      syncProgress.value = 0
-      return
-    }
-
-    if (remoteSaveTimer) {
-      clearTimeout(remoteSaveTimer)
-    }
-
-    const identifier = activeAccountIdentifier.value.trim()
-    if (!identifier || activeAccountKey.value === 'guest') {
-      syncStatus.value = 'waiting'
-      syncProgress.value = 0
-      return
-    }
-
-    if (syncInFlight.value) {
-      queuedForceSync.value = true
-      return
-    }
-
-    remoteSaveTimer = setTimeout(() => {
-      remoteSaveTimer = null
-      void refreshCloudState({ force: true })
-    }, 250)
-  }
-
-  function flushSnapshotOnUnload() {
-    if (!import.meta.client || !hydrated.value || hydrating.value || !autoSyncReady.value || !isCloudSyncEnabled.value) return
-
-    const identifier = activeAccountIdentifier.value.trim()
-    if (!identifier || activeAccountKey.value === 'guest') return
-
-    try {
-      const payload = JSON.stringify({
-        identifier,
-        snapshot: buildLocalSnapshot(),
-        updatedAt: new Date().toISOString()
-      })
-
-      if (navigator.sendBeacon) {
-        const blob = new Blob([payload], { type: 'application/json' })
-        navigator.sendBeacon('/api/app-state', blob)
-      }
-    }
-    catch {
-      // Best-effort only. Normal sync will continue on the next load.
-    }
-  }
-
-  function clearPendingSaveTimers() {
-    if (remoteSaveTimer) {
-      clearTimeout(remoteSaveTimer)
-      remoteSaveTimer = null
-    }
-  }
-
   async function importMoneyNoteBackupFile(input: unknown) {
     if (!import.meta.client || !authReady.value) return
 
+    assertMoneyMutationReady()
     const backup = parseMoneyNoteBackupFile(input)
     const importedState = normalizeState(backup.data.state)
     const importedCurrencySupport = normalizeCurrencySupport(backup.data.currencySupport)
-    const importedCurrency = currencyOptions.some(option => option.value === backup.data.selectedCurrency)
-      ? backup.data.selectedCurrency
-      : 'LAK'
-    const identifier = activeAccountIdentifier.value.trim()
-    const accountKey = activeAccountKey.value
+    const importedCurrency = normalizeSelectedCurrency(backup.data.selectedCurrency)
+    const previousState = cloneState(store.value)
+    const previousCurrency = selectedCurrency.value
+    const previousCurrencySupport = normalizeCurrencySupport(currencySupport.value)
 
-    clearPendingSaveTimers()
-    autoSyncReady.value = false
     hydrating.value = true
-    hydrated.value = false
     transactionsHydrated.value = false
 
     try {
-      syncError.value = ''
-      store.value = importedState
       selectedCurrency.value = importedCurrency
-      currencySupport.value = importedCurrencySupport
-      lastSyncSource.value = 'cloud'
+      persistSelectedCurrencyPreference(importedCurrency)
 
-      hydratedAccountKey.value = accountKey
-      hydratedCloudSyncEnabled.value = isCloudSyncEnabled.value
-      hydrated.value = true
-      const importedSnapshot = buildLocalSnapshot()
-      initialHydratedSignature.value = buildLocalSnapshotSignature()
-      hydratedSnapshotWasPristine.value = false
+      await $fetch('/api/money-data/import', {
+        method: 'POST',
+        body: {
+          wallets: importedState.wallets,
+          categories: importedState.categories,
+          companies: importedState.companies
+        }
+      })
+      await $fetch('/api/preferences', {
+        method: 'PUT',
+        body: {
+          preferences: fallbackPreferencesPayload(importedState, importedCurrencySupport)
+        }
+      })
+      await $fetch('/api/transactions/import', {
+        method: 'POST',
+        body: {
+          transactions: importedState.transactions
+        }
+      })
 
-      await nextTick()
-
-      if (!isCloudSyncEnabled.value) {
-        syncStatus.value = 'waiting'
-        syncProgress.value = 0
-        return
-      }
-
-      if (!isOnline.value) {
-        syncStatus.value = 'offline'
-        syncProgress.value = 0
-        return
-      }
-
-      if (!identifier || accountKey === 'guest') {
-        syncStatus.value = 'waiting'
-        syncProgress.value = 0
-        return
-      }
-
-      syncStatus.value = 'syncing'
-      syncProgress.value = 72
-
-      await pushCloudState(identifier, store.value, importedSnapshot.updatedAt)
-
-      syncStatus.value = 'synced'
-      syncProgress.value = 100
-      lastSyncedAt.value = new Date().toISOString()
-      initialHydratedSignature.value = buildLocalSnapshotSignature()
+      await hydratePreferencesFromDatabase(importedState, importedCurrencySupport)
+      await hydrateStructuredDataFromDatabase(importedState)
+      await hydrateTransactionsFromDatabase(importedState.transactions)
     }
     catch (error) {
-      const message = resolveSyncErrorMessage(error)
-      console.error('[money-note] import sync failed', error)
-      syncError.value = message
-      syncStatus.value = isOnline.value ? 'waiting' : 'offline'
-      syncProgress.value = isOnline.value ? 35 : 0
+      store.value = recalculateBalances(previousState)
+      selectedCurrency.value = previousCurrency
+      currencySupport.value = previousCurrencySupport
+      persistSelectedCurrencyPreference(previousCurrency)
+      console.error('[money-note] import database failed', error)
       throw error
     }
     finally {
-      hydrating.value = false
-      autoSyncReady.value = true
-    }
-  }
-
-  async function refreshCloudState(options?: { force?: boolean }) {
-    if (!import.meta.client || !authReady.value || hydrating.value || !autoSyncReady.value) return false
-
-    if (!isCloudSyncEnabled.value) {
-      syncError.value = ''
-      syncStatus.value = 'waiting'
-      syncProgress.value = 0
-      return false
-    }
-
-    if (!isOnline.value) {
-      syncError.value = ''
-      syncStatus.value = 'offline'
-      syncProgress.value = 0
-      return false
-    }
-
-    const identifier = activeAccountIdentifier.value.trim()
-    const accountKey = activeAccountKey.value
-    if (!identifier || accountKey === 'guest') {
-      syncError.value = ''
-      syncStatus.value = 'waiting'
-      syncProgress.value = 0
-      return false
-    }
-
-    if (syncInFlight.value) {
-      if (options?.force) {
-        queuedForceSync.value = true
-      }
-      return false
-    }
-
-    if (!options?.force && buildLocalSnapshotSignature() !== initialHydratedSignature.value) {
-      return false
-    }
-
-    try {
-      syncError.value = ''
-      if (remoteSaveTimer) {
-        clearTimeout(remoteSaveTimer)
-        remoteSaveTimer = null
-      }
-
-      syncInFlight.value = true
-      queuedForceSync.value = false
-      syncStatus.value = 'syncing'
-      syncProgress.value = 72
-
-      const remote = await $fetch<{
-        state: Partial<MoneyNoteState> | null
-        snapshot?: {
-          state?: Partial<MoneyNoteState> | null
-          selectedCurrency?: unknown
-          currencySupport?: unknown
-          updatedAt?: string | null
-        } | null
-        updatedAt?: string | null
-        connected?: boolean
-      }>('/api/app-state', {
-        query: { identifier }
-      })
-
-      if (remote?.connected === false) {
-        syncError.value = ''
-        syncStatus.value = 'waiting'
-        syncProgress.value = 0
-        return false
-      }
-
-      logSyncDebug('refreshCloudState: fetched cloud snapshot', {
-        accountKey,
-        identifier,
-        hasRemoteState: Boolean(remote?.snapshot?.state ?? remote?.state),
-        remoteUpdatedAt: remote?.updatedAt ?? null
-      })
-
-      const localSnapshotParsed = parseSnapshotState(buildLocalSnapshot())
-      logSyncDebug('refreshCloudState: read current snapshot', {
-        accountKey,
-        localUpdatedAt: localSnapshotParsed.updatedAt
-      })
-      const remoteSnapshotParsed = remote?.snapshot ? parseSnapshotState(remote.snapshot) : null
-      const remoteState = remoteSnapshotParsed?.state ?? (remote?.state ? normalizeState(remote.state) : null)
-      const hasRemoteState = Boolean(remoteState)
-      const remoteUpdatedAt = remoteSnapshotParsed?.updatedAt ?? remote?.updatedAt ?? null
-      const useRemoteMetadata = isRemoteSnapshotNewer(localSnapshotParsed.updatedAt, remoteUpdatedAt)
-      const remoteSignature = hasRemoteState
-        ? buildStateSignature(
-            remoteState,
-            useRemoteMetadata
-              ? (remoteSnapshotParsed?.selectedCurrency ?? localSnapshotParsed.selectedCurrency)
-              : localSnapshotParsed.selectedCurrency,
-            useRemoteMetadata
-              ? (remoteSnapshotParsed?.currencySupport ?? localSnapshotParsed.currencySupport)
-              : localSnapshotParsed.currencySupport
-          )
-        : ''
-      const resolvedState = hasRemoteState && remoteState
-        ? mergeMoneyNoteState(localSnapshotParsed.state, remoteState)
-        : localSnapshotParsed.state
-      const resolvedSelectedCurrency = useRemoteMetadata
-        ? (remoteSnapshotParsed?.selectedCurrency ?? localSnapshotParsed.selectedCurrency)
-        : localSnapshotParsed.selectedCurrency
-      const resolvedCurrencySupport = useRemoteMetadata
-        ? (remoteSnapshotParsed?.currencySupport ?? localSnapshotParsed.currencySupport)
-        : localSnapshotParsed.currencySupport
-      const resolvedUpdatedAt = hasRemoteState
-        ? latestTimestamp(localSnapshotParsed.updatedAt, remote?.updatedAt, remoteSnapshotParsed?.updatedAt)
-        : localSnapshotParsed.updatedAt ?? new Date().toISOString()
-      const syncSource = 'cloud'
-
-      if (hasRemoteState) {
-        logSyncDebug('refreshCloudState: merge current + cloud', {
-          accountKey,
-          identifier,
-          localUpdatedAt: localSnapshotParsed.updatedAt,
-          remoteUpdatedAt: remote?.updatedAt ?? null,
-          resolvedUpdatedAt,
-          localWallets: localSnapshotParsed.state.wallets.length,
-          remoteWallets: remoteState.wallets.length,
-          resolvedWallets: resolvedState.wallets.length,
-          localTransactions: localSnapshotParsed.state.transactions.length,
-          remoteTransactions: remoteState.transactions.length,
-          resolvedTransactions: resolvedState.transactions.length
-        })
-      }
-
-      hydrating.value = true
-      selectedCurrency.value = resolvedSelectedCurrency
-      currencySupport.value = resolvedCurrencySupport
-      store.value = resolvedState
-      lastSyncSource.value = syncSource
-      hydratedAccountKey.value = accountKey
-      hydratedCloudSyncEnabled.value = isCloudSyncEnabled.value
       hydrated.value = true
-
-      await hydrateTransactionsFromDatabase(resolvedState.transactions)
-
-      const currentResolvedSignature = buildStateSignature(
-        store.value,
-        resolvedSelectedCurrency,
-        resolvedCurrencySupport
-      )
-      const shouldPushRemote = !hasRemoteState || currentResolvedSignature !== remoteSignature
-
-      if (shouldPushRemote) {
-        logSyncDebug('refreshCloudState: write merged state to cloud', {
-          identifier,
-          updatedAt: resolvedUpdatedAt
-        })
-        syncProgress.value = 88
-        await pushCloudState(identifier, resolvedState, resolvedUpdatedAt)
-      }
-
-      hydratedSnapshotWasPristine.value = false
-      syncStatus.value = 'synced'
-      syncProgress.value = 100
-      lastSyncedAt.value = new Date().toISOString()
-      initialHydratedSignature.value = buildStateSignature(
-        store.value,
-        resolvedSelectedCurrency,
-        resolvedCurrencySupport
-      )
-
-      return true
-    }
-    catch (error) {
-      const message = resolveSyncErrorMessage(error)
-      console.error('[money-note] cloud sync failed', error)
-      syncError.value = message
-      syncStatus.value = isOnline.value ? 'waiting' : 'offline'
-      syncProgress.value = isOnline.value ? 35 : 0
-      return false
-    }
-    finally {
-      syncInFlight.value = false
+      hydratedAccountKey.value = activeAccountKey.value
       hydrating.value = false
-      autoSyncReady.value = true
-
-      if (queuedForceSync.value && import.meta.client) {
-        queuedForceSync.value = false
-        queueMicrotask(() => {
-          void refreshCloudState({ force: true })
-        })
-      }
     }
   }
 
@@ -1445,6 +970,72 @@ export function useMoneyNote() {
       ...cloneState(store.value),
       transactions: transactions.map(transaction => ({ ...transaction }))
     })
+  }
+
+  function applyStructuredDataFromDatabase(payload: {
+    wallets: Wallet[]
+    categories: CategoryItem[]
+    companies: CompanyItem[]
+  }) {
+    store.value = recalculateBalances({
+      ...cloneState(store.value),
+      wallets: payload.wallets.map(wallet => ({ ...wallet })),
+      categories: payload.categories.map(category => ({ ...category })),
+      companies: payload.companies
+        .filter(company => !isBuiltInCompany(company))
+        .map(company => ({ ...company }))
+    })
+  }
+
+  async function hydrateStructuredDataFromDatabase(fallbackState: MoneyNoteState) {
+    if (!import.meta.client || !authReady.value) {
+      return false
+    }
+
+    try {
+      const result = await $fetch<{ ok: boolean; wallets: Wallet[]; categories: CategoryItem[]; companies: CompanyItem[] }>('/api/money-data')
+      const databaseWallets = Array.isArray(result.wallets) ? result.wallets : []
+      const databaseCategories = Array.isArray(result.categories) ? result.categories : []
+      const databaseCompanies = Array.isArray(result.companies) ? result.companies : []
+
+      if (!databaseWallets.length && !databaseCategories.length && !databaseCompanies.length) {
+        const fallbackCompanies = fallbackState.companies.filter(company => !isBuiltInCompany(company))
+        const shouldImportFallback = Boolean(
+          fallbackState.wallets.length
+          || fallbackState.categories.length
+          || fallbackCompanies.length
+        )
+
+        if (shouldImportFallback) {
+          const imported = await $fetch<{ ok: boolean; wallets: Wallet[]; categories: CategoryItem[]; companies: CompanyItem[] }>('/api/money-data/import', {
+            method: 'POST',
+            body: {
+              wallets: fallbackState.wallets,
+              categories: fallbackState.categories,
+              companies: fallbackCompanies
+            }
+          })
+
+          applyStructuredDataFromDatabase({
+            wallets: imported.wallets ?? [],
+            categories: imported.categories ?? [],
+            companies: imported.companies ?? []
+          })
+          return true
+        }
+      }
+
+      applyStructuredDataFromDatabase({
+        wallets: databaseWallets,
+        categories: databaseCategories,
+        companies: databaseCompanies
+      })
+      return true
+    }
+    catch (error) {
+      console.error('[money-note] structured data database hydrate failed', error)
+      return false
+    }
   }
 
   async function hydrateTransactionsFromDatabase(fallbackTransactions: Transaction[] = []) {
@@ -1491,56 +1082,38 @@ export function useMoneyNote() {
     if (!import.meta.client || !authReady.value) return
 
     const accountKey = activeAccountKey.value
-    if (
-      hydrated.value
-      && hydratedAccountKey.value === accountKey
-      && hydratedCloudSyncEnabled.value === isCloudSyncEnabled.value
-    ) return
+    if (hydrated.value && hydratedAccountKey.value === accountKey) return
 
-    autoSyncReady.value = false
     hydrating.value = true
     hydrated.value = false
-    let localSnapshotParsed = parseSnapshotState(buildLocalSnapshot())
+    transactionsHydrated.value = false
 
     try {
-      logSyncDebug('loadState: initialize current snapshot', {
-        updatedAt: localSnapshotParsed.updatedAt
-      })
+      const fallbackState = normalizeState(defaultState())
+      const fallbackCurrency = readSelectedCurrencyPreference()
+      const fallbackCurrencySupport = defaultCurrencySupport()
 
-      hydratedSnapshotWasPristine.value = isPristineState(localSnapshotParsed.state)
-      store.value = localSnapshotParsed.state
-      selectedCurrency.value = localSnapshotParsed.selectedCurrency
-      currencySupport.value = localSnapshotParsed.currencySupport
-      lastSyncSource.value = 'cloud'
-      syncError.value = ''
-
+      store.value = recalculateBalances(fallbackState)
+      selectedCurrency.value = fallbackCurrency
+      currencySupport.value = fallbackCurrencySupport
       hydratedAccountKey.value = accountKey
       hydrated.value = true
-      initialHydratedSignature.value = buildLocalSnapshotSignature()
-      await nextTick()
+
+      if (!isCloudSyncEnabled.value || !isOnline.value || accountKey === 'guest' || !activeAccountIdentifier.value.trim()) {
+        transactionsHydrated.value = true
+        return
+      }
+
+      await hydratePreferencesFromDatabase(fallbackState, fallbackCurrencySupport)
+      await hydrateStructuredDataFromDatabase(fallbackState)
+      await hydrateTransactionsFromDatabase([])
     }
     finally {
       hydrating.value = false
-      autoSyncReady.value = true
+      if (!transactionsHydrated.value) {
+        transactionsHydrated.value = true
+      }
     }
-
-    await hydrateTransactionsFromDatabase(localSnapshotParsed.state.transactions)
-
-    if (!isCloudSyncEnabled.value) {
-      syncError.value = ''
-      syncStatus.value = 'waiting'
-      syncProgress.value = 0
-      return
-    }
-
-    if (!isOnline.value) {
-      syncError.value = ''
-      syncStatus.value = 'offline'
-      syncProgress.value = 0
-      return
-    }
-
-    void refreshCloudState({ force: true })
   }
 
   watch(
@@ -1552,47 +1125,9 @@ export function useMoneyNote() {
   )
 
   watch(
-    store,
-    () => {
-      saveState()
-    },
-    { deep: true }
-  )
-
-  watch(
-    isOnline,
-    (online) => {
-      if (!autoSyncReady.value) {
-        if (!online) {
-          syncStatus.value = 'offline'
-          syncProgress.value = 0
-        }
-        return
-      }
-
-      if (!online) {
-        syncStatus.value = 'offline'
-        syncProgress.value = 0
-        return
-      }
-
-      if (!isCloudSyncEnabled.value) {
-        syncStatus.value = 'waiting'
-        syncProgress.value = 0
-        return
-      }
-
-      if (online && hydrated.value) {
-        void refreshCloudState({ force: true })
-      }
-    },
-    { immediate: false }
-  )
-
-  watch(
     selectedCurrency,
-    () => {
-      saveState()
+    (value) => {
+      persistSelectedCurrencyPreference(value)
     },
     { flush: 'post' }
   )
@@ -1603,47 +1138,9 @@ export function useMoneyNote() {
       if (!currencySupport.value[selectedCurrency.value]) {
         selectedCurrency.value = enabledCurrencyOptions.value[0]?.value ?? 'LAK'
       }
-
-      saveState()
     },
     { deep: true, flush: 'post' }
   )
-
-  const handlePageHide = () => {
-    flushSnapshotOnUnload()
-  }
-
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === 'hidden') {
-      flushSnapshotOnUnload()
-      return
-    }
-
-    if (document.visibilityState === 'visible' && autoSyncReady.value && isCloudSyncEnabled.value && hydrated.value) {
-      void refreshCloudState({ force: true })
-    }
-  }
-
-  const handleFocus = () => {
-    if (!autoSyncReady.value || !isCloudSyncEnabled.value || !hydrated.value) return
-    void refreshCloudState({ force: true })
-  }
-
-  onMounted(() => {
-    if (!import.meta.client) return
-
-    window.addEventListener('pagehide', handlePageHide)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-  })
-
-  onBeforeUnmount(() => {
-    if (!import.meta.client) return
-
-    window.removeEventListener('pagehide', handlePageHide)
-    document.removeEventListener('visibilitychange', handleVisibilityChange)
-    window.removeEventListener('focus', handleFocus)
-  })
 
   const transactions = computed(() => [...store.value.transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()))
   const wallets = computed(() => sortWalletsByPriority(store.value.wallets, store.value.walletOrder ?? [], store.value.pinnedWalletKeys ?? []))
@@ -1912,46 +1409,41 @@ export function useMoneyNote() {
 
   const companyOptions = computed(() => companyEntries().filter(company => company.enabled !== false).map(company => company.name))
 
-function addCategory(payload: { type: CategoryType; name: string; emoji?: string; color?: WalletColor }) {
-  if (!canEditMoneyData.value) return false
-  const name = payload.name.trim()
-  if (!name) return false
-  const now = new Date().toISOString()
-
-    const normalizedType = payload.type === 'expense' ? 'expense' : 'income'
-    const exists = [
-      ...defaultCategoryDefinitions[normalizedType].map(category => category.name),
-      ...store.value.categories.filter(category => category.type === normalizedType).map(category => category.name)
-    ].some(category => category.toLowerCase() === name.toLowerCase())
-    if (exists) return false
-
+  function applySingleCategory(category: CategoryItem) {
     store.value.categories = [
-      {
-        id: `category-${crypto.randomUUID()}`,
-        type: normalizedType,
-        name,
-        emoji: payload.emoji?.trim() || '🏷️',
-        color: payload.color ?? 'sky',
-        enabled: true,
-        createdAt: now,
-        updatedAt: now
-      },
-      ...store.value.categories
+      category,
+      ...store.value.categories.filter(item => item.id !== category.id)
     ]
 
-    const nextCustomKey = customCategoryKey(store.value.categories[0].id)
-    const nextOrder = [nextCustomKey, ...(store.value.categoryOrder[normalizedType] ?? []).filter(key => key !== nextCustomKey)]
+    const nextCustomKey = customCategoryKey(category.id)
     store.value.categoryOrder = {
       ...store.value.categoryOrder,
-      [normalizedType]: nextOrder
+      [category.type]: [nextCustomKey, ...(store.value.categoryOrder[category.type] ?? []).filter(key => key !== nextCustomKey)]
     }
-
     store.value = recalculateBalances(cloneState(store.value))
-    return true
   }
 
-  function removeCategory(categoryId: string) {
-    if (!canEditMoneyData.value) return
+  async function addCategory(payload: { type: CategoryType; name: string; emoji?: string; color?: WalletColor }) {
+    assertMoneyMutationReady()
+    const result = await $fetch<{ ok: boolean; category: CategoryItem }>('/api/categories', {
+      method: 'POST',
+      body: {
+        type: payload.type,
+        name: payload.name,
+        emoji: payload.emoji?.trim() || '🏷️',
+        color: payload.color ?? 'sky'
+      }
+    })
+    applySingleCategory(result.category)
+    await persistSnapshotAfterMutation()
+    return result.category
+  }
+
+  async function removeCategory(categoryId: string) {
+    assertMoneyMutationReady()
+    await $fetch<{ ok: boolean }>(`/api/categories/${categoryId}`, {
+      method: 'DELETE'
+    })
     store.value.categories = store.value.categories.filter(category => category.id !== categoryId)
     const customKey = customCategoryKey(categoryId)
     store.value.categoryOrder = {
@@ -1963,52 +1455,43 @@ function addCategory(payload: { type: CategoryType; name: string; emoji?: string
       expense: store.value.pinnedCategoryKeys.expense.filter(key => key !== customKey)
     }
     store.value = recalculateBalances(cloneState(store.value))
+    await persistSnapshotAfterMutation()
   }
 
-function updateCategory(categoryId: string, payload: { name: string; emoji?: string; color?: WalletColor }) {
-  if (!canEditMoneyData.value) return false
-  const current = store.value.categories.find(category => category.id === categoryId)
-  if (!current) return false
-  const now = new Date().toISOString()
+  async function updateCategory(categoryId: string, payload: { name: string; emoji?: string; color?: WalletColor }) {
+    assertMoneyMutationReady()
+    const current = store.value.categories.find(category => category.id === categoryId)
+    if (!current) {
+      throw new Error('Category not found')
+    }
 
-    const nextName = payload.name.trim()
-    if (!nextName) return false
-
-    const exists = [
-      ...defaultCategoryDefinitions[current.type].map(category => category.name),
-      ...store.value.categories
-        .filter(category => category.type === current.type && category.id !== categoryId)
-        .map(category => category.name)
-    ].some(category => category.toLowerCase() === nextName.toLowerCase())
-
-    if (exists) return false
+    const result = await $fetch<{ ok: boolean; category: CategoryItem }>(`/api/categories/${categoryId}`, {
+      method: 'PATCH',
+      body: {
+        name: payload.name,
+        emoji: payload.emoji?.trim() || current.emoji,
+        color: payload.color ?? current.color
+      }
+    })
 
     const previousName = current.name
-
     store.value.categories = store.value.categories.map(category => (
       category.id === categoryId
-        ? {
-            ...category,
-            name: nextName,
-            emoji: payload.emoji?.trim() || category.emoji,
-            color: payload.color ?? category.color,
-            updatedAt: now
-          }
+        ? result.category
         : category
     ))
-
     store.value.transactions = store.value.transactions.map(transaction => (
       transaction.category === previousName && transaction.type === current.type
-        ? { ...transaction, category: nextName }
+        ? { ...transaction, category: result.category.name }
         : transaction
     ))
-
     store.value = recalculateBalances(cloneState(store.value))
-    return true
+    await persistSnapshotAfterMutation()
+    return result.category
   }
 
-  function setDefaultCategoryEnabled(type: CategoryType, name: string, enabled: boolean) {
-    if (!canEditMoneyData.value) return
+  async function setDefaultCategoryEnabled(type: CategoryType, name: string, enabled: boolean) {
+    assertMoneyMutationReady()
     const key = defaultCategoryKey(type, name)
     const current = new Set(store.value.disabledDefaultCategories)
 
@@ -2019,22 +1502,40 @@ function updateCategory(categoryId: string, payload: { name: string; emoji?: str
       current.add(key)
     }
 
-    store.value.disabledDefaultCategories = [...current]
-    store.value = recalculateBalances(cloneState(store.value))
+    await persistPreferences({
+      ...currentPreferencesPayload(),
+      disabledDefaultCategories: [...current]
+    })
   }
 
-  function setCustomCategoryEnabled(categoryId: string, enabled: boolean) {
-    if (!canEditMoneyData.value) return
+  async function setCustomCategoryEnabled(categoryId: string, enabled: boolean) {
+    assertMoneyMutationReady()
+    const current = store.value.categories.find(category => category.id === categoryId)
+    if (!current) {
+      throw new Error('Category not found')
+    }
+
+    const result = await $fetch<{ ok: boolean; category: CategoryItem }>(`/api/categories/${categoryId}`, {
+      method: 'PATCH',
+      body: {
+        name: current.name,
+        emoji: current.emoji,
+        color: current.color,
+        enabled
+      }
+    })
+
     store.value.categories = store.value.categories.map(category => (
       category.id === categoryId
-        ? { ...category, enabled }
+        ? result.category
         : category
     ))
     store.value = recalculateBalances(cloneState(store.value))
+    await persistSnapshotAfterMutation()
   }
 
-  function setCategoryPinned(type: CategoryType, key: string, pinned: boolean) {
-    if (!canEditMoneyData.value) return
+  async function setCategoryPinned(type: CategoryType, key: string, pinned: boolean) {
+    assertMoneyMutationReady()
     const list = new Set(store.value.pinnedCategoryKeys[type] ?? [])
     if (pinned) {
       list.add(key)
@@ -2043,100 +1544,88 @@ function updateCategory(categoryId: string, payload: { name: string; emoji?: str
       list.delete(key)
     }
 
-    store.value.pinnedCategoryKeys = {
-      ...store.value.pinnedCategoryKeys,
-      [type]: [...list]
-    }
-    store.value = recalculateBalances(cloneState(store.value))
+    await persistPreferences({
+      ...currentPreferencesPayload(),
+      pinnedCategoryKeys: {
+        ...currentPreferencesPayload().pinnedCategoryKeys,
+        [type]: [...list]
+      }
+    })
   }
 
-function addCompany(payload: { name: string; emoji?: string; color?: WalletColor }) {
-  if (!canEditMoneyData.value) return false
-  const name = payload.name.trim()
-  if (!name) return false
-  const now = new Date().toISOString()
-
-    const exists = [
-      ...defaultCompanyDefinitions.map(company => company.name),
-      ...store.value.companies.map(company => company.name)
-    ].some(company => company.toLowerCase() === name.toLowerCase())
-
-    if (exists) return false
-
+  function applySingleCompany(company: CompanyItem) {
     store.value.companies = [
-      {
-        id: `company-${crypto.randomUUID()}`,
-        name,
-        emoji: payload.emoji?.trim() || '🏢',
-        color: payload.color ?? 'sky',
-        enabled: true,
-        createdAt: now,
-        updatedAt: now
-      },
-      ...store.value.companies
+      company,
+      ...store.value.companies.filter(item => item.id !== company.id)
     ]
 
-    const nextCustomKey = customCompanyKey(store.value.companies[0].id)
-    const nextOrder = [nextCustomKey, ...(store.value.companyOrder ?? []).filter(key => key !== nextCustomKey)]
-    store.value.companyOrder = nextOrder
-
+    const nextCustomKey = customCompanyKey(company.id)
+    store.value.companyOrder = [nextCustomKey, ...(store.value.companyOrder ?? []).filter(key => key !== nextCustomKey)]
     store.value = recalculateBalances(cloneState(store.value))
-    return true
   }
 
-function updateCompany(companyId: string, payload: { name: string; emoji?: string; color?: WalletColor }) {
-  if (!canEditMoneyData.value) return false
-  const current = store.value.companies.find(company => company.id === companyId)
-  if (!current) return false
-  const now = new Date().toISOString()
+  async function addCompany(payload: { name: string; emoji?: string; color?: WalletColor }) {
+    assertMoneyMutationReady()
+    const result = await $fetch<{ ok: boolean; company: CompanyItem }>('/api/companies', {
+      method: 'POST',
+      body: {
+        name: payload.name,
+        emoji: payload.emoji?.trim() || '🏢',
+        color: payload.color ?? 'sky'
+      }
+    })
+    applySingleCompany(result.company)
+    await persistSnapshotAfterMutation()
+    return result.company
+  }
 
-    const nextName = payload.name.trim()
-    if (!nextName) return false
+  async function updateCompany(companyId: string, payload: { name: string; emoji?: string; color?: WalletColor }) {
+    assertMoneyMutationReady()
+    const current = store.value.companies.find(company => company.id === companyId)
+    if (!current) {
+      throw new Error('Company not found')
+    }
 
-    const exists = [
-      ...defaultCompanyDefinitions.map(company => company.name),
-      ...store.value.companies
-        .filter(company => company.id !== companyId)
-        .map(company => company.name)
-    ].some(company => company.toLowerCase() === nextName.toLowerCase())
-
-    if (exists) return false
+    const result = await $fetch<{ ok: boolean; company: CompanyItem }>(`/api/companies/${companyId}`, {
+      method: 'PATCH',
+      body: {
+        name: payload.name,
+        emoji: payload.emoji?.trim() || current.emoji,
+        color: payload.color ?? current.color
+      }
+    })
 
     const previousName = current.name
-
     store.value.companies = store.value.companies.map(company => (
       company.id === companyId
-        ? {
-            ...company,
-            name: nextName,
-            emoji: payload.emoji?.trim() || company.emoji,
-            color: payload.color ?? company.color,
-            updatedAt: now
-          }
+        ? result.company
         : company
     ))
-
     store.value.transactions = store.value.transactions.map(transaction => (
       transaction.company === previousName
-        ? { ...transaction, company: nextName }
+        ? { ...transaction, company: result.company.name }
         : transaction
     ))
-
     store.value = recalculateBalances(cloneState(store.value))
-    return true
+    await persistSnapshotAfterMutation()
+    return result.company
   }
 
-  function removeCompany(companyId: string) {
-    if (!canEditMoneyData.value) return
+  async function removeCompany(companyId: string) {
+    assertMoneyMutationReady()
+    await $fetch<{ ok: boolean }>(`/api/companies/${companyId}`, {
+      method: 'DELETE'
+    })
     store.value.companies = store.value.companies.filter(company => company.id !== companyId)
     const customKey = customCompanyKey(companyId)
     store.value.companyOrder = (store.value.companyOrder ?? []).filter(key => key !== customKey)
     store.value.pinnedCompanyKeys = (store.value.pinnedCompanyKeys ?? []).filter(key => key !== customKey)
     store.value = recalculateBalances(cloneState(store.value))
+    await persistSnapshotAfterMutation()
   }
 
-  function setDefaultCompanyEnabled(name: string, enabled: boolean) {
-    if (!canEditMoneyData.value) return
+  async function setDefaultCompanyEnabled(name: string, enabled: boolean) {
+    assertMoneyMutationReady()
     const key = defaultCompanyKey(name)
     const current = new Set(store.value.disabledDefaultCompanies)
 
@@ -2147,22 +1636,40 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
       current.add(key)
     }
 
-    store.value.disabledDefaultCompanies = [...current]
-    store.value = recalculateBalances(cloneState(store.value))
+    await persistPreferences({
+      ...currentPreferencesPayload(),
+      disabledDefaultCompanies: [...current]
+    })
   }
 
-  function setCustomCompanyEnabled(companyId: string, enabled: boolean) {
-    if (!canEditMoneyData.value) return
+  async function setCustomCompanyEnabled(companyId: string, enabled: boolean) {
+    assertMoneyMutationReady()
+    const current = store.value.companies.find(company => company.id === companyId)
+    if (!current) {
+      throw new Error('Company not found')
+    }
+
+    const result = await $fetch<{ ok: boolean; company: CompanyItem }>(`/api/companies/${companyId}`, {
+      method: 'PATCH',
+      body: {
+        name: current.name,
+        emoji: current.emoji,
+        color: current.color,
+        enabled
+      }
+    })
+
     store.value.companies = store.value.companies.map(company => (
       company.id === companyId
-        ? { ...company, enabled }
+        ? result.company
         : company
     ))
     store.value = recalculateBalances(cloneState(store.value))
+    await persistSnapshotAfterMutation()
   }
 
-  function setCompanyPinned(key: string, pinned: boolean) {
-    if (!canEditMoneyData.value) return
+  async function setCompanyPinned(key: string, pinned: boolean) {
+    assertMoneyMutationReady()
     const list = new Set(store.value.pinnedCompanyKeys ?? [])
     if (pinned) {
       list.add(key)
@@ -2171,12 +1678,14 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
       list.delete(key)
     }
 
-    store.value.pinnedCompanyKeys = [...list]
-    store.value = recalculateBalances(cloneState(store.value))
+    await persistPreferences({
+      ...currentPreferencesPayload(),
+      pinnedCompanyKeys: [...list]
+    })
   }
 
-  function moveCompany(fromKey: string, toKey: string) {
-    if (!canEditMoneyData.value) return
+  async function moveCompany(fromKey: string, toKey: string) {
+    assertMoneyMutationReady()
     if (fromKey === toKey) return
 
     const list = [...(store.value.companyOrder ?? [])]
@@ -2188,12 +1697,14 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
     list.splice(fromIndex, 1)
     list.splice(toIndex, 0, fromKey)
 
-    store.value.companyOrder = list
-    store.value = recalculateBalances(cloneState(store.value))
+    await persistPreferences({
+      ...currentPreferencesPayload(),
+      companyOrder: list
+    })
   }
 
-  function moveCategory(type: CategoryType, fromKey: string, toKey: string) {
-    if (!canEditMoneyData.value) return
+  async function moveCategory(type: CategoryType, fromKey: string, toKey: string) {
+    assertMoneyMutationReady()
     if (fromKey === toKey) return
 
     const list = [...(store.value.categoryOrder[type] ?? [])]
@@ -2205,11 +1716,13 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
     list.splice(fromIndex, 1)
     list.splice(toIndex, 0, fromKey)
 
-    store.value.categoryOrder = {
-      ...store.value.categoryOrder,
-      [type]: list
-    }
-    store.value = recalculateBalances(cloneState(store.value))
+    await persistPreferences({
+      ...currentPreferencesPayload(),
+      categoryOrder: {
+        ...currentPreferencesPayload().categoryOrder,
+        [type]: list
+      }
+    })
   }
 
   function walletOptionsForCurrency(currency: CurrencyCode) {
@@ -2274,9 +1787,19 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
   }
 
   async function persistSnapshotAfterMutation() {
-    if (!import.meta.client || !hydrated.value || hydrating.value || !autoSyncReady.value) return
+    persistSelectedCurrencyPreference(selectedCurrency.value)
+  }
 
-    saveState()
+  function assertMoneyMutationReady() {
+    if (!canEditMoneyData.value) {
+      throw new Error('Pro required')
+    }
+
+    if (!isOnline.value) {
+      throw new Error(selectedLanguage.value === 'lo'
+        ? 'ຕ້ອງເຊື່ອມຕໍ່ອິນເຕີເນັດກ່ອນຈຶ່ງຈະບັນທຶກໄດ້'
+        : 'Internet connection is required to save changes')
+    }
   }
 
   function applySingleTransaction(transaction: Transaction) {
@@ -2288,7 +1811,7 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
   }
 
   async function addTransaction(payload: TransactionInput) {
-    if (!canEditMoneyData.value) return
+    assertMoneyMutationReady()
     const result = await $fetch<{ ok: boolean; transaction: Transaction }>('/api/transactions', {
       method: 'POST',
       body: payload
@@ -2298,7 +1821,7 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
   }
 
   async function updateTransaction(transactionId: string, payload: TransactionInput) {
-    if (!canEditMoneyData.value) return
+    assertMoneyMutationReady()
     const result = await $fetch<{ ok: boolean; transaction: Transaction }>(`/api/transactions/${transactionId}`, {
       method: 'PATCH',
       body: payload
@@ -2308,7 +1831,7 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
   }
 
   async function removeTransaction(transactionId: string) {
-    if (!canEditMoneyData.value) return
+    assertMoneyMutationReady()
     await $fetch<{ ok: boolean }>(`/api/transactions/${transactionId}`, {
       method: 'DELETE'
     })
@@ -2317,49 +1840,61 @@ function updateCompany(companyId: string, payload: { name: string; emoji?: strin
     await persistSnapshotAfterMutation()
   }
 
-function addWallet(payload: { name: string; currency: CurrencyCode; openingBalance: number; note?: string; color?: WalletColor; accent?: string; emoji?: string }) {
-  if (!canEditMoneyData.value) return
-  const color = payload.color ?? walletColorForAccent(payload.accent)
-  const now = new Date().toISOString()
-  const wallet: Wallet = {
-    id: `wallet-${crypto.randomUUID()}`,
-    name: payload.name.trim(),
-    currency: payload.currency,
-    openingBalance: Number(payload.openingBalance),
-    balance: Number(payload.openingBalance),
-    note: payload.note?.trim(),
-    color,
-    accent: walletAccentForColor(color),
-    emoji: payload.emoji ?? '💳',
-    updatedAt: now
-  }
-
-    store.value.wallets = [wallet, ...store.value.wallets]
+  function applySingleWallet(wallet: Wallet) {
+    store.value.wallets = [
+      wallet,
+      ...store.value.wallets.filter(item => item.id !== wallet.id)
+    ]
     const newKey = customWalletKey(wallet.id)
     store.value.walletOrder = [newKey, ...(store.value.walletOrder ?? []).filter(key => key !== newKey)]
     store.value = recalculateBalances(cloneState(store.value))
   }
 
-  function updateWallet(walletId: string, payload: Partial<Wallet>) {
-    if (!canEditMoneyData.value) return
-    const now = new Date().toISOString()
-    store.value.wallets = store.value.wallets.map((wallet) => {
-      if (wallet.id !== walletId) return wallet
-
-      const color = payload.color ?? wallet.color ?? walletColorForAccent(payload.accent ?? wallet.accent)
-      return {
-        ...wallet,
-        ...payload,
+  async function addWallet(payload: { name: string; currency: CurrencyCode; openingBalance: number | string | null | undefined; note?: string; color?: WalletColor; accent?: string; emoji?: string }) {
+    assertMoneyMutationReady()
+    const color = payload.color ?? walletColorForAccent(payload.accent)
+    const openingBalance = payload.openingBalance === '' || payload.openingBalance === null || payload.openingBalance === undefined
+      ? 0
+      : Number(payload.openingBalance)
+    const result = await $fetch<{ ok: boolean; wallet: Wallet }>('/api/wallets', {
+      method: 'POST',
+      body: {
+        name: payload.name,
+        currency: payload.currency,
+        openingBalance,
+        note: payload.note,
         color,
-        accent: walletAccentForColor(color),
-        updatedAt: now
+        emoji: payload.emoji ?? '💳'
       }
     })
-    store.value = recalculateBalances(cloneState(store.value))
+    applySingleWallet(result.wallet)
+    await persistSnapshotAfterMutation()
+    return result.wallet
   }
 
-  function removeWallet(walletId: string) {
-    if (!canEditMoneyData.value) return
+  async function updateWallet(walletId: string, payload: Partial<Wallet>) {
+    assertMoneyMutationReady()
+    const existingWallet = store.value.wallets.find(wallet => wallet.id === walletId)
+    const color = payload.color ?? existingWallet?.color ?? walletColorForAccent(payload.accent ?? existingWallet?.accent)
+    const result = await $fetch<{ ok: boolean; wallet: Wallet }>(`/api/wallets/${walletId}`, {
+      method: 'PATCH',
+      body: {
+        name: payload.name,
+        note: payload.note,
+        color,
+        emoji: payload.emoji ?? existingWallet?.emoji ?? '💳'
+      }
+    })
+    applySingleWallet(result.wallet)
+    await persistSnapshotAfterMutation()
+    return result.wallet
+  }
+
+  async function removeWallet(walletId: string) {
+    assertMoneyMutationReady()
+    await $fetch<{ ok: boolean }>(`/api/wallets/${walletId}`, {
+      method: 'DELETE'
+    })
     store.value.wallets = store.value.wallets.filter(wallet => wallet.id !== walletId)
     store.value.transactions = store.value.transactions.filter(
       transaction => transaction.walletId !== walletId && transaction.toWalletId !== walletId
@@ -2368,10 +1903,11 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
     store.value.walletOrder = (store.value.walletOrder ?? []).filter(key => key !== customKey)
     store.value.pinnedWalletKeys = (store.value.pinnedWalletKeys ?? []).filter(key => key !== customKey)
     store.value = recalculateBalances(cloneState(store.value))
+    await persistSnapshotAfterMutation()
   }
 
-  function setWalletPinned(walletId: string, pinned: boolean) {
-    if (!canEditMoneyData.value) return
+  async function setWalletPinned(walletId: string, pinned: boolean) {
+    assertMoneyMutationReady()
     const key = customWalletKey(walletId)
     const list = new Set(store.value.pinnedWalletKeys ?? [])
 
@@ -2382,12 +1918,14 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
       list.delete(key)
     }
 
-    store.value.pinnedWalletKeys = [...list]
-    store.value = recalculateBalances(cloneState(store.value))
+    await persistPreferences({
+      ...currentPreferencesPayload(),
+      pinnedWalletKeys: [...list]
+    })
   }
 
-  function moveWallet(fromKey: string, toKey: string) {
-    if (!canEditMoneyData.value) return
+  async function moveWallet(fromKey: string, toKey: string) {
+    assertMoneyMutationReady()
     if (fromKey === toKey) return
 
     const list = [...(store.value.walletOrder ?? [])]
@@ -2399,8 +1937,10 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
     list.splice(fromIndex, 1)
     list.splice(toIndex, 0, fromKey)
 
-    store.value.walletOrder = list
-    store.value = recalculateBalances(cloneState(store.value))
+    await persistPreferences({
+      ...currentPreferencesPayload(),
+      walletOrder: list
+    })
   }
 
   function walletMonthTotals(walletId: string) {
@@ -2485,8 +2025,8 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
     return currencySupport.value[currency]
   }
 
-  function setCurrencyEnabled(currency: CurrencyCode, enabled: boolean) {
-    if (!canEditMoneyData.value) return
+  async function setCurrencyEnabled(currency: CurrencyCode, enabled: boolean) {
+    assertMoneyMutationReady()
     const next = normalizeCurrencySupport({
       ...currencySupport.value,
       [currency]: enabled
@@ -2496,25 +2036,29 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
       return
     }
 
-    currencySupport.value = next
+    await persistPreferences({
+      ...currentPreferencesPayload(),
+      currencySupport: next
+    })
   }
 
   async function clearLocalAccountState() {
-    clearPendingSaveTimers()
+    store.value = recalculateBalances(defaultState())
+    selectedCurrency.value = 'LAK'
+    currencySupport.value = defaultCurrencySupport()
+    hydrated.value = false
+    transactionsHydrated.value = true
+    hydratedAccountKey.value = ''
+    clearSelectedCurrencyPreference()
   }
 
-  async function syncCloudNow() {
-    clearPendingSaveTimers()
-    return await refreshCloudState({ force: true })
-  }
-
-  function toggleCurrencyEnabled(currency: CurrencyCode) {
-    if (!canEditMoneyData.value) return
+  async function toggleCurrencyEnabled(currency: CurrencyCode) {
+    assertMoneyMutationReady()
     if (currencySupport.value[currency] && enabledCurrencyOptions.value.length <= 1) {
       return
     }
 
-    setCurrencyEnabled(currency, !currencySupport.value[currency])
+    await setCurrencyEnabled(currency, !currencySupport.value[currency])
   }
 
   return {
@@ -2577,17 +2121,7 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
     defaultCategoriesEnabled,
     isCloudSyncEnabled,
     canEditMoneyData,
-    syncStatus,
-    lastSyncedAt,
-    lastSyncSource,
-    syncProgress,
-    syncError,
-    syncDebugCloudSnapshot,
-    syncDebugLoading,
-    syncDebugError,
     isOnline,
-    refreshCloudState,
-    refreshSyncDebugData,
     isCurrencyEnabled,
     setCurrencyEnabled,
     setDefaultCategoryEnabled,
@@ -2605,7 +2139,6 @@ function addWallet(payload: { name: string; currency: CurrencyCode; openingBalan
     }),
     importMoneyNoteBackupFile,
     clearLocalAccountState,
-    syncCloudNow,
     toggleCurrencyEnabled,
     walletColorOptions
   }

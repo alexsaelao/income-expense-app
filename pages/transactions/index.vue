@@ -4,7 +4,7 @@ import type { CurrencyCode, Transaction } from '~/composables/useMoneyNote'
 
 const { selectedLanguage } = useAppLanguage()
 const { activeTheme } = useAppThemeColor()
-const { transactionsHydrated, wallets, filterTransactions, groupTransactions, removeTransaction, syncCloudNow, enabledCurrencyOptions, formatCurrency, canEditMoneyData } = useMoneyNote()
+const { transactionsHydrated, wallets, filterTransactions, groupTransactions, removeTransaction, enabledCurrencyOptions, formatCurrency, canEditMoneyData } = useMoneyNote()
 
 const searchDraft = ref('')
 const appliedSearch = ref('')
@@ -15,9 +15,23 @@ const fromDate = ref('')
 const toDate = ref('')
 const deleteConfirmOpen = ref(false)
 const deleteTarget = ref<Transaction | null>(null)
+const deleteError = ref('')
 const filtersOpen = ref(false)
-const isReloading = ref(false)
 const isTransactionsReady = computed(() => transactionsHydrated.value)
+
+function resolveActionErrorMessage(error: unknown) {
+  const maybeResponse = error as {
+    data?: { statusMessage?: string; message?: string }
+    message?: string
+    statusMessage?: string
+  }
+
+  return maybeResponse?.data?.statusMessage
+    || maybeResponse?.data?.message
+    || maybeResponse?.statusMessage
+    || maybeResponse?.message
+    || 'Unable to delete transaction'
+}
 const transactionsCopy = computed(() => {
   if (selectedLanguage.value === 'lo') {
     return {
@@ -60,8 +74,7 @@ const transactionsCopy = computed(() => {
       edit: 'ແກ້ໄຂ',
       addIcon: 'ເພີ່ມ',
       quickDates: 'ວັນທີໄວ',
-      reload: 'ໂຫຼດໜ້າໃໝ່',
-      reloading: 'ກຳລັງໂຫຼດ...',
+      reload: 'ໂຫຼດ',
       loading: 'ກຳລັງໂຫຼດທຸລະກຳ...'
     }
   }
@@ -106,8 +119,7 @@ const transactionsCopy = computed(() => {
     edit: 'Edit',
     addIcon: 'Add',
     quickDates: 'Quick dates',
-    reload: 'Reload page',
-    reloading: 'Reloading...',
+    reload: 'Reload',
     loading: 'Loading transactions...'
   }
 })
@@ -280,28 +292,31 @@ function isDatePresetActive(preset: typeof datePresets[number]['value']) {
 
 function openDeleteConfirm(transaction: Transaction) {
   deleteTarget.value = transaction
+  deleteError.value = ''
   deleteConfirmOpen.value = true
 }
 
 async function confirmDelete() {
   if (!deleteTarget.value) return
 
-  removeTransaction(deleteTarget.value.id)
-  await syncCloudNow()
-  deleteTarget.value = null
-  deleteConfirmOpen.value = false
+  deleteError.value = ''
+
+  try {
+    await removeTransaction(deleteTarget.value.id)
+    deleteTarget.value = null
+    deleteConfirmOpen.value = false
+  }
+  catch (error) {
+    deleteError.value = resolveActionErrorMessage(error)
+  }
 }
 
 function closeDeleteConfirm() {
   deleteConfirmOpen.value = false
   deleteTarget.value = null
+  deleteError.value = ''
 }
 
-function reloadTransactionPage() {
-  if (!import.meta.client || isReloading.value) return
-  isReloading.value = true
-  window.location.reload()
-}
 </script>
 
 <template>
@@ -310,19 +325,7 @@ function reloadTransactionPage() {
       <div>
         <h1 class="mt-1 text-3xl font-black tracking-tight text-default">{{ transactionsCopy.title }}</h1>
       </div>
-      <button
-        type="button"
-        class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-default shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900"
-        :disabled="isReloading"
-        @click="reloadTransactionPage"
-      >
-        <UIcon
-          name="i-lucide-refresh-cw"
-          class="size-3.5"
-          :class="isReloading ? 'animate-spin' : ''"
-        />
-        <span>{{ isReloading ? transactionsCopy.reloading : transactionsCopy.reload }}</span>
-      </button>
+      <PageReloadButton :label="transactionsCopy.reload" />
     </section>
 
     <UCard class="overflow-hidden rounded-[1.4rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
@@ -565,6 +568,10 @@ function reloadTransactionPage() {
     >
       <template #body>
         <div v-if="deleteTarget" class="space-y-4">
+          <p v-if="deleteError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+            {{ deleteError }}
+          </p>
+
           <div class="flex items-start gap-3 rounded-[1.2rem] bg-slate-100/80 p-4 dark:bg-slate-900">
             <div class="flex size-11 shrink-0 items-center justify-center rounded-[1rem] bg-rose-500 text-white shadow-sm">
               <UIcon name="i-lucide-trash-2" class="size-5" />

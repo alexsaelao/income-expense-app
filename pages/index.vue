@@ -25,8 +25,6 @@ const {
 const activeCurrency = computed(() => selectedCurrency.value)
 const walletCards = computed(() => walletSeries(activeCurrency.value))
 const currencySummary = computed(() => currencyBalances.value)
-const isReloading = ref(false)
-
 const currencySymbols: Record<CurrencyCode, string> = {
   LAK: '₭',
   THB: '฿',
@@ -65,7 +63,7 @@ const homeCopy = computed(() => {
       allWallets: 'ທຸກກະເປົ໋າ',
       recentTransactions: 'ທຸລະກຳລ່າສຸດ',
       viewHistory: 'ເບິ່ງປະຫວັດ',
-      reload: 'ໂຫຼດໜ້າໃໝ່',
+      reload: 'ໂຫຼດ',
       reloading: 'ກຳລັງໂຫຼດ...'
     }
   }
@@ -94,7 +92,7 @@ const homeCopy = computed(() => {
     allWallets: 'All wallets',
     recentTransactions: 'Recent transactions',
     viewHistory: 'View history',
-    reload: 'Reload page',
+    reload: 'Reload',
     reloading: 'Reloading...'
   }
 })
@@ -105,12 +103,6 @@ const quickActions = computed(() => [
   { label: homeCopy.value.wallets, icon: 'i-lucide-wallet', to: '/wallets', color: 'emerald', subtitle: homeCopy.value.balancesAndWallets },
   { label: homeCopy.value.reports, icon: 'i-lucide-chart-column', to: '/reports', color: 'amber', subtitle: homeCopy.value.chartsAndSummaries }
 ])
-
-function reloadHomePage() {
-  if (!import.meta.client || isReloading.value) return
-  isReloading.value = true
-  window.location.reload()
-}
 
 </script>
 
@@ -139,19 +131,7 @@ function reloadHomePage() {
       </div>
 
       <div class="flex justify-end">
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-default shadow-sm transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900"
-          :disabled="isReloading"
-          @click="reloadHomePage"
-        >
-          <UIcon
-            name="i-lucide-refresh-cw"
-            class="size-3.5"
-            :class="isReloading ? 'animate-spin' : ''"
-          />
-          <span>{{ isReloading ? homeCopy.reloading : homeCopy.reload }}</span>
-        </button>
+        <PageReloadButton :label="homeCopy.reload" />
       </div>
 
       <div class="relative overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white shadow-[0_22px_55px_-30px_rgba(15,23,42,0.22)] dark:border-slate-800 dark:bg-slate-950/80">

@@ -3,13 +3,34 @@ import type { TransactionInput } from '~/composables/useMoneyNote'
 import { useMoneyNote } from '~/composables/useMoneyNote'
 
 const router = useRouter()
-const { addTransaction, syncCloudNow, canEditMoneyData } = useMoneyNote()
+const { addTransaction, canEditMoneyData } = useMoneyNote()
 const transactionFormRef = ref<{ canSubmit: boolean } | null>(null)
+const submitError = ref('')
+
+function resolveActionErrorMessage(error: unknown) {
+  const maybeResponse = error as {
+    data?: { statusMessage?: string; message?: string }
+    message?: string
+    statusMessage?: string
+  }
+
+  return maybeResponse?.data?.statusMessage
+    || maybeResponse?.data?.message
+    || maybeResponse?.statusMessage
+    || maybeResponse?.message
+    || 'Unable to save transaction'
+}
 
 async function handleSubmit(payload: TransactionInput) {
-  await addTransaction(payload)
-  await syncCloudNow()
-  router.push('/transactions')
+  submitError.value = ''
+
+  try {
+    await addTransaction(payload)
+    router.push('/transactions')
+  }
+  catch (error) {
+    submitError.value = resolveActionErrorMessage(error)
+  }
 }
 </script>
 
@@ -20,17 +41,25 @@ async function handleSubmit(payload: TransactionInput) {
         <h1 class="mt-1 text-3xl font-black tracking-tight text-default">Add transaction</h1>
       </div>
 
-      <UButton
-        icon="i-lucide-arrow-left"
-        variant="ghost"
-        color="neutral"
-        size="lg"
-        class="rounded-2xl"
-        to="/"
-      />
+      <div class="flex shrink-0 items-center gap-2">
+        <PageReloadButton />
+
+        <UButton
+          icon="i-lucide-arrow-left"
+          variant="ghost"
+          color="neutral"
+          size="lg"
+          class="rounded-2xl"
+          to="/"
+        />
+      </div>
     </section>
 
     <template v-if="canEditMoneyData">
+      <p v-if="submitError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+        {{ submitError }}
+      </p>
+
       <TransactionForm
         ref="transactionFormRef"
         form-id="add-transaction-form"

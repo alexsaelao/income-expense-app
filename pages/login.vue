@@ -18,6 +18,7 @@ const isCheckingAccount = ref(false)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
 const identifierInput = ref<HTMLInputElement | null>(null)
+const pinField = ref<{ focus: () => void } | null>(null)
 
 const loginCopy = computed(() => selectedLanguage.value === 'lo'
   ? {
@@ -110,7 +111,9 @@ function focusIdentifier() {
 }
 
 function focusPin() {
-  // iOS-style keypad does not use a text input.
+  nextTick(() => {
+    pinField.value?.focus()
+  })
 }
 
 function flashPinError() {
@@ -433,13 +436,25 @@ onBeforeUnmount(() => {
             <p class="mt-1 break-all text-base font-black text-default">{{ identifier }}</p>
           </div>
 
-          <IosPinKeypad
-            v-model="pinValue"
-            :disabled="isSubmitting || isCheckingAccount"
-            :error="pinError"
-            compact
-            @clear="errorMessage = ''"
-          />
+          <div class="space-y-3">
+            <div class="space-y-1">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted">
+                {{ loginCopy.enterPin }}
+              </p>
+              <p class="text-sm leading-6 text-muted">
+                {{ loginCopy.enterPinHint }}
+              </p>
+            </div>
+
+            <PinCodeField
+              ref="pinField"
+              v-model="pinValue"
+              :disabled="isSubmitting || isCheckingAccount"
+              :error="pinError"
+              :aria-label="loginCopy.enterPin"
+              autocomplete="current-password"
+            />
+          </div>
         </div>
 
         <p v-if="errorMessage" class="mt-1 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100 sm:mt-2">

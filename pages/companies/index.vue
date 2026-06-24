@@ -14,7 +14,6 @@ const {
   setCustomCompanyEnabled,
   setCompanyPinned,
   moveCompany,
-  syncCloudNow,
   canEditMoneyData
 } = useMoneyNote()
 
@@ -38,6 +37,20 @@ const form = reactive({
   emoji: '🏢',
   color: 'sky' as WalletColor
 })
+
+function resolveActionErrorMessage(error: unknown) {
+  const maybeResponse = error as {
+    data?: { statusMessage?: string; message?: string }
+    message?: string
+    statusMessage?: string
+  }
+
+  return maybeResponse?.data?.statusMessage
+    || maybeResponse?.data?.message
+    || maybeResponse?.statusMessage
+    || maybeResponse?.message
+    || companiesCopy.value.nameExists
+}
 
 const accentMap = Object.fromEntries(walletColorOptions.map(item => [item.value, item.accent])) as Record<WalletColor, string>
 
@@ -280,58 +293,75 @@ function onSheetPointerCancel() {
 
 async function submitCompany() {
   if (!canEditMoneyData.value) return
+  formError.value = ''
+
   if (editingCompanyId.value && selectedCompany.value && !selectedCompany.value.isDefault) {
-    const updated = updateCompany(editingCompanyId.value, {
+    try {
+      await updateCompany(editingCompanyId.value, {
+        name: form.name,
+        emoji: form.emoji,
+        color: form.color
+      })
+
+      closeCompanyManager()
+      companyModalOpen.value = false
+      editingCompanyId.value = null
+      selectedCompany.value = null
+      resetForm()
+      return
+    }
+    catch (error) {
+      formError.value = resolveActionErrorMessage(error)
+      return
+    }
+  }
+
+  try {
+    await addCompany({
       name: form.name,
       emoji: form.emoji,
       color: form.color
     })
 
-    if (!updated) {
-      formError.value = companiesCopy.value.nameExists
-      return
-    }
-
-    await syncCloudNow()
-
-    closeCompanyManager()
-    companyModalOpen.value = false
-    editingCompanyId.value = null
-    selectedCompany.value = null
     resetForm()
-    return
+    companyModalOpen.value = false
   }
-
-  const created = addCompany({
-    name: form.name,
-    emoji: form.emoji,
-    color: form.color
-  })
-
-  if (!created) {
-    formError.value = companiesCopy.value.nameExists
-    return
+  catch (error) {
+    formError.value = resolveActionErrorMessage(error)
   }
-
-  await syncCloudNow()
-
-  resetForm()
-  companyModalOpen.value = false
 }
 
-function togglePinned(item: any) {
-  setCompanyPinned(companyKeyForItem(item), !item.pinned)
+async function togglePinned(item: any) {
+  formError.value = ''
+
+  try {
+    await setCompanyPinned(companyKeyForItem(item), !item.pinned)
+  }
+  catch (error) {
+    formError.value = resolveActionErrorMessage(error)
+  }
 }
 
-function toggleEnabled(item: any) {
+async function toggleEnabled(item: any) {
   const nextEnabled = !item.enabled
+  formError.value = ''
 
   if (item.isDefault) {
-    setDefaultCompanyEnabled(item.name, nextEnabled)
+    try {
+      await setDefaultCompanyEnabled(item.name, nextEnabled)
+    }
+    catch (error) {
+      formError.value = resolveActionErrorMessage(error)
+    }
     return
   }
 
-  setCustomCompanyEnabled(item.id, nextEnabled)
+  try {
+    await setCustomCompanyEnabled(item.id, nextEnabled)
+  }
+  catch (error) {
+    formError.value = resolveActionErrorMessage(error)
+  }
 }
 
 async function confirmDeleteCompany() {
@@ -340,16 +370,25 @@ async function confirmDeleteCompany() {
 
   if (selectedCompany.value.isDefault) {
     if (selectedCompany.value.name === 'Other') {
-      setDefaultCompanyEnabled(selectedCompany.value.name, false)
-      await syncCloudNow()
+      try {
+        await setDefaultCompanyEnabled(selectedCompany.value.name, false)
+      }
+      catch (error) {
+        formError.value = resolveActionErrorMessage(error)
+        return
+      }
     }
     closeCompanyManager()
     return
   }
 
-  removeCompany(selectedCompany.value.id)
-  await syncCloudNow()
-  closeCompanyManager()
+  try {
+    await removeCompany(selectedCompany.value.id)
+    closeCompanyManager()
+  }
+  catch (error) {
+    formError.value = resolveActionErrorMessage(error)
+  }
 }
 
 function onCompanyDragStart(item: any, event: DragEvent) {
@@ -360,12 +399,19 @@ function onCompanyDragStart(item: any, event: DragEvent) {
   event.dataTransfer.setData('text/plain', dragState.key)
 }
 
-function onCompanyDrop(item: any) {
+async function onCompanyDrop(item: any) {
   const fromKey = dragState.key
   const toKey = companyKeyForItem(item)
 
   if (fromKey && fromKey !== toKey) {
-    moveCompany(fromKey, toKey)
+    formError.value = ''
+
+    try {
+      await moveCompany(fromKey, toKey)
+    }
+    catch (error) {
+      formError.value = resolveActionErrorMessage(error)
+    }
   }
 
   dragState.key = ''
@@ -383,14 +429,18 @@ function onCompanyDragEnd() {
         <h1 class="text-2xl font-black tracking-tight text-default">{{ companiesCopy.title }}</h1>
       </div>
 
-      <UButton
-        v-if="canEditMoneyData"
-        size="lg"
-        :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
-        @click="companyModalOpen = true"
-      >
-        {{ companiesCopy.add }}
-      </UButton>
+      <div class="flex shrink-0 items-center gap-2">
+        <PageReloadButton />
+
+        <UButton
+          v-if="canEditMoneyData"
+          size="lg"
+          :class="['rounded-[1.25rem] border-0 bg-gradient-to-r px-4 font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
+          @click="companyModalOpen = true"
+        >
+          {{ companiesCopy.add }}
+        </UButton>
+      </div>
     </section>
 
     <section class="space-y-2">

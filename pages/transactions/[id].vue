@@ -4,23 +4,50 @@ import { useMoneyNote } from '~/composables/useMoneyNote'
 
 const route = useRoute()
 const router = useRouter()
-const { transactionsHydrated, getTransaction, updateTransaction, removeTransaction, syncCloudNow, canEditMoneyData } = useMoneyNote()
+const { transactionsHydrated, getTransaction, updateTransaction, removeTransaction, canEditMoneyData } = useMoneyNote()
 
 const transaction = computed(() => getTransaction(String(route.params.id)))
 const isTransactionReady = computed(() => transactionsHydrated.value)
+const pageError = ref('')
+
+function resolveActionErrorMessage(error: unknown) {
+  const maybeResponse = error as {
+    data?: { statusMessage?: string; message?: string }
+    message?: string
+    statusMessage?: string
+  }
+
+  return maybeResponse?.data?.statusMessage
+    || maybeResponse?.data?.message
+    || maybeResponse?.statusMessage
+    || maybeResponse?.message
+    || 'Unable to save changes'
+}
 
 async function handleSubmit(payload: TransactionInput) {
   if (!transaction.value) return
-  updateTransaction(transaction.value.id, payload)
-  await syncCloudNow()
-  router.push('/transactions')
+  pageError.value = ''
+
+  try {
+    await updateTransaction(transaction.value.id, payload)
+    router.push('/transactions')
+  }
+  catch (error) {
+    pageError.value = resolveActionErrorMessage(error)
+  }
 }
 
 async function handleDelete() {
   if (!transaction.value) return
-  removeTransaction(transaction.value.id)
-  await syncCloudNow()
-  router.push('/transactions')
+  pageError.value = ''
+
+  try {
+    await removeTransaction(transaction.value.id)
+    router.push('/transactions')
+  }
+  catch (error) {
+    pageError.value = resolveActionErrorMessage(error)
+  }
 }
 </script>
 
@@ -52,6 +79,10 @@ async function handleDelete() {
 
     <UCard v-else-if="transaction" class="overflow-hidden border border-white/60 bg-white/85 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-slate-950/80">
       <template v-if="canEditMoneyData">
+        <p v-if="pageError" class="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+          {{ pageError }}
+        </p>
+
         <div class="mb-5 flex items-center justify-between rounded-[1.5rem] bg-slate-100 p-4 dark:bg-slate-900">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-muted">Transaction ID</p>

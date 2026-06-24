@@ -53,6 +53,7 @@ const storageExportFileName = ref('')
 const storageExportPending = ref<MoneyNoteBackupFile | null>(null)
 const storageImportInputRef = ref<HTMLInputElement | null>(null)
 const storageNotice = ref('')
+const currencySettingsError = ref('')
 const changePinModalOpen = ref(false)
 const changePinBusy = ref(false)
 const changePinError = ref('')
@@ -93,6 +94,31 @@ const centeredSettingsModalUi = {
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function resolveActionErrorMessage(error: unknown) {
+  const maybeResponse = error as {
+    data?: { statusMessage?: string; message?: string }
+    message?: string
+    statusMessage?: string
+  }
+
+  return maybeResponse?.data?.statusMessage
+    || maybeResponse?.data?.message
+    || maybeResponse?.statusMessage
+    || maybeResponse?.message
+    || (selectedLanguage.value === 'lo' ? 'ບໍ່ສາມາດບັນທຶກການຕັ້ງຄ່າໄດ້' : 'Unable to save settings')
+}
+
+async function handleToggleCurrency(currency: (typeof currencyOptions)[number]['value']) {
+  currencySettingsError.value = ''
+
+  try {
+    await toggleCurrencyEnabled(currency)
+  }
+  catch (error) {
+    currencySettingsError.value = resolveActionErrorMessage(error)
+  }
 }
 
 function getNetworkSignalLevel() {
@@ -1056,13 +1082,8 @@ async function clearAccountData() {
   clearDataError.value = ''
 
   try {
-    const identifier = sessionProfile.value?.identifier?.trim()
     if (isCloudSyncEnabled.value) {
-      if (!identifier) {
-        throw new Error('missing-identifier')
-      }
-
-      await $fetch('/api/app-state', { method: 'DELETE', query: { identifier } })
+      await $fetch('/api/money-data/clear', { method: 'DELETE' })
     }
 
     await clearLocalAccountState().catch(() => {})
@@ -1446,13 +1467,17 @@ const internetStatusCopy = computed(() => {
     <section class="flex items-center justify-between gap-3">
       <h1 class="min-w-0 text-3xl font-black tracking-tight text-default">{{ settingsCopy.settings }}</h1>
 
-      <UButton
-        class="h-9 shrink-0 justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-400 px-3 text-xs font-bold text-white shadow-[0_12px_24px_-16px_rgba(239,68,68,0.55)] transition active:scale-95 sm:h-10 sm:px-4 sm:text-sm"
-        icon="i-lucide-log-out"
-        @click="handleLogout"
-      >
-        {{ settingsCopy.logout }}
-      </UButton>
+      <div class="flex shrink-0 items-center gap-2">
+        <PageReloadButton />
+
+        <UButton
+          class="h-9 justify-center rounded-full bg-gradient-to-r from-rose-500 to-red-400 px-3 text-xs font-bold text-white shadow-[0_12px_24px_-16px_rgba(239,68,68,0.55)] transition active:scale-95 sm:h-10 sm:px-4 sm:text-sm"
+          icon="i-lucide-log-out"
+          @click="handleLogout"
+        >
+          {{ settingsCopy.logout }}
+        </UButton>
+      </div>
     </section>
 
     <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
@@ -1684,6 +1709,10 @@ const internetStatusCopy = computed(() => {
       </div>
 
       <div class="border-t border-slate-200/80 px-4 py-2 dark:border-slate-800">
+        <p v-if="currencySettingsError" class="mb-3 mt-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+          {{ currencySettingsError }}
+        </p>
+
         <div
           v-for="item in currencyOptions"
           :key="item.value"
@@ -1706,7 +1735,7 @@ const internetStatusCopy = computed(() => {
             :class="isCurrencyEnabled(item.value) ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'"
             :disabled="isCurrencyEnabled(item.value) && enabledCurrencyOptions.length <= 1"
             :aria-pressed="isCurrencyEnabled(item.value)"
-            @click="toggleCurrencyEnabled(item.value)"
+            @click="handleToggleCurrency(item.value)"
           >
             <span
               class="inline-block size-6 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition duration-200 ease-out"
