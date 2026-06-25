@@ -23,6 +23,13 @@ export default defineNuxtConfig({
     '3002',
     '3002/**'
   ],
+  routeRules: {
+    '/**': {
+      headers: {
+        'cache-control': 'no-store, max-age=0, must-revalidate'
+      }
+    }
+  },
   experimental: {
     watcher: 'parcel'
   },
