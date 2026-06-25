@@ -15,8 +15,7 @@ const {
   isCurrencyEnabled,
   toggleCurrencyEnabled,
   clearLocalAccountState,
-  isCloudSyncEnabled,
-  isOnline
+  isCloudSyncEnabled
 } = useMoneyNote()
 const {
   signOut,
@@ -83,7 +82,6 @@ const clearDataModalPointerId = ref<number | null>(null)
 const clearDataModalStartX = ref(0)
 const clearDataModalStartY = ref(0)
 const clearDataModalDragOffset = ref(0)
-const networkSignalLevel = ref(4)
 const centeredSettingsModalUi = {
   content: '!fixed !inset-auto !top-1/2 !left-1/2 flex !max-h-[calc(100dvh-2rem)] !w-[calc(100vw-2rem)] !max-w-[40rem] !-translate-x-1/2 !-translate-y-1/2 flex-col !overflow-hidden !rounded-[1.75rem] !border !border-slate-200/70 !bg-white !shadow-[0_30px_90px_-36px_rgba(15,23,42,0.42)] !ring-1 !ring-slate-200/60 focus:outline-none dark:!border-slate-800 dark:!bg-slate-950 dark:!ring-slate-800 sm:!max-h-[calc(100dvh-4rem)]',
   body: 'p-0',
@@ -119,27 +117,6 @@ async function handleToggleCurrency(currency: (typeof currencyOptions)[number]['
   catch (error) {
     currencySettingsError.value = resolveActionErrorMessage(error)
   }
-}
-
-function getNetworkSignalLevel() {
-  if (!import.meta.client || !isOnline.value) return 0
-
-  const connection = navigator.connection || (navigator as Navigator & { mozConnection?: any; webkitConnection?: any }).mozConnection || (navigator as Navigator & { webkitConnection?: any }).webkitConnection
-  const effectiveType = typeof connection?.effectiveType === 'string' ? connection.effectiveType : ''
-  const downlink = typeof connection?.downlink === 'number' ? connection.downlink : null
-
-  if (effectiveType === 'slow-2g' || effectiveType === '2g') return 1
-  if (effectiveType === '3g') return 2
-  if (effectiveType === '4g') return 4
-
-  if (downlink !== null) {
-    if (downlink < 0.5) return 1
-    if (downlink < 1.5) return 2
-    if (downlink < 5) return 3
-    return 4
-  }
-
-  return 4
 }
 
 function updateClearDataSlideValue(clientX: number) {
@@ -250,29 +227,6 @@ function normalizeAvatarValue(avatarType: 'emoji' | 'icon', avatarValue?: string
 
 function openCompaniesPage() {
   return navigateTo('/companies')
-}
-
-if (import.meta.client) {
-  const updateNetworkSignal = () => {
-    networkSignalLevel.value = getNetworkSignalLevel()
-  }
-
-  onMounted(() => {
-    updateNetworkSignal()
-    window.addEventListener('online', updateNetworkSignal)
-    window.addEventListener('offline', updateNetworkSignal)
-
-    const connection = navigator.connection || (navigator as Navigator & { mozConnection?: any; webkitConnection?: any }).mozConnection || (navigator as Navigator & { webkitConnection?: any }).webkitConnection
-    connection?.addEventListener?.('change', updateNetworkSignal)
-  })
-
-  onBeforeUnmount(() => {
-    window.removeEventListener('online', updateNetworkSignal)
-    window.removeEventListener('offline', updateNetworkSignal)
-
-    const connection = navigator.connection || (navigator as Navigator & { mozConnection?: any; webkitConnection?: any }).mozConnection || (navigator as Navigator & { webkitConnection?: any }).webkitConnection
-    connection?.removeEventListener?.('change', updateNetworkSignal)
-  })
 }
 
 const themeChoices = computed(() => {
@@ -1073,11 +1027,6 @@ async function clearAccountData() {
     return
   }
 
-  if (isCloudSyncEnabled.value && !isOnline.value) {
-    clearDataError.value = settingsCopy.value.clearDataCloudOffline
-    return
-  }
-
   isClearingData.value = true
   clearDataError.value = ''
 
@@ -1445,21 +1394,6 @@ async function confirmStorageImport() {
   }
 }
 
-const internetStatusCopy = computed(() => {
-  if (selectedLanguage.value === 'lo') {
-    return {
-      title: settingsCopy.value.internet,
-      label: isOnline.value ? settingsCopy.value.internetConnected : settingsCopy.value.internetDisconnected,
-      signal: settingsCopy.value.signal
-    }
-  }
-
-  return {
-    title: settingsCopy.value.internet,
-    label: isOnline.value ? settingsCopy.value.internetConnected : settingsCopy.value.internetDisconnected,
-    signal: settingsCopy.value.signal
-  }
-})
 </script>
 
 <template>
@@ -1561,43 +1495,7 @@ const internetStatusCopy = computed(() => {
     </section>
 
     <section class="overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white/80 shadow-[0_12px_40px_-28px_rgba(15,23,42,0.2)] dark:border-slate-800 dark:bg-slate-950/70">
-      <div class="px-4 py-4">
-        <div class="mb-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-3">
-              <div :class="['flex size-10 shrink-0 items-center justify-center rounded-full text-white shadow-lg', isOnline ? 'bg-gradient-to-br from-emerald-500 to-teal-400' : 'bg-gradient-to-br from-rose-500 to-pink-400']">
-                <UIcon :name="isOnline ? 'i-lucide-wifi' : 'i-lucide-wifi-off'" class="size-4" />
-              </div>
-
-              <div class="min-w-0">
-                <p class="text-sm font-bold text-default">{{ internetStatusCopy.title }}</p>
-                <p class="text-xs leading-5 text-muted">{{ internetStatusCopy.label }}</p>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2">
-              <UBadge :color="isOnline ? 'emerald' : 'rose'" variant="soft" class="rounded-full text-[10px] font-bold uppercase tracking-[0.16em]">
-                {{ isOnline ? internetStatusCopy.label : internetStatusCopy.label }}
-              </UBadge>
-
-              <div class="flex items-end gap-0.5" :aria-label="internetStatusCopy.signal">
-                <span
-                  v-for="(heightClass, index) in ['h-2', 'h-3', 'h-4', 'h-5']"
-                  :key="index"
-                  class="block w-1 rounded-full transition-all"
-                  :class="[
-                    heightClass,
-                    isOnline && networkSignalLevel >= index + 1
-                      ? 'bg-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.12)]'
-                      : 'bg-slate-300 dark:bg-slate-700'
-                  ]"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center justify-between gap-3 px-4 py-4">
           <div class="min-w-0">
             <h2 class="text-sm font-black tracking-tight text-default">{{ settingsCopy.sync }}</h2>
             <p class="text-xs text-muted">{{ settingsCopy.syncDesc }}</p>
@@ -1608,50 +1506,47 @@ const internetStatusCopy = computed(() => {
           <UBadge v-else color="neutral" variant="soft" class="rounded-full px-3 opacity-70">
             ...
           </UBadge>
-        </div>
-
-        <template v-if="authReady && isCloudSyncEnabled">
-          <div class="mt-3 flex items-center gap-3 rounded-[1.1rem] border border-emerald-200/80 bg-emerald-50 px-3 py-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg">
-              <UIcon name="i-lucide-cloud-check" class="size-4" />
-            </div>
-
-            <div class="min-w-0">
-              <p class="text-sm font-bold text-emerald-700 dark:text-emerald-200">{{ settingsCopy.cloudSyncReady }}</p>
-              <p class="text-xs leading-5 text-emerald-700/80 dark:text-emerald-200/80">{{ settingsCopy.cloudSyncActiveDesc }}</p>
-            </div>
-          </div>
-        </template>
-        <div v-else-if="authReady" class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 opacity-90 dark:border-slate-800 dark:bg-slate-900">
-          <div class="flex items-center gap-3">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-              <UIcon name="i-lucide-key-round" class="size-4" />
-            </div>
-            <div class="min-w-0">
-              <p class="text-sm font-bold text-default">{{ settingsCopy.cloudSyncLocked }}</p>
-              <p class="text-xs leading-5 text-muted">{{ settingsCopy.cloudSyncLockedDesc }}</p>
-            </div>
+      </div>
+      <template v-if="authReady && isCloudSyncEnabled">
+        <div class="mt-3 flex items-center gap-3 rounded-[1.1rem] border border-emerald-200/80 bg-emerald-50 px-3 py-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+          <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg">
+            <UIcon name="i-lucide-cloud-check" class="size-4" />
           </div>
 
-          <UButton
-            icon="i-lucide-badge-plus"
-            class="mt-3 h-10 w-full justify-center rounded-full bg-black px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:bg-black/90 active:scale-95 dark:bg-white dark:text-black dark:shadow-[0_14px_28px_-18px_rgba(255,255,255,0.2)] dark:hover:bg-white/90"
-            @click="openProRedeemModal"
-          >
-            {{ settingsCopy.upgradeToPro }}
-          </UButton>
-        </div>
-        <div v-else class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
-          <div class="flex items-center gap-3">
-            <div class="size-10 shrink-0 rounded-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse" />
-            <div class="min-w-0 flex-1 space-y-2">
-              <div class="h-4 w-32 rounded-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse" />
-              <div class="h-3 w-48 rounded-full bg-slate-200/60 dark:bg-slate-800/60 animate-pulse" />
-            </div>
+          <div class="min-w-0">
+            <p class="text-sm font-bold text-emerald-700 dark:text-emerald-200">{{ settingsCopy.cloudSyncReady }}</p>
+            <p class="text-xs leading-5 text-emerald-700/80 dark:text-emerald-200/80">{{ settingsCopy.cloudSyncActiveDesc }}</p>
           </div>
-          <div class="mt-3 h-10 w-full rounded-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse" />
+        </div>
+      </template>
+      <div v-else-if="authReady" class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 opacity-90 dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center gap-3">
+          <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+            <UIcon name="i-lucide-key-round" class="size-4" />
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-bold text-default">{{ settingsCopy.cloudSyncLocked }}</p>
+            <p class="text-xs leading-5 text-muted">{{ settingsCopy.cloudSyncLockedDesc }}</p>
+          </div>
         </div>
 
+        <UButton
+          icon="i-lucide-badge-plus"
+          class="mt-3 h-10 w-full justify-center rounded-full bg-black px-4 text-sm font-bold text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.45)] transition hover:bg-black/90 active:scale-95 dark:bg-white dark:text-black dark:shadow-[0_14px_28px_-18px_rgba(255,255,255,0.2)] dark:hover:bg-white/90"
+          @click="openProRedeemModal"
+        >
+          {{ settingsCopy.upgradeToPro }}
+        </UButton>
+      </div>
+      <div v-else class="mt-3 rounded-[1.1rem] border border-slate-200/80 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-900">
+        <div class="flex items-center gap-3">
+          <div class="size-10 shrink-0 rounded-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse" />
+          <div class="min-w-0 flex-1 space-y-2">
+            <div class="h-4 w-32 rounded-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse" />
+            <div class="h-3 w-48 rounded-full bg-slate-200/60 dark:bg-slate-800/60 animate-pulse" />
+          </div>
+        </div>
+        <div class="mt-3 h-10 w-full rounded-full bg-slate-200/80 dark:bg-slate-800/80 animate-pulse" />
       </div>
     </section>
 

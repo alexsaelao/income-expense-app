@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin',
+  middleware: 'admin-auth'
 })
 
 const router = useRouter()
@@ -80,6 +81,17 @@ const canContinue = computed(() => identifier.value.trim().length >= 3)
 const hasSavedAccount = computed(() => Boolean(rememberedProfile.value?.identifier))
 const nextButtonLabel = computed(() => step.value === 'account' ? copy.value.next : copy.value.unlock)
 const adminPortalPath = '/superadmin'
+
+watch(
+  authReady,
+  (ready) => {
+    if (!ready) return
+    if (isAuthenticated.value) {
+      router.replace(adminPortalPath)
+    }
+  },
+  { immediate: true }
+)
 
 watch(
   rememberedProfile,
@@ -260,6 +272,11 @@ watch(pinValue, (value) => {
 
 onMounted(() => {
   hydrateAuth()
+
+  if (isAuthenticated.value) {
+    router.replace(adminPortalPath)
+    return
+  }
 
   if (rememberedProfile.value?.identifier) {
     identifier.value = rememberedProfile.value.identifier

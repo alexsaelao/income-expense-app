@@ -108,6 +108,10 @@ function formatLegendValue(value: number) {
   return formatValue(value)
 }
 
+function summarizeSeries(series: ChartSeries) {
+  return series.values.reduce((sum, value) => sum + value, 0)
+}
+
 const allValues = computed(() => props.series.flatMap(series => series.values))
 
 const domain = computed(() => {
@@ -344,7 +348,7 @@ onBeforeUnmount(() => {
             <span class="truncate">{{ item.label }}</span>
           </div>
           <span class="shrink-0 tabular-nums text-muted">
-            {{ formatLegendValue(item.values[item.values.length - 1] ?? 0) }}
+            {{ formatLegendValue(summarizeSeries(item)) }}
           </span>
         </div>
       </div>

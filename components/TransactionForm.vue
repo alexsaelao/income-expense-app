@@ -13,6 +13,7 @@ const props = defineProps<{
   submitLabel?: string
   formId?: string
   showActions?: boolean
+  submitting?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -923,10 +924,11 @@ function handleAmountKeydown(event: KeyboardEvent) {
           type="submit"
           size="xl"
           block
-          :disabled="!canSubmit"
+          :disabled="!canSubmit || props.submitting"
           class="h-12 rounded-full bg-primary text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(15,23,42,0.28)] transition active:scale-[0.98] sm:h-13 sm:text-base"
         >
-          <UIcon name="i-lucide-check" class="size-4" />
+          <LoadingSpinner v-if="props.submitting" class="size-4 shrink-0" />
+          <UIcon v-else name="i-lucide-check" class="size-4" />
           {{ submitText }}
         </UButton>
 
@@ -937,6 +939,7 @@ function handleAmountKeydown(event: KeyboardEvent) {
           color="rose"
           size="xl"
           block
+          :disabled="props.submitting"
           class="h-12 rounded-full text-sm font-bold sm:h-13 sm:text-base"
           @click="emit('delete')"
         >

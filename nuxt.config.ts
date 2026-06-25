@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  modules: ['@nuxt/ui', '@vite-pwa/nuxt'],
+  modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
   devtools: { enabled: false },
   runtimeConfig: {
@@ -66,43 +66,6 @@ export default defineNuxtConfig({
   ui: {
     theme: {
       colors: ['primary', 'secondary', 'success', 'info', 'warning', 'error', 'neutral']
-    }
-  },
-  pwa: {
-    registerType: 'autoUpdate',
-    includeAssets: ['offline.html', 'wallet-codesabai-mark.svg'],
-    manifest: {
-      id: '/',
-      name: 'Wallet Code Sabai',
-      short_name: 'Wallet Sabai',
-      description: 'A mobile-first personal finance PWA for recording income, expenses, transfers, loans, wallets, and reports.',
-      theme_color: '#0ea5e9',
-      background_color: '#0f172a',
-      display_override: ['fullscreen', 'standalone'],
-      display: 'standalone',
-      orientation: 'portrait-primary',
-      start_url: '/',
-      scope: '/',
-      lang: 'th',
-      dir: 'ltr',
-      launch_handler: {
-        client_mode: 'focus-existing'
-      },
-      icons: [
-        {
-          src: '/wallet-codesabai-mark.svg',
-          sizes: 'any',
-          type: 'image/svg+xml',
-          purpose: 'any'
-        }
-      ]
-    },
-    workbox: {
-      navigateFallback: '/offline',
-      globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,webmanifest,json}'],
-      cleanupOutdatedCaches: true,
-      clientsClaim: true,
-      skipWaiting: true
     }
   }
 })

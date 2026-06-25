@@ -1,39 +1,14 @@
 export default defineNuxtRouteMiddleware(async (to) => {
-  if (to.path === '/admin-login') return
+  const { authReady, isAuthenticated, hydrateAuth } = useAdminDeviceAuth()
+  const isAdminLoginPage = to.path === '/admin-login'
 
-  const { isAuthenticated, hydrateAuth, signOut } = useAdminDeviceAuth()
+  await hydrateAuth(true)
 
-  if (import.meta.client) {
-    hydrateAuth()
-    if (!isAuthenticated.value) {
-      return navigateTo('/admin-login')
-    }
-
-    try {
-      const result = await $fetch<{ authenticated?: boolean }>('/api/admin/me')
-
-      if (!result.authenticated) {
-        signOut()
-        return navigateTo('/admin-login')
-      }
-    }
-    catch {
-      signOut()
-      return navigateTo('/admin-login')
-    }
-
-    return
+  if (isAuthenticated.value && isAdminLoginPage) {
+    return navigateTo('/superadmin', { replace: true })
   }
 
-  try {
-    const headers = useRequestHeaders(['cookie'])
-    const result = await $fetch<{ authenticated?: boolean }>('/api/admin/me', { headers })
-
-    if (!result.authenticated) {
-      return navigateTo('/admin-login')
-    }
-  }
-  catch {
-    return navigateTo('/admin-login')
+  if (!isAuthenticated.value && !isAdminLoginPage) {
+    return navigateTo('/admin-login', { replace: true })
   }
 })

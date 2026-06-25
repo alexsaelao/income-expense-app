@@ -9,6 +9,7 @@ const { transactionsHydrated, getTransaction, updateTransaction, removeTransacti
 const transaction = computed(() => getTransaction(String(route.params.id)))
 const isTransactionReady = computed(() => transactionsHydrated.value)
 const pageError = ref('')
+const isSubmitting = ref(false)
 
 function resolveActionErrorMessage(error: unknown) {
   const maybeResponse = error as {
@@ -26,27 +27,39 @@ function resolveActionErrorMessage(error: unknown) {
 
 async function handleSubmit(payload: TransactionInput) {
   if (!transaction.value) return
+  if (isSubmitting.value) return
+
+  isSubmitting.value = true
   pageError.value = ''
 
   try {
     await updateTransaction(transaction.value.id, payload)
-    router.push('/transactions')
+    await router.push('/transactions')
   }
   catch (error) {
     pageError.value = resolveActionErrorMessage(error)
+  }
+  finally {
+    isSubmitting.value = false
   }
 }
 
 async function handleDelete() {
   if (!transaction.value) return
+  if (isSubmitting.value) return
+
+  isSubmitting.value = true
   pageError.value = ''
 
   try {
     await removeTransaction(transaction.value.id)
-    router.push('/transactions')
+    await router.push('/transactions')
   }
   catch (error) {
     pageError.value = resolveActionErrorMessage(error)
+  }
+  finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -94,6 +107,7 @@ async function handleDelete() {
         <TransactionForm
           mode="edit"
           :initial-transaction="transaction"
+          :submitting="isSubmitting"
           submit-label="Save changes"
           @submit="handleSubmit"
           @delete="handleDelete"

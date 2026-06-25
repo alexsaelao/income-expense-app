@@ -26,6 +26,7 @@ const sheetDragStartY = ref(0)
 const sheetPointerId = ref<number | null>(null)
 const sheetHandleRef = ref<HTMLElement | null>(null)
 const formError = ref('')
+const categoryIsSubmitting = ref(false)
 const selectedCategory = ref<any | null>(null)
 const dragState = reactive({
   type: null as CategoryType | null,
@@ -339,12 +340,21 @@ function resetForm() {
 
 async function submitCategory() {
   if (!canEditMoneyData.value) return
+  if (categoryIsSubmitting.value) return
+
+  const nextName = form.name.trim()
+  if (!nextName) {
+    formError.value = categoriesCopy.value.nameExists
+    return
+  }
+
+  categoryIsSubmitting.value = true
   formError.value = ''
 
-  if (editingCategoryId.value && selectedCategory.value && !selectedCategory.value.isDefault) {
-    try {
+  try {
+    if (editingCategoryId.value && selectedCategory.value && !selectedCategory.value.isDefault) {
       await updateCategory(editingCategoryId.value, {
-        name: form.name,
+        name: nextName,
         emoji: form.emoji,
         color: form.color
       })
@@ -354,16 +364,10 @@ async function submitCategory() {
       resetEditState()
       return
     }
-    catch (error) {
-      formError.value = resolveActionErrorMessage(error)
-      return
-    }
-  }
 
-  try {
     await addCategory({
       type: form.type,
-      name: form.name,
+      name: nextName,
       emoji: form.emoji,
       color: form.color
     })
@@ -373,6 +377,9 @@ async function submitCategory() {
   }
   catch (error) {
     formError.value = resolveActionErrorMessage(error)
+  }
+  finally {
+    categoryIsSubmitting.value = false
   }
 }
 
@@ -869,9 +876,11 @@ function onSheetPointerCancel() {
               </UButton>
               <UButton
                 :class="['h-12 flex-1 justify-center rounded-full bg-gradient-to-r text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
-                icon="i-lucide-check"
+                :disabled="categoryIsSubmitting"
                 @click="submitCategory"
               >
+                <LoadingSpinner v-if="categoryIsSubmitting" class="size-4 shrink-0" />
+                <UIcon v-else name="i-lucide-check" class="size-4" />
                 {{ sheetCopy.saveCategory }}
               </UButton>
             </div>

@@ -95,6 +95,7 @@ const walletCopy = computed(() => {
 const walletList = computed(() => walletEntries())
 const walletModalOpen = ref(false)
 const walletFormError = ref('')
+const walletIsSubmitting = ref(false)
 const dragState = reactive({
   key: ''
 })
@@ -140,7 +141,10 @@ watch(
 
 async function submitWallet() {
   if (!canEditMoneyData.value) return
-  if (!form.name) return
+  if (walletIsSubmitting.value) return
+
+  const nextName = form.name.trim()
+  if (!nextName) return
   walletFormError.value = ''
 
   const openingBalance = form.openingBalance === '' || form.openingBalance === null || form.openingBalance === undefined
@@ -152,9 +156,11 @@ async function submitWallet() {
     return
   }
 
+  walletIsSubmitting.value = true
+
   try {
     await addWallet({
-      name: form.name,
+      name: nextName,
       currency: form.currency,
       openingBalance,
       note: form.note,
@@ -172,6 +178,9 @@ async function submitWallet() {
   }
   catch (error) {
     walletFormError.value = resolveActionErrorMessage(error)
+  }
+  finally {
+    walletIsSubmitting.value = false
   }
 }
 
@@ -587,9 +596,11 @@ function onSheetPointerCancel() {
               </UButton>
               <UButton
                 :class="['h-12 flex-1 justify-center rounded-full bg-gradient-to-r text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
-                icon="i-lucide-check"
+                :disabled="walletIsSubmitting"
                 @click="submitWallet"
               >
+                <LoadingSpinner v-if="walletIsSubmitting" class="size-4 shrink-0" />
+                <UIcon v-else name="i-lucide-check" class="size-4" />
                 {{ walletCopy.saveWallet }}
               </UButton>
             </div>

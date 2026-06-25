@@ -7,6 +7,7 @@ definePageMeta({
 const { selectedLanguage } = useAppLanguage()
 const colorMode = useColorMode()
 const router = useRouter()
+const { signOut } = useAdminDeviceAuth()
 const { selectedThemeColor, activeTheme, appThemeColorOptions, setThemeColor } = useAppThemeColor()
 const logoutConfirmModalOpen = ref(false)
 const signingOut = ref(false)
@@ -126,7 +127,7 @@ async function confirmLogout() {
 
   signingOut.value = true
   try {
-    await $fetch('/api/admin/logout', { method: 'POST' })
+    await signOut()
     await router.push('/admin-login')
   }
   finally {

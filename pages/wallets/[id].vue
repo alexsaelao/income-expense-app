@@ -34,6 +34,7 @@ const walletHasActivity = computed(() => wallet.value ? hasWalletTransactions(wa
 const walletManageOpen = ref(false)
 const walletDeleteOpen = ref(false)
 const walletFormError = ref('')
+const walletIsSubmitting = ref(false)
 const walletForm = reactive({
   name: '',
   emoji: '💳',
@@ -144,6 +145,7 @@ function closeDeleteWalletConfirm() {
 
 async function submitWalletUpdate() {
   if (!wallet.value || !canEditMoneyData.value) return
+  if (walletIsSubmitting.value) return
 
   const nextName = walletForm.name.trim()
   if (!nextName) {
@@ -157,6 +159,8 @@ async function submitWalletUpdate() {
     return
   }
 
+  walletIsSubmitting.value = true
+
   try {
     await updateWallet(wallet.value.id, {
       name: nextName,
@@ -169,6 +173,9 @@ async function submitWalletUpdate() {
   }
   catch (error) {
     walletFormError.value = resolveActionErrorMessage(error)
+  }
+  finally {
+    walletIsSubmitting.value = false
   }
 }
 
@@ -380,10 +387,12 @@ async function confirmDeleteWallet() {
             <div class="grid gap-2">
               <UButton
                 v-if="canEditMoneyData"
+                :disabled="walletIsSubmitting"
                 :class="['h-12 justify-center rounded-full bg-gradient-to-r text-center text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98]', activeTheme.accent]"
-                icon="i-lucide-check"
                 @click="submitWalletUpdate"
               >
+                <LoadingSpinner v-if="walletIsSubmitting" class="size-4 shrink-0" />
+                <UIcon v-else name="i-lucide-check" class="size-4" />
                 {{ walletCopy.saveChanges }}
               </UButton>
 

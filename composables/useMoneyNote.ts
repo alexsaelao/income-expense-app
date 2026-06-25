@@ -754,7 +754,6 @@ export function useMoneyNote() {
   const hydrating = useState('money-note-hydrating', () => false)
   const { selectedLanguage } = useAppLanguage()
   const { authReady, sessionProfile } = useDeviceAuth()
-  const { isOnline } = useConnectivity()
   const defaultCategoriesEnabled = computed(() => store.value.disabledDefaultCategories.length === 0)
 
   const activeAccountIdentifier = computed(() => sessionProfile.value?.identifier ?? '')
@@ -1099,7 +1098,7 @@ export function useMoneyNote() {
       hydratedAccountKey.value = accountKey
       hydrated.value = true
 
-      if (!isCloudSyncEnabled.value || !isOnline.value || accountKey === 'guest' || !activeAccountIdentifier.value.trim()) {
+      if (!isCloudSyncEnabled.value || accountKey === 'guest' || !activeAccountIdentifier.value.trim()) {
         transactionsHydrated.value = true
         return
       }
@@ -1794,12 +1793,6 @@ export function useMoneyNote() {
     if (!canEditMoneyData.value) {
       throw new Error('Pro required')
     }
-
-    if (!isOnline.value) {
-      throw new Error(selectedLanguage.value === 'lo'
-        ? 'ຕ້ອງເຊື່ອມຕໍ່ອິນເຕີເນັດກ່ອນຈຶ່ງຈະບັນທຶກໄດ້'
-        : 'Internet connection is required to save changes')
-    }
   }
 
   function applySingleTransaction(transaction: Transaction) {
@@ -2121,7 +2114,6 @@ export function useMoneyNote() {
     defaultCategoriesEnabled,
     isCloudSyncEnabled,
     canEditMoneyData,
-    isOnline,
     isCurrencyEnabled,
     setCurrencyEnabled,
     setDefaultCategoryEnabled,

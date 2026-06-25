@@ -10,8 +10,25 @@ type AdminSession = {
   signedInAt: string
 }
 
+type ServerAdminSessionSnapshot = {
+  loaded: boolean
+  authenticated: boolean
+  session: {
+    identifier: string
+  } | null
+}
+
 const REMEMBER_KEY = 'income-expense-note-admin-auth-remember-v1'
 const SESSION_KEY = 'income-expense-note-admin-auth-session-v1'
+const SERVER_SESSION_KEY = 'income-expense-note-admin-auth-server-session'
+
+function createServerAdminSessionSnapshot(): ServerAdminSessionSnapshot {
+  return {
+    loaded: false,
+    authenticated: false,
+    session: null
+  }
+}
 
 function readStorage<T>(key: string): T | null {
   if (import.meta.server) return null
@@ -64,21 +81,69 @@ function writeSession<T>(key: string, value: T | null) {
 export function useAdminDeviceAuth() {
   const authReady = useState('income-expense-note-admin-auth-ready', () => false)
   const hydrated = useState('income-expense-note-admin-auth-hydrated', () => false)
+  const hydrating = useState('income-expense-note-admin-auth-hydrating', () => false)
   const rememberedProfile = useState<AdminAuthProfile | null>('income-expense-note-admin-auth-remembered', () => null)
   const sessionProfile = useState<AdminSession | null>('income-expense-note-admin-auth-session', () => null)
+  const serverAuthSession = useState<ServerAdminSessionSnapshot>(SERVER_SESSION_KEY, createServerAdminSessionSnapshot)
 
-  function hydrateAuth() {
-    if (hydrated.value || import.meta.server) return
+  async function hydrateAuth(force = false) {
+    if (hydrating.value) return
+    if (!force && hydrated.value) return
 
-    rememberedProfile.value = readStorage<AdminAuthProfile>(REMEMBER_KEY)
-    sessionProfile.value = readSession<AdminSession>(SESSION_KEY)
-    hydrated.value = true
-    authReady.value = true
+    hydrating.value = true
+
+    try {
+      rememberedProfile.value = readStorage<AdminAuthProfile>(REMEMBER_KEY)
+
+      const headers = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+      const result = await $fetch<{ authenticated: boolean; admin: { identifier: string } | null }>('/api/admin/me', {
+        headers
+      })
+
+      serverAuthSession.value = {
+        loaded: true,
+        authenticated: Boolean(result.authenticated && result.admin),
+        session: result.authenticated && result.admin
+          ? {
+              identifier: result.admin.identifier
+            }
+          : null
+      }
+
+      if (serverAuthSession.value.authenticated && serverAuthSession.value.session) {
+        const storedSession = readSession<AdminSession>(SESSION_KEY)
+        sessionProfile.value = {
+          identifier: serverAuthSession.value.session.identifier,
+          signedInAt: storedSession?.identifier === serverAuthSession.value.session.identifier
+            ? storedSession.signedInAt
+            : new Date().toISOString()
+        }
+        writeSession(SESSION_KEY, sessionProfile.value)
+      }
+      else {
+        sessionProfile.value = null
+        writeSession<AdminSession>(SESSION_KEY, null)
+      }
+    }
+    catch {
+      serverAuthSession.value = {
+        loaded: true,
+        authenticated: false,
+        session: null
+      }
+      sessionProfile.value = null
+      writeSession<AdminSession>(SESSION_KEY, null)
+    }
+    finally {
+      hydrated.value = true
+      authReady.value = true
+      hydrating.value = false
+    }
   }
 
   function ensureHydrated() {
     if (!hydrated.value) {
-      hydrateAuth()
+      void hydrateAuth()
     }
   }
 
@@ -119,11 +184,32 @@ export function useAdminDeviceAuth() {
 
     sessionProfile.value = session
     writeSession(SESSION_KEY, session)
+    serverAuthSession.value = {
+      loaded: true,
+      authenticated: true,
+      session: {
+        identifier: normalizedIdentifier
+      }
+    }
   }
 
-  function signOut() {
+  async function signOut() {
     sessionProfile.value = null
     writeSession<AdminSession>(SESSION_KEY, null)
+    serverAuthSession.value = {
+      loaded: true,
+      authenticated: false,
+      session: null
+    }
+
+    try {
+      await $fetch('/api/admin/logout', {
+        method: 'POST'
+      })
+    }
+    catch {
+      // Keep the local admin session cleared even if logout transport fails.
+    }
   }
 
   const isAuthenticated = computed(() => Boolean(sessionProfile.value))

@@ -113,12 +113,8 @@ export function useDeviceAuth() {
   const hydrated = useState(AUTH_HYDRATED_STATE_KEY, () => false)
   const hydrating = useState('income-expense-note-auth-hydrating', () => false)
   const rememberedProfile = useState<AuthProfile | null>('income-expense-note-auth-remembered', () => null)
-  const sessionProfile = useState<AuthSession | null>('income-expense-note-auth-session', () => {
-    if (import.meta.server) return null
-    return readStoredAuthSession()
-  })
+  const sessionProfile = useState<AuthSession | null>('income-expense-note-auth-session', () => null)
   const serverAuthSession = useState<ServerAuthSessionSnapshot>(AUTH_SERVER_SESSION_STATE_KEY, createServerAuthSnapshot)
-  const storedSession = import.meta.client ? readStoredAuthSession() : null
 
   if (!import.meta.server && !rememberedProfile.value) {
     const storedRememberedProfile = readStorage<AuthProfile>(REMEMBER_KEY)
@@ -134,20 +130,11 @@ export function useDeviceAuth() {
     if (serverAuthSession.value.authenticated) {
       applyServerAuthSession(serverAuthSession.value, rememberedProfile.value)
     }
-    else if (storedSession) {
-      sessionProfile.value = storedSession
-      serverAuthSession.value = {
-        loaded: true,
-        authenticated: true,
-        session: {
-          identifier: storedSession.identifier,
-          plan: storedSession.plan ?? 'free'
-        }
-      }
+    else {
+      sessionProfile.value = null
+      writeSession<AuthSession>(SESSION_KEY, null)
     }
-    authReady.value = true
-  }
-  else if (sessionProfile.value) {
+    hydrated.value = true
     authReady.value = true
   }
 
@@ -182,8 +169,6 @@ export function useDeviceAuth() {
 
     hydrating.value = true
 
-    const storedSession = readStoredAuthSession()
-
     try {
       const storedRememberedProfile = readStorage<AuthProfile>(REMEMBER_KEY)
 
@@ -194,76 +179,34 @@ export function useDeviceAuth() {
           }
         : null
 
-      if (storedSession) {
-        sessionProfile.value = storedSession
-        serverAuthSession.value = {
-          loaded: true,
-          authenticated: true,
-          session: {
-            identifier: storedSession.identifier,
-            plan: storedSession.plan ?? 'free'
-          }
-        }
-        authReady.value = true
-        return
-      }
-
-      if (!serverAuthSession.value.loaded) {
-        const serverSession = await $fetch<{ authenticated: boolean; session: { identifier: string; plan: 'free' | 'pro' } | null }>('/api/auth/me')
-        serverAuthSession.value = {
-          loaded: true,
-          authenticated: Boolean(serverSession.authenticated && serverSession.session),
-          session: serverSession.authenticated && serverSession.session
-            ? {
-                identifier: serverSession.session.identifier,
-                plan: serverSession.session.plan
-              }
-            : null
-        }
+      const serverSession = await $fetch<{ authenticated: boolean; session: { identifier: string; plan: 'free' | 'pro' } | null }>('/api/auth/me')
+      serverAuthSession.value = {
+        loaded: true,
+        authenticated: Boolean(serverSession.authenticated && serverSession.session),
+        session: serverSession.authenticated && serverSession.session
+          ? {
+              identifier: serverSession.session.identifier,
+              plan: serverSession.session.plan
+            }
+          : null
       }
 
       if (serverAuthSession.value.authenticated) {
         applyServerAuthSession(serverAuthSession.value, rememberedProfile.value)
       }
       else {
-        if (storedSession) {
-          sessionProfile.value = storedSession
-          serverAuthSession.value = {
-            loaded: true,
-            authenticated: true,
-            session: {
-              identifier: storedSession.identifier,
-              plan: storedSession.plan ?? 'free'
-            }
-          }
-        }
-        else {
-          sessionProfile.value = null
-          writeSession<AuthSession>(SESSION_KEY, null)
-        }
-      }
-    }
-    catch {
-      if (storedSession) {
-        sessionProfile.value = storedSession
-        serverAuthSession.value = {
-          loaded: true,
-          authenticated: true,
-          session: {
-            identifier: storedSession.identifier,
-            plan: storedSession.plan ?? 'free'
-          }
-        }
-      }
-      else {
-        serverAuthSession.value = {
-          loaded: true,
-          authenticated: false,
-          session: null
-        }
         sessionProfile.value = null
         writeSession<AuthSession>(SESSION_KEY, null)
       }
+    }
+    catch {
+      serverAuthSession.value = {
+        loaded: true,
+        authenticated: false,
+        session: null
+      }
+      sessionProfile.value = null
+      writeSession<AuthSession>(SESSION_KEY, null)
     }
     finally {
       hydrated.value = true

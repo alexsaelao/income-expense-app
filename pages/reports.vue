@@ -744,6 +744,7 @@ const reportFiltersOpen = ref(false)
           mobile-fullscreen
         />
       </div>
+
     </section>
 
     <section class="hidden gap-4 md:grid">
@@ -784,49 +785,6 @@ const reportFiltersOpen = ref(false)
           :mobile-legend-formatter="chartCompactCurrencyFormatter"
           :value-formatter="chartValueFormatter"
         />
-      </UCard>
-
-      <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
-        <template #header>
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-muted">{{ tableTitle }}</p>
-              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ selectedPeriodLabel }}</h2>
-            </div>
-            <div class="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg">
-              <UIcon name="i-lucide-table-2" class="size-5" />
-            </div>
-          </div>
-        </template>
-
-        <div class="overflow-x-auto rounded-[1.2rem] border border-slate-200/80 dark:border-slate-800">
-          <div>
-            <div class="grid grid-cols-[minmax(4rem,5.25rem)_repeat(3,minmax(7rem,1fr))] gap-x-5 bg-slate-50 px-4 py-3 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted dark:bg-slate-900 sm:grid-cols-[minmax(4.25rem,0.52fr)_repeat(3,minmax(0,1fr))] sm:gap-x-7 sm:px-6 sm:text-[10px] sm:tracking-[0.22em] lg:gap-x-8 lg:px-7">
-              <span class="min-w-0 whitespace-nowrap">{{ tablePrimaryLabel }}</span>
-              <span class="min-w-0 whitespace-nowrap text-right">{{ reportCopy.income }}</span>
-              <span class="min-w-0 whitespace-nowrap text-right">{{ reportCopy.expense }}</span>
-              <span class="min-w-0 whitespace-nowrap text-right">{{ tableProfitLabel }}</span>
-            </div>
-
-            <div class="divide-y divide-slate-200/80 dark:divide-slate-800">
-              <div
-                v-for="row in timelineRows"
-                :key="row.key"
-                class="grid grid-cols-[minmax(4rem,5.25rem)_repeat(3,minmax(7rem,1fr))] items-center gap-x-5 px-4 py-4 text-[13px] sm:grid-cols-[minmax(4.25rem,0.52fr)_repeat(3,minmax(0,1fr))] sm:gap-x-7 sm:px-6 sm:py-5 sm:text-sm lg:gap-x-8 lg:px-7"
-              >
-                <div class="min-w-0 pr-2">
-                  <p class="whitespace-nowrap font-bold leading-5 text-default">{{ row.label }}</p>
-                  <p class="whitespace-nowrap text-[11px] text-muted sm:text-[11px]">{{ row.secondaryLabel }} · {{ row.count }} tx</p>
-                </div>
-                <p class="min-w-0 whitespace-nowrap px-3 text-right font-semibold text-default tabular-nums sm:px-4 lg:px-5">{{ formatCurrency(row.income, selectedCurrency) }}</p>
-                <p class="min-w-0 whitespace-nowrap px-3 text-right font-semibold text-default tabular-nums sm:px-4 lg:px-5">{{ formatCurrency(row.expense, selectedCurrency) }}</p>
-                <p class="min-w-0 whitespace-nowrap px-3 text-right font-black tabular-nums sm:px-4 lg:px-5" :class="row.net >= 0 ? 'text-emerald-500' : 'text-rose-500'">
-                  {{ formatCurrency(row.net, selectedCurrency, true) }}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
       </UCard>
     </section>
 
@@ -1009,5 +967,109 @@ const reportFiltersOpen = ref(false)
       :description="reportCopy.subtitle"
       class="rounded-[1.2rem] border border-slate-200/80 bg-white/90 shadow-sm dark:border-slate-800 dark:bg-slate-950/80"
     />
+
+    <section class="hidden gap-4 md:block">
+      <UCard class="overflow-hidden rounded-[1.5rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+        <template #header>
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-muted">{{ tableTitle }}</p>
+              <h2 class="mt-1 text-2xl font-black tracking-tight text-default">{{ selectedPeriodLabel }}</h2>
+            </div>
+            <div class="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg">
+              <UIcon name="i-lucide-table-2" class="size-5" />
+            </div>
+          </div>
+        </template>
+
+        <div class="overflow-x-auto rounded-[1.2rem] border border-slate-200/80 dark:border-slate-800">
+          <div>
+            <div class="grid grid-cols-[minmax(4rem,5.25rem)_repeat(3,minmax(7rem,1fr))] gap-x-5 bg-slate-50 px-4 py-3 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted dark:bg-slate-900 sm:grid-cols-[minmax(4.25rem,0.52fr)_repeat(3,minmax(0,1fr))] sm:gap-x-7 sm:px-6 sm:text-[10px] sm:tracking-[0.22em] lg:gap-x-8 lg:px-7">
+              <span class="min-w-0 whitespace-nowrap">{{ tablePrimaryLabel }}</span>
+              <span class="min-w-0 whitespace-nowrap text-right">{{ reportCopy.income }}</span>
+              <span class="min-w-0 whitespace-nowrap text-right">{{ reportCopy.expense }}</span>
+              <span class="min-w-0 whitespace-nowrap text-right">{{ tableProfitLabel }}</span>
+            </div>
+
+            <div class="divide-y divide-slate-200/80 dark:divide-slate-800">
+              <div
+                v-for="row in timelineRows"
+                :key="row.key"
+                class="grid grid-cols-[minmax(4rem,5.25rem)_repeat(3,minmax(7rem,1fr))] items-center gap-x-5 px-4 py-4 text-[13px] sm:grid-cols-[minmax(4.25rem,0.52fr)_repeat(3,minmax(0,1fr))] sm:gap-x-7 sm:px-6 sm:py-5 sm:text-sm lg:gap-x-8 lg:px-7"
+              >
+                <div class="min-w-0 pr-2">
+                  <p class="whitespace-nowrap font-bold leading-5 text-default">{{ row.label }}</p>
+                  <p class="whitespace-nowrap text-[11px] text-muted sm:text-[11px]">{{ row.secondaryLabel }} · {{ row.count }} tx</p>
+                </div>
+                <p class="min-w-0 whitespace-nowrap px-3 text-right font-semibold text-default tabular-nums sm:px-4 lg:px-5">{{ formatCurrency(row.income, selectedCurrency) }}</p>
+                <p class="min-w-0 whitespace-nowrap px-3 text-right font-semibold text-default tabular-nums sm:px-4 lg:px-5">{{ formatCurrency(row.expense, selectedCurrency) }}</p>
+                <p class="min-w-0 whitespace-nowrap px-3 text-right font-black tabular-nums sm:px-4 lg:px-5" :class="row.net >= 0 ? 'text-emerald-500' : 'text-rose-500'">
+                  {{ formatCurrency(row.net, selectedCurrency, true) }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </UCard>
+    </section>
+
+    <section class="md:hidden -mx-4 space-y-3 sm:-mx-6">
+      <div class="px-4 sm:px-6">
+        <UCard class="overflow-hidden rounded-[1.35rem] border border-white/60 bg-white/90 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-slate-950/80">
+          <template #header>
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-muted">{{ tableTitle }}</p>
+                <h2 class="mt-1 text-xl font-black tracking-tight text-default">{{ selectedPeriodLabel }}</h2>
+              </div>
+              <div class="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg">
+                <UIcon name="i-lucide-table-2" class="size-4" />
+              </div>
+            </div>
+          </template>
+
+          <div v-if="timelineRows.length" class="space-y-2 p-4 pt-0">
+            <div
+              v-for="row in timelineRows"
+              :key="row.key"
+              class="rounded-[1rem] border border-slate-200/80 bg-slate-50/80 px-3 py-3 dark:border-slate-800 dark:bg-slate-900/70"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-sm font-bold leading-5 text-default">{{ row.label }}</p>
+                  <p class="mt-0.5 text-[11px] text-muted">
+                    {{ row.secondaryLabel }} · {{ row.count }} tx
+                  </p>
+                </div>
+                <p class="shrink-0 whitespace-nowrap text-sm font-black tabular-nums" :class="row.net >= 0 ? 'text-emerald-500' : 'text-rose-500'">
+                  {{ formatCurrency(row.net, selectedCurrency, true) }}
+                </p>
+              </div>
+
+              <div class="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+                <div class="rounded-[0.9rem] bg-white px-2.5 py-2 text-center shadow-sm dark:bg-slate-950">
+                  <p class="font-semibold text-muted">{{ reportCopy.income }}</p>
+                  <p class="mt-0.5 whitespace-nowrap font-black text-default tabular-nums">{{ formatCurrency(row.income, selectedCurrency) }}</p>
+                </div>
+                <div class="rounded-[0.9rem] bg-white px-2.5 py-2 text-center shadow-sm dark:bg-slate-950">
+                  <p class="font-semibold text-muted">{{ reportCopy.expense }}</p>
+                  <p class="mt-0.5 whitespace-nowrap font-black text-default tabular-nums">{{ formatCurrency(row.expense, selectedCurrency) }}</p>
+                </div>
+                <div class="rounded-[0.9rem] bg-white px-2.5 py-2 text-center shadow-sm dark:bg-slate-950">
+                  <p class="font-semibold text-muted">{{ tableProfitLabel }}</p>
+                  <p class="mt-0.5 whitespace-nowrap font-black tabular-nums" :class="row.net >= 0 ? 'text-emerald-500' : 'text-rose-500'">
+                    {{ formatCurrency(row.net, selectedCurrency, true) }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p v-else class="px-4 py-8 text-center text-sm text-muted">
+            {{ reportCopy.noData }}
+          </p>
+        </UCard>
+      </div>
+    </section>
   </div>
 </template>

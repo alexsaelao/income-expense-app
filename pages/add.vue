@@ -6,6 +6,7 @@ const router = useRouter()
 const { addTransaction, canEditMoneyData } = useMoneyNote()
 const transactionFormRef = ref<{ canSubmit: boolean } | null>(null)
 const submitError = ref('')
+const isSubmitting = ref(false)
 
 function resolveActionErrorMessage(error: unknown) {
   const maybeResponse = error as {
@@ -22,14 +23,20 @@ function resolveActionErrorMessage(error: unknown) {
 }
 
 async function handleSubmit(payload: TransactionInput) {
+  if (isSubmitting.value) return
+
+  isSubmitting.value = true
   submitError.value = ''
 
   try {
     await addTransaction(payload)
-    router.push('/transactions')
+    await router.push('/transactions')
   }
   catch (error) {
     submitError.value = resolveActionErrorMessage(error)
+  }
+  finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -65,6 +72,7 @@ async function handleSubmit(payload: TransactionInput) {
         form-id="add-transaction-form"
         mode="create"
         :show-actions="false"
+        :submitting="isSubmitting"
         submit-label="Save transaction"
         @submit="handleSubmit"
       />
@@ -79,10 +87,11 @@ async function handleSubmit(payload: TransactionInput) {
             form="add-transaction-form"
             size="xl"
             block
-            :disabled="!transactionFormRef?.canSubmit"
+            :disabled="!transactionFormRef?.canSubmit || isSubmitting"
             class="h-12 rounded-full bg-primary text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(15,23,42,0.28)] transition active:scale-[0.98] sm:h-13 sm:text-base"
           >
-            <UIcon name="i-lucide-check" class="size-4" />
+            <LoadingSpinner v-if="isSubmitting" class="size-4 shrink-0" />
+            <UIcon v-else name="i-lucide-check" class="size-4" />
             Save transaction
           </UButton>
         </div>

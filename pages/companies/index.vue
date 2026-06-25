@@ -27,6 +27,7 @@ const sheetDragStartY = ref(0)
 const sheetPointerId = ref<number | null>(null)
 const sheetHandleRef = ref<HTMLElement | null>(null)
 const formError = ref('')
+const companyIsSubmitting = ref(false)
 const selectedCompany = ref<any | null>(null)
 const dragState = reactive({
   key: ''
@@ -293,12 +294,21 @@ function onSheetPointerCancel() {
 
 async function submitCompany() {
   if (!canEditMoneyData.value) return
+  if (companyIsSubmitting.value) return
+
+  const nextName = form.name.trim()
+  if (!nextName) {
+    formError.value = companiesCopy.value.nameExists
+    return
+  }
+
+  companyIsSubmitting.value = true
   formError.value = ''
 
-  if (editingCompanyId.value && selectedCompany.value && !selectedCompany.value.isDefault) {
-    try {
+  try {
+    if (editingCompanyId.value && selectedCompany.value && !selectedCompany.value.isDefault) {
       await updateCompany(editingCompanyId.value, {
-        name: form.name,
+        name: nextName,
         emoji: form.emoji,
         color: form.color
       })
@@ -310,15 +320,9 @@ async function submitCompany() {
       resetForm()
       return
     }
-    catch (error) {
-      formError.value = resolveActionErrorMessage(error)
-      return
-    }
-  }
 
-  try {
     await addCompany({
-      name: form.name,
+      name: nextName,
       emoji: form.emoji,
       color: form.color
     })
@@ -328,6 +332,9 @@ async function submitCompany() {
   }
   catch (error) {
     formError.value = resolveActionErrorMessage(error)
+  }
+  finally {
+    companyIsSubmitting.value = false
   }
 }
 
@@ -827,9 +834,11 @@ function onCompanyDragEnd() {
               </UButton>
               <UButton
                 :class="['h-12 flex-1 justify-center rounded-full bg-gradient-to-r text-center font-bold text-white shadow-[0_18px_35px_-22px_rgba(15,23,42,0.28)] transition active:scale-95', activeTheme.accent]"
-                icon="i-lucide-check"
+                :disabled="companyIsSubmitting"
                 @click="submitCompany"
               >
+                <LoadingSpinner v-if="companyIsSubmitting" class="size-4 shrink-0" />
+                <UIcon v-else name="i-lucide-check" class="size-4" />
                 {{ sheetCopy.saveCompany }}
               </UButton>
             </div>

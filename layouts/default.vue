@@ -41,7 +41,6 @@ watch([authReady, isAuthenticated, isAuthPage], ([ready, authenticated, authPage
         ? 'justify-center pb-8 pt-6'
         : 'pb-[calc(env(safe-area-inset-bottom)+6.75rem)] pt-[calc(env(safe-area-inset-top)+0.75rem)] md:max-w-none md:px-6 lg:max-w-[1024px] lg:px-8'"
     >
-      <AppOfflineBadge />
       <div
         v-if="isProtectedPage && !authReady"
         class="mb-4 flex items-center justify-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-xs font-medium text-sky-200 md:mb-6"
