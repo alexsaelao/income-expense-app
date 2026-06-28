@@ -218,6 +218,8 @@ function companyKeyForItem(item: any) {
 function openCompanyManager(item: any) {
   if (!canEditMoneyData.value) return
   selectedCompany.value = item
+  deleteCompanyOpen.value = false
+  deleteCompanyError.value = ''
   manageCompanyOpen.value = true
 }
 
@@ -231,13 +233,14 @@ function closeCompanyManager() {
 function openDeleteCompany() {
   if (!selectedCompanyCanDelete.value) return
   deleteCompanyError.value = ''
-  manageCompanyOpen.value = false
   deleteCompanyOpen.value = true
 }
 
 function openCompanyEditor(item: any) {
   if (!canEditMoneyData.value) return
   selectedCompany.value = item
+  deleteCompanyOpen.value = false
+  deleteCompanyError.value = ''
   editingCompanyId.value = item.id
   form.name = item.name
   form.emoji = item.emoji
@@ -575,14 +578,14 @@ function onCompanyDragEnd() {
       }"
     >
       <template #content="{ close }">
-        <div class="max-h-[84svh] overflow-hidden">
+        <div class="flex max-h-[84svh] flex-col overflow-hidden">
           <div class="border-b border-slate-200/80 px-4 pb-3 pt-2 dark:border-slate-800">
             <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-300/80 dark:bg-slate-700" />
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ companyManageCopy.title }}</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ deleteCompanyOpen ? companyManageCopy.deleteTitle : companyManageCopy.title }}</p>
                 <h2 class="mt-1 text-lg font-black tracking-tight text-default">{{ selectedCompany?.name ?? '-' }}</h2>
-                <p class="mt-1 text-[11px] text-muted">{{ companyManageCopy.description }}</p>
+                <p class="mt-1 text-[11px] text-muted">{{ deleteCompanyOpen ? companyManageCopy.confirmDelete : companyManageCopy.description }}</p>
               </div>
 
               <button
@@ -596,141 +599,138 @@ function onCompanyDragEnd() {
             </div>
           </div>
 
-          <div class="max-h-[calc(84svh-4.5rem)] overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
-            <div
-              v-if="selectedCompany"
-              class="rounded-[1.25rem] border border-slate-200/80 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/70"
-            >
-              <div class="flex items-center gap-3">
-                <div class="flex size-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-sm" :class="accentMap[selectedCompany.color]">
-                  <span class="block translate-y-px text-xl leading-none">{{ selectedCompany.emoji }}</span>
-                </div>
+          <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
+            <div v-if="deleteCompanyOpen && selectedCompany" class="space-y-4">
+              <p v-if="deleteCompanyError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+                {{ deleteCompanyError }}
+              </p>
 
+              <div class="flex items-start gap-3 rounded-[1.25rem] border border-rose-100 bg-rose-50/70 px-4 py-4 dark:border-rose-900/40 dark:bg-rose-950/20">
+                <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-200">
+                  <UIcon name="i-lucide-trash-2" class="size-5" />
+                </div>
                 <div class="min-w-0">
-                  <p class="truncate text-sm font-black text-default">{{ selectedCompany.name }}</p>
-                  <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                    <UBadge color="neutral" variant="soft" class="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] leading-none">
-                      {{ selectedCompany.isDefault ? companiesCopy.default : companiesCopy.custom }}
-                    </UBadge>
-                    <p class="text-[10px] leading-none text-muted">{{ selectedCompany.count }} {{ companiesCopy.transactions }}</p>
-                  </div>
+                  <p class="text-sm font-black text-default">{{ selectedCompany.name }}</p>
+                  <p class="mt-1 text-[12px] text-muted">
+                    {{ companyManageCopy.deleteDescription }}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div
-              v-if="selectedCompany?.isDefault && selectedCompany?.name !== 'Other'"
-              class="mt-4 rounded-[1.25rem] border border-amber-200/80 bg-amber-50 px-4 py-3 text-[12px] font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
-            >
-              <p class="font-bold">{{ companyManageCopy.lockedTitle }}</p>
-              <p class="mt-1">{{ companyManageCopy.lockedDescription }}</p>
-            </div>
-
-            <div
-              v-else-if="selectedCompany?.isDefault && selectedCompany?.name === 'Other'"
-              class="mt-4 rounded-[1.25rem] border border-slate-200/80 bg-slate-50 px-4 py-3 text-[12px] font-medium text-slate-700 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300"
-            >
-              <p class="font-bold">{{ companyManageCopy.otherTitle }}</p>
-              <p class="mt-1">{{ companyManageCopy.otherDescription }}</p>
-            </div>
-
-            <div v-else-if="selectedCompany" class="mt-4 grid gap-3" :class="selectedCompanyIsEditable ? 'grid-cols-2' : 'grid-cols-1'">
-              <UButton
-                v-if="selectedCompanyIsEditable"
-                class="h-12 justify-center rounded-full bg-gradient-to-r from-indigo-500 to-violet-400 font-bold text-white shadow-[0_18px_35px_-22px_rgba(99,102,241,0.65)] transition hover:from-indigo-600 hover:to-violet-500 active:scale-95"
-                icon="i-lucide-pencil-line"
-                @click="openCompanyEditor(selectedCompany)"
+            <template v-else-if="selectedCompany">
+              <div
+                class="rounded-[1.25rem] border border-slate-200/80 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/70"
               >
-                {{ companyManageCopy.edit }}
-              </UButton>
+                <div class="flex items-center gap-3">
+                  <div class="flex size-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-sm" :class="accentMap[selectedCompany.color]">
+                    <span class="block translate-y-px text-xl leading-none">{{ selectedCompany.emoji }}</span>
+                  </div>
 
-              <UButton
-                v-if="selectedCompanyCanDelete"
-                color="error"
-                variant="soft"
-                class="h-12 justify-center rounded-full font-bold"
-                icon="i-lucide-trash-2"
-                @click="openDeleteCompany"
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-black text-default">{{ selectedCompany.name }}</p>
+                    <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                      <UBadge color="neutral" variant="soft" class="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] leading-none">
+                        {{ selectedCompany.isDefault ? companiesCopy.default : companiesCopy.custom }}
+                      </UBadge>
+                      <p class="text-[10px] leading-none text-muted">{{ selectedCompany.count }} {{ companiesCopy.transactions }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-if="selectedCompany?.isDefault && selectedCompany?.name !== 'Other'"
+                class="mt-4 rounded-[1.25rem] border border-amber-200/80 bg-amber-50 px-4 py-3 text-[12px] font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
               >
-                {{ companyManageCopy.delete }}
-              </UButton>
-            </div>
+                <p class="font-bold">{{ companyManageCopy.lockedTitle }}</p>
+                <p class="mt-1">{{ companyManageCopy.lockedDescription }}</p>
+              </div>
 
-            <div class="mt-4 grid gap-3">
+              <div
+                v-else-if="selectedCompany?.isDefault && selectedCompany?.name === 'Other'"
+                class="mt-4 rounded-[1.25rem] border border-slate-200/80 bg-slate-50 px-4 py-3 text-[12px] font-medium text-slate-700 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300"
+              >
+                <p class="font-bold">{{ companyManageCopy.otherTitle }}</p>
+                <p class="mt-1">{{ companyManageCopy.otherDescription }}</p>
+              </div>
+
+              <div v-else class="mt-4 grid gap-3" :class="selectedCompanyIsEditable ? 'grid-cols-2' : 'grid-cols-1'">
+                <UButton
+                  v-if="selectedCompanyIsEditable"
+                  class="h-12 justify-center rounded-full bg-gradient-to-r from-indigo-500 to-violet-400 font-bold text-white shadow-[0_18px_35px_-22px_rgba(99,102,241,0.65)] transition hover:from-indigo-600 hover:to-violet-500 active:scale-95"
+                  icon="i-lucide-pencil-line"
+                  @click="openCompanyEditor(selectedCompany)"
+                >
+                  {{ companyManageCopy.edit }}
+                </UButton>
+
+                <UButton
+                  v-if="selectedCompanyCanDelete"
+                  color="error"
+                  variant="soft"
+                  class="h-12 justify-center rounded-full font-bold"
+                  icon="i-lucide-trash-2"
+                  @click="openDeleteCompany"
+                >
+                  {{ companyManageCopy.delete }}
+                </UButton>
+              </div>
+
+              <div class="mt-4 grid gap-3">
+                <button
+                  type="button"
+                  class="flex items-center justify-between rounded-[1.15rem] border border-slate-200/80 bg-white px-4 py-3 text-left transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70"
+                  @click="selectedCompany && togglePinned(selectedCompany)"
+                >
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold text-default">{{ selectedCompany?.pinned ? companyToggleCopy.unpin : companyToggleCopy.pin }}</p>
+                    <p class="mt-0.5 text-[11px] text-muted">{{ companyToggleCopy.drag }}</p>
+                  </div>
+                  <UIcon :name="selectedCompany?.pinned ? 'i-lucide-pin-off' : 'i-lucide-pin'" class="size-5 text-muted" />
+                </button>
+
+                <button
+                  type="button"
+                  class="flex items-center justify-between rounded-[1.15rem] border border-slate-200/80 bg-white px-4 py-3 text-left transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70"
+                  @click="selectedCompany && toggleEnabled(selectedCompany)"
+                >
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold text-default">{{ selectedCompany?.enabled ? companyToggleCopy.disable : companyToggleCopy.enable }}</p>
+                    <p class="mt-0.5 text-[11px] text-muted">{{ selectedCompany?.enabled ? companyToggleCopy.active : companyToggleCopy.hidden }}</p>
+                  </div>
+                  <UIcon :name="selectedCompany?.enabled ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="size-5 text-muted" />
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <div v-if="deleteCompanyOpen" class="border-t border-slate-200/80 bg-white/92 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
+            <div class="flex w-full flex-col-reverse gap-3 sm:flex-row">
               <button
                 type="button"
-                class="flex items-center justify-between rounded-[1.15rem] border border-slate-200/80 bg-white px-4 py-3 text-left transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70"
-                @click="selectedCompany && togglePinned(selectedCompany)"
+                class="flex h-12 min-w-0 w-full items-center justify-center gap-2 rounded-full bg-slate-100 px-4 text-center font-bold text-slate-700 transition active:scale-[0.98] sm:flex-1 dark:bg-slate-900 dark:text-slate-200"
+                :disabled="deleteCompanyBusy"
+                @click="deleteCompanyOpen = false"
               >
-                <div class="min-w-0">
-                  <p class="text-sm font-bold text-default">{{ selectedCompany?.pinned ? companyToggleCopy.unpin : companyToggleCopy.pin }}</p>
-                  <p class="mt-0.5 text-[11px] text-muted">{{ companyToggleCopy.drag }}</p>
-                </div>
-                <UIcon :name="selectedCompany?.pinned ? 'i-lucide-pin-off' : 'i-lucide-pin'" class="size-5 text-muted" />
+                <UIcon name="i-lucide-x" class="size-4 shrink-0" />
+                {{ companiesCopy.cancel }}
               </button>
-
               <button
                 type="button"
-                class="flex items-center justify-between rounded-[1.15rem] border border-slate-200/80 bg-white px-4 py-3 text-left transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70"
-                @click="selectedCompany && toggleEnabled(selectedCompany)"
+                class="flex h-12 min-w-0 w-full items-center justify-center gap-2 rounded-full bg-rose-500 px-4 text-center font-bold text-white shadow-[0_16px_32px_-18px_rgba(244,63,94,0.6)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 sm:flex-1"
+                :disabled="deleteCompanyBusy"
+                @click="confirmDeleteCompany"
               >
-                <div class="min-w-0">
-                  <p class="text-sm font-bold text-default">{{ selectedCompany?.enabled ? companyToggleCopy.disable : companyToggleCopy.enable }}</p>
-                  <p class="mt-0.5 text-[11px] text-muted">{{ selectedCompany?.enabled ? companyToggleCopy.active : companyToggleCopy.hidden }}</p>
-                </div>
-                <UIcon :name="selectedCompany?.enabled ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="size-5 text-muted" />
+                <Loader v-if="deleteCompanyBusy" class="size-4 shrink-0" />
+                <UIcon v-else name="i-lucide-trash-2" class="size-4" />
+                {{ companyManageCopy.confirmDelete }}
               </button>
             </div>
           </div>
         </div>
       </template>
     </USlideover>
-
-    <UModal v-model="deleteCompanyOpen">
-      <template #body>
-        <div v-if="selectedCompany" class="space-y-4">
-          <p v-if="deleteCompanyError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
-            {{ deleteCompanyError }}
-          </p>
-
-          <div class="flex items-start gap-3">
-            <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-200">
-              <UIcon name="i-lucide-trash-2" class="size-5" />
-            </div>
-            <div class="min-w-0">
-              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ companyManageCopy.deleteTitle }}</p>
-              <h3 class="mt-1 text-lg font-black tracking-tight text-default">{{ selectedCompany.name }}</h3>
-              <p class="mt-1 text-[12px] text-muted">{{ companyManageCopy.deleteDescription }}</p>
-            </div>
-          </div>
-        </div>
-      </template>
-
-      <template #footer>
-        <div class="flex w-full gap-3">
-          <UButton
-            variant="soft"
-            color="neutral"
-            class="h-12 flex-1 justify-center rounded-full text-center font-bold"
-            icon="i-lucide-x"
-            :disabled="deleteCompanyBusy"
-            @click="deleteCompanyOpen = false"
-          >
-            {{ companiesCopy.cancel }}
-          </UButton>
-          <UButton
-            color="error"
-            class="h-12 flex-1 justify-center rounded-full text-center font-bold text-white"
-            :disabled="deleteCompanyBusy"
-            @click="confirmDeleteCompany"
-          >
-            <Loader v-if="deleteCompanyBusy" class="size-4 shrink-0" />
-            <UIcon v-else name="i-lucide-trash-2" class="size-4" />
-            {{ companyManageCopy.confirmDelete }}
-          </UButton>
-        </div>
-      </template>
-    </UModal>
 
     <USlideover
       v-model:open="companyModalOpen"

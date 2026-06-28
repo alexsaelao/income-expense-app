@@ -234,6 +234,7 @@ function categoryKeyForItem(item: any) {
 function openCategoryManager(item: any) {
   if (!canEditMoneyData.value) return
   selectedCategory.value = item
+  deleteCategoryOpen.value = false
   manageCategoryOpen.value = true
 }
 
@@ -247,13 +248,13 @@ function closeCategoryManager() {
 function openDeleteCategory() {
   if (!activeCategory.value || activeCategory.value.isDefault) return
   deleteCategoryError.value = ''
-  manageCategoryOpen.value = false
   deleteCategoryOpen.value = true
 }
 
 function openCategoryEditor(item: any) {
   if (!canEditMoneyData.value) return
   selectedCategory.value = item
+  deleteCategoryOpen.value = false
   editingCategoryId.value = item.id
   form.name = item.name
   form.type = item.type
@@ -594,15 +595,15 @@ function onSheetPointerCancel() {
       }"
     >
       <template #content="{ close }">
-        <div class="max-h-[84svh] overflow-hidden">
+        <div class="flex max-h-[84svh] flex-col overflow-hidden">
           <div class="border-b border-slate-200/80 px-4 pb-3 pt-2 dark:border-slate-800">
             <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-300/80 dark:bg-slate-700" />
 
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ categoryManageCopy.title }}</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ deleteCategoryOpen ? categoryManageCopy.deleteTitle : categoryManageCopy.title }}</p>
                 <h2 class="mt-1 text-lg font-black tracking-tight text-default">{{ activeCategory?.name ?? '-' }}</h2>
-                <p class="mt-1 text-[11px] text-muted">{{ categoryManageCopy.description }}</p>
+                <p class="mt-1 text-[11px] text-muted">{{ deleteCategoryOpen ? categoryManageCopy.confirmDelete : categoryManageCopy.description }}</p>
               </div>
 
               <button
@@ -616,137 +617,132 @@ function onSheetPointerCancel() {
             </div>
           </div>
 
-          <div class="max-h-[calc(84svh-4.5rem)] overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
-            <div
-              v-if="activeCategory"
-              class="rounded-[1.25rem] border border-slate-200/80 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/70"
-            >
-              <div class="flex items-center gap-3">
-                <div
-                  class="flex size-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-sm"
-                  :class="accentMap[activeCategory.color]"
-                >
-                  <span class="block translate-y-px text-xl leading-none">{{ activeCategory.emoji }}</span>
-                </div>
+          <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+7rem)]">
+            <div v-if="deleteCategoryOpen && activeCategory" class="space-y-4">
+              <p v-if="deleteCategoryError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+                {{ deleteCategoryError }}
+              </p>
 
+              <div class="flex items-start gap-3 rounded-[1.25rem] border border-rose-100 bg-rose-50/70 px-4 py-4 dark:border-rose-900/40 dark:bg-rose-950/20">
+                <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-200">
+                  <UIcon name="i-lucide-trash-2" class="size-5" />
+                </div>
                 <div class="min-w-0">
-                  <p class="truncate text-sm font-black text-default">{{ activeCategory.name }}</p>
-                  <div class="mt-1 flex flex-wrap items-center gap-1.5">
-                    <UBadge color="neutral" variant="soft" class="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] leading-none">
-                      {{ isDefaultSelectedCategory ? categoriesCopy.default : categoriesCopy.custom }}
-                    </UBadge>
-                    <UBadge color="primary" variant="soft" class="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] leading-none">
-                      {{ selectedCategoryTypeLabel }}
-                    </UBadge>
-                    <p class="text-[10px] text-muted leading-none">{{ activeCategory.count }} {{ categoriesCopy.transactions }}</p>
-                  </div>
+                  <p class="text-sm font-black text-default">{{ activeCategory.name }}</p>
+                  <p class="mt-1 text-[12px] text-muted">
+                    {{ categoryManageCopy.deleteDescription }}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div
-              v-if="activeCategory?.isDefault"
-              class="mt-4 rounded-[1.25rem] border border-amber-200/80 bg-amber-50 px-4 py-3 text-[12px] font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
-            >
-              <p class="font-bold">{{ categoryManageCopy.lockedTitle }}</p>
-              <p class="mt-1">{{ categoryManageCopy.lockedDescription }}</p>
-            </div>
+            <template v-else-if="activeCategory">
+              <div class="rounded-[1.25rem] border border-slate-200/80 bg-slate-50 px-4 py-4 dark:border-slate-800 dark:bg-slate-950/70">
+                <div class="flex items-center gap-3">
+                  <div
+                    class="flex size-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-sm"
+                    :class="accentMap[activeCategory.color]"
+                  >
+                    <span class="block translate-y-px text-xl leading-none">{{ activeCategory.emoji }}</span>
+                  </div>
 
-            <div v-else-if="activeCategory" class="mt-4 grid grid-cols-2 gap-3">
-              <UButton
-                :class="['h-12 justify-center rounded-full font-bold text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.55)] transition active:scale-95', activeTheme.accent]"
-                icon="i-lucide-pencil-line"
-                @click="openCategoryEditor(activeCategory)"
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-black text-default">{{ activeCategory.name }}</p>
+                    <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                      <UBadge color="neutral" variant="soft" class="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] leading-none">
+                        {{ isDefaultSelectedCategory ? categoriesCopy.default : categoriesCopy.custom }}
+                      </UBadge>
+                      <UBadge color="primary" variant="soft" class="rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] leading-none">
+                        {{ selectedCategoryTypeLabel }}
+                      </UBadge>
+                      <p class="text-[10px] text-muted leading-none">{{ activeCategory.count }} {{ categoriesCopy.transactions }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-if="activeCategory?.isDefault"
+                class="mt-4 rounded-[1.25rem] border border-amber-200/80 bg-amber-50 px-4 py-3 text-[12px] font-medium text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
               >
-                {{ categoryManageCopy.edit }}
-              </UButton>
+                <p class="font-bold">{{ categoryManageCopy.lockedTitle }}</p>
+                <p class="mt-1">{{ categoryManageCopy.lockedDescription }}</p>
+              </div>
 
-              <UButton
-                color="error"
-                variant="soft"
-                class="h-12 justify-center rounded-full font-bold"
-                icon="i-lucide-trash-2"
-                @click="openDeleteCategory"
-              >
-                {{ categoryManageCopy.delete }}
-              </UButton>
-            </div>
+              <div v-else class="mt-4 grid grid-cols-2 gap-3">
+                <UButton
+                  :class="['h-12 justify-center rounded-full font-bold text-white shadow-[0_18px_35px_-22px_rgba(14,165,233,0.55)] transition active:scale-95', activeTheme.accent]"
+                  icon="i-lucide-pencil-line"
+                  @click="openCategoryEditor(activeCategory)"
+                >
+                  {{ categoryManageCopy.edit }}
+                </UButton>
 
-            <div class="mt-4 grid gap-3">
+                <UButton
+                  color="error"
+                  variant="soft"
+                  class="h-12 justify-center rounded-full font-bold"
+                  icon="i-lucide-trash-2"
+                  @click="openDeleteCategory"
+                >
+                  {{ categoryManageCopy.delete }}
+                </UButton>
+              </div>
+
+              <div class="mt-4 grid gap-3">
+                <button
+                  type="button"
+                  class="flex items-center justify-between rounded-[1.15rem] border border-slate-200/80 bg-white px-4 py-3 text-left transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70"
+                  @click="activeCategory && togglePinned(activeCategory)"
+                >
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold text-default">{{ activeCategory?.pinned ? categoryToggleCopy.unpin : categoryToggleCopy.pin }}</p>
+                    <p class="mt-0.5 text-[11px] text-muted">{{ categoryToggleCopy.drag }}</p>
+                  </div>
+                  <UIcon :name="activeCategory?.pinned ? 'i-lucide-pin-off' : 'i-lucide-pin'" class="size-5 text-muted" />
+                </button>
+
+                <button
+                  type="button"
+                  class="flex items-center justify-between rounded-[1.15rem] border border-slate-200/80 bg-white px-4 py-3 text-left transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70"
+                  @click="activeCategory && toggleEnabled(activeCategory)"
+                >
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold text-default">{{ activeCategory?.enabled ? categoryToggleCopy.disable : categoryToggleCopy.enable }}</p>
+                    <p class="mt-0.5 text-[11px] text-muted">{{ activeCategory?.enabled ? categoryToggleCopy.active : categoryToggleCopy.hidden }}</p>
+                  </div>
+                  <UIcon :name="activeCategory?.enabled ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="size-5 text-muted" />
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <div v-if="deleteCategoryOpen" class="border-t border-slate-200/80 bg-white/92 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
+            <div class="flex w-full flex-col-reverse gap-3 sm:flex-row">
               <button
                 type="button"
-                class="flex items-center justify-between rounded-[1.15rem] border border-slate-200/80 bg-white px-4 py-3 text-left transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70"
-                @click="activeCategory && togglePinned(activeCategory)"
+                class="flex h-12 min-w-0 w-full items-center justify-center gap-2 rounded-full bg-slate-100 px-4 text-center font-bold text-slate-700 transition active:scale-[0.98] sm:flex-1 dark:bg-slate-900 dark:text-slate-200"
+                :disabled="deleteCategoryBusy"
+                @click="deleteCategoryOpen = false"
               >
-                <div class="min-w-0">
-                  <p class="text-sm font-bold text-default">{{ activeCategory?.pinned ? categoryToggleCopy.unpin : categoryToggleCopy.pin }}</p>
-                  <p class="mt-0.5 text-[11px] text-muted">{{ categoryToggleCopy.drag }}</p>
-                </div>
-                <UIcon :name="activeCategory?.pinned ? 'i-lucide-pin-off' : 'i-lucide-pin'" class="size-5 text-muted" />
+                <UIcon name="i-lucide-x" class="size-4 shrink-0" />
+                {{ categoriesCopy.cancel }}
               </button>
-
               <button
                 type="button"
-                class="flex items-center justify-between rounded-[1.15rem] border border-slate-200/80 bg-white px-4 py-3 text-left transition active:scale-[0.99] dark:border-slate-800 dark:bg-slate-950/70"
-                @click="activeCategory && toggleEnabled(activeCategory)"
+                class="flex h-12 min-w-0 w-full items-center justify-center gap-2 rounded-full bg-rose-500 px-4 text-center font-bold text-white shadow-[0_16px_32px_-18px_rgba(244,63,94,0.6)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 sm:flex-1"
+                :disabled="deleteCategoryBusy"
+                @click="confirmDeleteCategory"
               >
-                <div class="min-w-0">
-                  <p class="text-sm font-bold text-default">{{ activeCategory?.enabled ? categoryToggleCopy.disable : categoryToggleCopy.enable }}</p>
-                  <p class="mt-0.5 text-[11px] text-muted">{{ activeCategory?.enabled ? categoryToggleCopy.active : categoryToggleCopy.hidden }}</p>
-                </div>
-                <UIcon :name="activeCategory?.enabled ? 'i-lucide-eye-off' : 'i-lucide-eye'" class="size-5 text-muted" />
+                <Loader v-if="deleteCategoryBusy" class="size-4 shrink-0" />
+                <UIcon v-else name="i-lucide-trash-2" class="size-4" />
+                {{ categoryManageCopy.confirmDelete }}
               </button>
             </div>
           </div>
         </div>
       </template>
     </USlideover>
-
-    <UModal v-model="deleteCategoryOpen">
-      <template #body>
-        <div v-if="activeCategory" class="space-y-4">
-          <p v-if="deleteCategoryError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
-            {{ deleteCategoryError }}
-          </p>
-
-          <div class="flex items-start gap-3">
-            <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-200">
-              <UIcon name="i-lucide-trash-2" class="size-5" />
-            </div>
-            <div class="min-w-0">
-              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ categoryManageCopy.deleteTitle }}</p>
-              <h3 class="mt-1 text-lg font-black tracking-tight text-default">{{ activeCategory.name }}</h3>
-              <p class="mt-1 text-[12px] text-muted">{{ categoryManageCopy.deleteDescription }}</p>
-            </div>
-          </div>
-        </div>
-      </template>
-
-      <template #footer>
-        <div class="flex w-full gap-3">
-          <UButton
-            variant="soft"
-            color="neutral"
-            class="h-12 flex-1 justify-center rounded-full text-center font-bold"
-            icon="i-lucide-x"
-            :disabled="deleteCategoryBusy"
-            @click="deleteCategoryOpen = false"
-          >
-            {{ categoriesCopy.cancel }}
-          </UButton>
-          <UButton
-            color="error"
-            class="h-12 flex-1 justify-center rounded-full text-center font-bold text-white"
-            :disabled="deleteCategoryBusy"
-            @click="confirmDeleteCategory"
-          >
-            <Loader v-if="deleteCategoryBusy" class="size-4 shrink-0" />
-            <UIcon v-else name="i-lucide-trash-2" class="size-4" />
-            {{ categoryManageCopy.confirmDelete }}
-          </UButton>
-        </div>
-      </template>
-    </UModal>
 
     <USlideover
       v-model:open="categoryModalOpen"

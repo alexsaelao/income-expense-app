@@ -445,30 +445,29 @@ async function confirmDeleteWallet() {
             </div>
           </div>
 
-          <div class="border-t border-slate-200/80 bg-white/92 px-4 py-3 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
+          <div class="border-t border-slate-200/80 bg-white/92 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
             <div class="grid gap-2">
               <template v-if="walletDeleteOpen">
-                <div class="flex w-full gap-3">
-                  <UButton
-                    variant="soft"
-                    color="neutral"
-                    class="h-12 flex-1 justify-center rounded-full text-center font-bold"
-                    icon="i-lucide-x"
+                <div class="flex w-full flex-col-reverse gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    class="flex h-12 min-w-0 w-full items-center justify-center gap-2 rounded-full bg-slate-100 px-4 text-center font-bold text-slate-700 transition active:scale-[0.98] sm:flex-1 dark:bg-slate-900 dark:text-slate-200"
                     :disabled="walletDeleteBusy"
                     @click="closeDeleteWalletConfirm"
                   >
+                    <UIcon name="i-lucide-x" class="size-4 shrink-0" />
                     {{ walletCopy.cancel }}
-                  </UButton>
-                  <UButton
-                    color="rose"
-                    class="h-12 flex-1 justify-center rounded-full text-center font-bold text-white"
+                  </button>
+                  <button
+                    type="button"
+                    class="flex h-12 min-w-0 w-full items-center justify-center gap-2 rounded-full bg-rose-500 px-4 text-center font-bold text-white shadow-[0_16px_32px_-18px_rgba(244,63,94,0.6)] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 sm:flex-1"
                     :disabled="walletDeleteBusy"
                     @click="confirmDeleteWallet"
                   >
                     <Loader v-if="walletDeleteBusy" class="size-4 shrink-0" />
                     <UIcon v-else name="i-lucide-trash-2" class="size-4" />
                     {{ walletCopy.confirmDelete }}
-                  </UButton>
+                  </button>
                 </div>
               </template>
 
