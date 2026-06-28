@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { nextTick } from 'vue'
 import type { WalletColor } from '~/composables/useMoneyNote'
 import { useMoneyNote, walletColorOptions } from '~/composables/useMoneyNote'
 
@@ -35,6 +34,8 @@ const walletManageOpen = ref(false)
 const walletDeleteOpen = ref(false)
 const walletFormError = ref('')
 const walletIsSubmitting = ref(false)
+const walletDeleteBusy = ref(false)
+const walletDeleteError = ref('')
 const walletForm = reactive({
   name: '',
   emoji: '💳',
@@ -58,6 +59,16 @@ function resolveActionErrorMessage(error: unknown) {
     || 'Unable to save wallet'
 }
 
+function logWalletDeleteError(stage: string, error: unknown, extra: Record<string, unknown> = {}) {
+  console.error('[wallets] delete wallet failed', {
+    stage,
+    routeWalletId: String(route.params.id ?? ''),
+    canEditMoneyData: canEditMoneyData.value,
+    ...extra,
+    error
+  })
+}
+
 const walletCopy = computed(() => {
   if (selectedLanguage.value === 'lo') {
     return {
@@ -70,6 +81,8 @@ const walletCopy = computed(() => {
       emoji: 'ອີໂມຈິ',
       color: 'ສີ',
       note: 'ຫມາຍເຫດ',
+      cancel: 'ຍົກເລີກ',
+      deleteUnavailable: 'ຍັງບໍ່ພ້ອມລົບກະເປົ໋າ. ກວດສອບສະຖານະ cloud ແລ້ວລອງໃໝ່.',
       saveChanges: 'ບັນທຶກການແກ້ໄຂ',
       deleteWallet: 'ລຶບກະເປົ໋າ',
       deleteTitle: 'ລຶບກະເປົ໋າ?',
@@ -97,6 +110,8 @@ const walletCopy = computed(() => {
     emoji: 'Emoji',
     color: 'Color',
     note: 'Note',
+    cancel: 'Cancel',
+    deleteUnavailable: 'Wallet delete is not ready yet. Please check cloud sync and try again.',
     saveChanges: 'Save changes',
     deleteWallet: 'Delete wallet',
     deleteTitle: 'Delete wallet?',
@@ -127,20 +142,21 @@ function openWalletManager() {
 
 function closeWalletManager() {
   walletManageOpen.value = false
+  walletDeleteOpen.value = false
   walletFormError.value = ''
+  walletDeleteError.value = ''
 }
 
 function openDeleteWalletConfirm() {
-  walletManageOpen.value = false
-  walletDeleteOpen.value = false
+  if (!wallet.value || !canEditMoneyData.value) return
 
-  nextTick(() => {
-    walletDeleteOpen.value = true
-  })
+  walletDeleteError.value = ''
+  walletDeleteOpen.value = true
 }
 
 function closeDeleteWalletConfirm() {
   walletDeleteOpen.value = false
+  walletDeleteError.value = ''
 }
 
 async function submitWalletUpdate() {
@@ -180,17 +196,41 @@ async function submitWalletUpdate() {
 }
 
 async function confirmDeleteWallet() {
-  if (!wallet.value || !canEditMoneyData.value) return
+  if (!wallet.value) {
+    walletDeleteError.value = walletCopy.value.walletNotFound
+    console.warn('[wallets] delete wallet aborted: wallet not found', {
+      routeWalletId: String(route.params.id ?? '')
+    })
+    return
+  }
+
+  if (!canEditMoneyData.value) {
+    walletDeleteError.value = walletCopy.value.deleteUnavailable
+    console.warn('[wallets] delete wallet aborted: cloud sync unavailable', {
+      routeWalletId: String(route.params.id ?? '')
+    })
+    return
+  }
+
+  if (walletDeleteBusy.value) return
+
+  walletDeleteBusy.value = true
+  walletDeleteError.value = ''
 
   try {
     await removeWallet(wallet.value.id)
+    closeWalletManager()
     closeDeleteWalletConfirm()
-    router.push('/wallets')
+    await router.push('/wallets')
   }
   catch (error) {
-    walletFormError.value = resolveActionErrorMessage(error)
-    walletDeleteOpen.value = false
-    walletManageOpen.value = true
+    logWalletDeleteError('confirmDeleteWallet', error, {
+      walletId: wallet.value.id
+    })
+    walletDeleteError.value = resolveActionErrorMessage(error)
+  }
+  finally {
+    walletDeleteBusy.value = false
   }
 }
 </script>
@@ -287,9 +327,13 @@ async function confirmDeleteWallet() {
             <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-300/80 dark:bg-slate-700" />
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ walletCopy.manageWallet }}</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                  {{ walletDeleteOpen ? walletCopy.deleteTitle : walletCopy.manageWallet }}
+                </p>
                 <h2 class="mt-1 text-lg font-black tracking-tight text-default">{{ wallet?.name ?? walletCopy.noWallet }}</h2>
-                <p class="mt-1 text-[11px] text-muted">{{ walletCopy.editWallet }}</p>
+                <p class="mt-1 text-[11px] text-muted">
+                  {{ walletDeleteOpen ? walletCopy.confirmDelete : walletCopy.editWallet }}
+                </p>
               </div>
 
               <button
@@ -304,7 +348,25 @@ async function confirmDeleteWallet() {
           </div>
 
           <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-4">
-            <div class="space-y-4">
+            <div v-if="walletDeleteOpen && wallet" class="space-y-4">
+              <p v-if="walletDeleteError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+                {{ walletDeleteError }}
+              </p>
+
+              <div class="flex items-start gap-3 rounded-[1.25rem] border border-rose-100 bg-rose-50/70 px-4 py-4 dark:border-rose-900/40 dark:bg-rose-950/20">
+                <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-200">
+                  <UIcon name="i-lucide-trash-2" class="size-5" />
+                </div>
+                <div class="min-w-0">
+                  <p class="text-sm font-black text-default">{{ wallet.name }}</p>
+                  <p class="mt-1 text-[12px] text-muted">
+                    {{ walletTransactionCount > 0 ? walletCopy.deleteWithTxDesc(walletTransactionCount) : walletCopy.deleteEmptyDesc }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="space-y-4">
               <div>
                 <div class="flex items-center gap-2">
                   <div class="flex size-9 items-center justify-center rounded-full bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-200">
@@ -385,72 +447,58 @@ async function confirmDeleteWallet() {
 
           <div class="border-t border-slate-200/80 bg-white/92 px-4 py-3 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90">
             <div class="grid gap-2">
-              <UButton
-                v-if="canEditMoneyData"
-                :disabled="walletIsSubmitting"
-                :class="['h-12 justify-center rounded-full bg-gradient-to-r text-center text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98]', activeTheme.accent]"
-                @click="submitWalletUpdate"
-              >
-                <LoadingSpinner v-if="walletIsSubmitting" class="size-4 shrink-0" />
-                <UIcon v-else name="i-lucide-check" class="size-4" />
-                {{ walletCopy.saveChanges }}
-              </UButton>
+              <template v-if="walletDeleteOpen">
+                <div class="flex w-full gap-3">
+                  <UButton
+                    variant="soft"
+                    color="neutral"
+                    class="h-12 flex-1 justify-center rounded-full text-center font-bold"
+                    icon="i-lucide-x"
+                    :disabled="walletDeleteBusy"
+                    @click="closeDeleteWalletConfirm"
+                  >
+                    {{ walletCopy.cancel }}
+                  </UButton>
+                  <UButton
+                    color="rose"
+                    class="h-12 flex-1 justify-center rounded-full text-center font-bold text-white"
+                    :disabled="walletDeleteBusy"
+                    @click="confirmDeleteWallet"
+                  >
+                    <Loader v-if="walletDeleteBusy" class="size-4 shrink-0" />
+                    <UIcon v-else name="i-lucide-trash-2" class="size-4" />
+                    {{ walletCopy.confirmDelete }}
+                  </UButton>
+                </div>
+              </template>
 
-              <UButton
-                v-if="canEditMoneyData"
-                color="rose"
-                variant="soft"
-                class="h-12 justify-center rounded-full text-center text-sm font-bold"
-                icon="i-lucide-trash-2"
-                @click="openDeleteWalletConfirm"
-              >
-                {{ walletCopy.deleteWallet }}
-              </UButton>
+              <template v-else>
+                <UButton
+                  v-if="canEditMoneyData"
+                  :disabled="walletIsSubmitting"
+                  :class="['h-12 justify-center rounded-full bg-gradient-to-r text-center text-sm font-extrabold text-white shadow-[0_14px_32px_-18px_rgba(14,165,233,0.75)] transition active:scale-[0.98]', activeTheme.accent]"
+                  @click="submitWalletUpdate"
+                >
+                  <LoadingSpinner v-if="walletIsSubmitting" class="size-4 shrink-0" />
+                  <UIcon v-else name="i-lucide-check" class="size-4" />
+                  {{ walletCopy.saveChanges }}
+                </UButton>
+
+                <UButton
+                  v-if="canEditMoneyData"
+                  color="rose"
+                  variant="soft"
+                  class="h-12 justify-center rounded-full text-center text-sm font-bold"
+                  icon="i-lucide-trash-2"
+                  @click="openDeleteWalletConfirm"
+                >
+                  {{ walletCopy.deleteWallet }}
+                </UButton>
+              </template>
             </div>
           </div>
         </div>
       </template>
     </USlideover>
-
-    <UModal v-model="walletDeleteOpen">
-      <template #body>
-        <div v-if="wallet" class="space-y-4">
-          <div class="flex items-start gap-3">
-            <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-200">
-              <UIcon name="i-lucide-trash-2" class="size-5" />
-            </div>
-            <div class="min-w-0">
-              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ walletCopy.deleteTitle }}</p>
-              <h3 class="mt-1 text-lg font-black tracking-tight text-default">{{ wallet.name }}</h3>
-              <p class="mt-1 text-[12px] text-muted">
-                {{ walletTransactionCount > 0 ? walletCopy.deleteWithTxDesc(walletTransactionCount) : walletCopy.deleteEmptyDesc }}
-              </p>
-            </div>
-          </div>
-        </div>
-      </template>
-
-      <template #footer>
-        <div class="flex w-full gap-3">
-          <UButton
-            variant="soft"
-            color="neutral"
-            class="h-12 flex-1 justify-center rounded-full text-center font-bold"
-            icon="i-lucide-x"
-            @click="walletDeleteOpen = false"
-          >
-            {{ walletCopy.backToWallets }}
-          </UButton>
-          <UButton
-            color="rose"
-            class="h-12 flex-1 justify-center rounded-full text-center font-bold text-white"
-            icon="i-lucide-trash-2"
-            @click="confirmDeleteWallet"
-          >
-            {{ walletCopy.confirmDelete }}
-          </UButton>
-        </div>
-      </template>
-    </UModal>
   </div>
 </template>

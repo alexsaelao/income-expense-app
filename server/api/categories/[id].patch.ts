@@ -1,5 +1,5 @@
 import { createError, getRouterParam, readBody } from 'h3'
-import { mapCategoryRow, validateCategoryUpdateInput } from '~/server/utils/money-data-db'
+import { isBuiltInCategoryName, mapCategoryRow, validateCategoryUpdateInput } from '~/server/utils/money-data-db'
 import { requireMoneyDataAccess } from '~/server/utils/money-data-api'
 import {
   CATEGORIES_TABLE,
@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
     args: [ownerKey, existing.type, payload.name.toLowerCase(), categoryId]
   })
 
-  if (duplicate.rows.length) {
+  if (duplicate.rows.length || isBuiltInCategoryName(existing.type === 'income' ? 'income' : 'expense', payload.name)) {
     throw createError({ statusCode: 409, statusMessage: 'Category name already exists' })
   }
 

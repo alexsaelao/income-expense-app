@@ -12,6 +12,10 @@ import { normalizeDbTimestamp } from '~/server/utils/turso'
 const CURRENCIES = new Set(['LAK', 'THB', 'USD'])
 const CATEGORY_TYPES = new Set(['income', 'expense'])
 const WALLET_COLORS = new Set(['sky', 'emerald', 'indigo', 'amber', 'rose', 'violet', 'fuchsia', 'slate'])
+const BUILT_IN_CATEGORY_NAMES: Record<CategoryType, Set<string>> = {
+  income: new Set(['salary', 'freelance', 'gift', 'cashback', 'other']),
+  expense: new Set(['food', 'transport', 'bills', 'shopping', 'health', 'family', 'other'])
+}
 
 type WalletRow = {
   wallet_id?: string
@@ -186,6 +190,10 @@ export function validateCategoryUpdateInput(payload: unknown) {
     color,
     enabled
   }
+}
+
+export function isBuiltInCategoryName(type: CategoryType, name: string) {
+  return BUILT_IN_CATEGORY_NAMES[type].has(name.trim().toLowerCase())
 }
 
 export function validateCompanyCreateInput(payload: unknown) {

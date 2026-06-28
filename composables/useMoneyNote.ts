@@ -236,6 +236,10 @@ function isBuiltInCompany(company: { id?: string; name?: string | null }) {
   return company.id?.startsWith('company-default-') || defaultCompanyDefinitions.some(item => item.name.toLowerCase() === normalizedName)
 }
 
+function isBuiltInWallet(wallet: { id?: string; name?: string | null }) {
+  return wallet.id === 'wallet-cash' || wallet.name?.trim().toLowerCase() === 'cash'
+}
+
 function defaultCategoryKey(type: CategoryType, name: string) {
   return `${type}:${name.toLowerCase()}`
 }
@@ -998,9 +1002,10 @@ export function useMoneyNote() {
       const databaseCompanies = Array.isArray(result.companies) ? result.companies : []
 
       if (!databaseWallets.length && !databaseCategories.length && !databaseCompanies.length) {
+        const fallbackWallets = fallbackState.wallets.filter(wallet => !isBuiltInWallet(wallet))
         const fallbackCompanies = fallbackState.companies.filter(company => !isBuiltInCompany(company))
         const shouldImportFallback = Boolean(
-          fallbackState.wallets.length
+          fallbackWallets.length
           || fallbackState.categories.length
           || fallbackCompanies.length
         )
@@ -1009,7 +1014,7 @@ export function useMoneyNote() {
           const imported = await $fetch<{ ok: boolean; wallets: Wallet[]; categories: CategoryItem[]; companies: CompanyItem[] }>('/api/money-data/import', {
             method: 'POST',
             body: {
-              wallets: fallbackState.wallets,
+              wallets: fallbackWallets,
               categories: fallbackState.categories,
               companies: fallbackCompanies
             }
@@ -1446,12 +1451,12 @@ export function useMoneyNote() {
     store.value.categories = store.value.categories.filter(category => category.id !== categoryId)
     const customKey = customCategoryKey(categoryId)
     store.value.categoryOrder = {
-      income: store.value.categoryOrder.income.filter(key => key !== customKey),
-      expense: store.value.categoryOrder.expense.filter(key => key !== customKey)
+      income: (store.value.categoryOrder?.income ?? []).filter(key => key !== customKey),
+      expense: (store.value.categoryOrder?.expense ?? []).filter(key => key !== customKey)
     }
     store.value.pinnedCategoryKeys = {
-      income: store.value.pinnedCategoryKeys.income.filter(key => key !== customKey),
-      expense: store.value.pinnedCategoryKeys.expense.filter(key => key !== customKey)
+      income: (store.value.pinnedCategoryKeys?.income ?? []).filter(key => key !== customKey),
+      expense: (store.value.pinnedCategoryKeys?.expense ?? []).filter(key => key !== customKey)
     }
     store.value = recalculateBalances(cloneState(store.value))
     await persistSnapshotAfterMutation()
@@ -1885,18 +1890,31 @@ export function useMoneyNote() {
 
   async function removeWallet(walletId: string) {
     assertMoneyMutationReady()
-    await $fetch<{ ok: boolean }>(`/api/wallets/${walletId}`, {
-      method: 'DELETE'
-    })
-    store.value.wallets = store.value.wallets.filter(wallet => wallet.id !== walletId)
-    store.value.transactions = store.value.transactions.filter(
-      transaction => transaction.walletId !== walletId && transaction.toWalletId !== walletId
-    )
-    const customKey = customWalletKey(walletId)
-    store.value.walletOrder = (store.value.walletOrder ?? []).filter(key => key !== customKey)
-    store.value.pinnedWalletKeys = (store.value.pinnedWalletKeys ?? []).filter(key => key !== customKey)
-    store.value = recalculateBalances(cloneState(store.value))
-    await persistSnapshotAfterMutation()
+
+    try {
+      await $fetch<{ ok: boolean }>(`/api/wallets/${walletId}`, {
+        method: 'DELETE'
+      })
+      store.value.wallets = store.value.wallets.filter(wallet => wallet.id !== walletId)
+      store.value.transactions = store.value.transactions.filter(
+        transaction => transaction.walletId !== walletId && transaction.toWalletId !== walletId
+      )
+      const customKey = customWalletKey(walletId)
+      store.value.walletOrder = (store.value.walletOrder ?? []).filter(key => key !== customKey)
+      store.value.pinnedWalletKeys = (store.value.pinnedWalletKeys ?? []).filter(key => key !== customKey)
+      store.value = recalculateBalances(cloneState(store.value))
+      await persistSnapshotAfterMutation()
+    }
+    catch (error) {
+      console.error('[money-note] removeWallet failed', {
+        walletId,
+        accountIdentifier: activeAccountIdentifier.value,
+        isCloudSyncEnabled: isCloudSyncEnabled.value,
+        canEditMoneyData: canEditMoneyData.value,
+        error
+      })
+      throw error
+    }
   }
 
   async function setWalletPinned(walletId: string, pinned: boolean) {

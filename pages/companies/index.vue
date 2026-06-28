@@ -28,6 +28,8 @@ const sheetPointerId = ref<number | null>(null)
 const sheetHandleRef = ref<HTMLElement | null>(null)
 const formError = ref('')
 const companyIsSubmitting = ref(false)
+const deleteCompanyBusy = ref(false)
+const deleteCompanyError = ref('')
 const selectedCompany = ref<any | null>(null)
 const dragState = reactive({
   key: ''
@@ -222,7 +224,15 @@ function openCompanyManager(item: any) {
 function closeCompanyManager() {
   manageCompanyOpen.value = false
   deleteCompanyOpen.value = false
+  deleteCompanyError.value = ''
   selectedCompany.value = null
+}
+
+function openDeleteCompany() {
+  if (!selectedCompanyCanDelete.value) return
+  deleteCompanyError.value = ''
+  manageCompanyOpen.value = false
+  deleteCompanyOpen.value = true
 }
 
 function openCompanyEditor(item: any) {
@@ -373,7 +383,10 @@ async function toggleEnabled(item: any) {
 
 async function confirmDeleteCompany() {
   if (!canEditMoneyData.value) return
-  if (!selectedCompany.value) return
+  if (!selectedCompany.value || deleteCompanyBusy.value) return
+
+  deleteCompanyBusy.value = true
+  deleteCompanyError.value = ''
 
   if (selectedCompany.value.isDefault) {
     if (selectedCompany.value.name === 'Other') {
@@ -381,11 +394,13 @@ async function confirmDeleteCompany() {
         await setDefaultCompanyEnabled(selectedCompany.value.name, false)
       }
       catch (error) {
-        formError.value = resolveActionErrorMessage(error)
+        deleteCompanyError.value = resolveActionErrorMessage(error)
+        deleteCompanyBusy.value = false
         return
       }
     }
     closeCompanyManager()
+    deleteCompanyBusy.value = false
     return
   }
 
@@ -394,7 +409,10 @@ async function confirmDeleteCompany() {
     closeCompanyManager()
   }
   catch (error) {
-    formError.value = resolveActionErrorMessage(error)
+    deleteCompanyError.value = resolveActionErrorMessage(error)
+  }
+  finally {
+    deleteCompanyBusy.value = false
   }
 }
 
@@ -632,7 +650,7 @@ function onCompanyDragEnd() {
                 variant="soft"
                 class="h-12 justify-center rounded-full font-bold"
                 icon="i-lucide-trash-2"
-                @click="manageCompanyOpen = false; deleteCompanyOpen = true"
+                @click="openDeleteCompany"
               >
                 {{ companyManageCopy.delete }}
               </UButton>
@@ -671,6 +689,10 @@ function onCompanyDragEnd() {
     <UModal v-model="deleteCompanyOpen">
       <template #body>
         <div v-if="selectedCompany" class="space-y-4">
+          <p v-if="deleteCompanyError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+            {{ deleteCompanyError }}
+          </p>
+
           <div class="flex items-start gap-3">
             <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-200">
               <UIcon name="i-lucide-trash-2" class="size-5" />
@@ -691,6 +713,7 @@ function onCompanyDragEnd() {
             color="neutral"
             class="h-12 flex-1 justify-center rounded-full text-center font-bold"
             icon="i-lucide-x"
+            :disabled="deleteCompanyBusy"
             @click="deleteCompanyOpen = false"
           >
             {{ companiesCopy.cancel }}
@@ -698,9 +721,11 @@ function onCompanyDragEnd() {
           <UButton
             color="error"
             class="h-12 flex-1 justify-center rounded-full text-center font-bold text-white"
-            icon="i-lucide-trash-2"
+            :disabled="deleteCompanyBusy"
             @click="confirmDeleteCompany"
           >
+            <Loader v-if="deleteCompanyBusy" class="size-4 shrink-0" />
+            <UIcon v-else name="i-lucide-trash-2" class="size-4" />
             {{ companyManageCopy.confirmDelete }}
           </UButton>
         </div>

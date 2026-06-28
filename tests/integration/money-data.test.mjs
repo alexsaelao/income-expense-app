@@ -185,7 +185,7 @@ test('category/company CRUD update linked transactions and transaction CRUD work
   })
   const categoryA = await createCategory(identifier, {
     type: 'expense',
-    name: 'Food',
+    name: 'Canteen',
     emoji: '🍜',
     color: 'rose'
   })

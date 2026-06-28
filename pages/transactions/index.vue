@@ -16,8 +16,16 @@ const toDate = ref('')
 const deleteConfirmOpen = ref(false)
 const deleteTarget = ref<Transaction | null>(null)
 const deleteError = ref('')
+const isDeletingTransaction = ref(false)
 const filtersOpen = ref(false)
 const isTransactionsReady = computed(() => transactionsHydrated.value)
+const centeredDeleteModalUi = {
+  content: '!fixed !inset-auto !top-1/2 !left-1/2 flex !max-h-[calc(100dvh-2rem)] !w-[calc(100vw-2rem)] !max-w-[30rem] !-translate-x-1/2 !-translate-y-1/2 flex-col !overflow-hidden !rounded-[1.75rem] !border !border-slate-200/70 !bg-white !shadow-[0_30px_90px_-36px_rgba(15,23,42,0.42)] !ring-1 !ring-slate-200/60 focus:outline-none dark:!border-slate-800 dark:!bg-slate-950 dark:!ring-slate-800 sm:!max-h-[calc(100dvh-4rem)]',
+  header: 'px-4 pt-4 sm:px-6 sm:pt-6',
+  body: 'overflow-y-auto px-4 pb-4 sm:px-6',
+  footer: 'px-4 pb-4 pt-0 sm:px-6 sm:pb-6',
+  overlay: 'fixed inset-0 bg-slate-950/45 backdrop-blur-[10px]'
+}
 
 function resolveActionErrorMessage(error: unknown) {
   const maybeResponse = error as {
@@ -297,9 +305,10 @@ function openDeleteConfirm(transaction: Transaction) {
 }
 
 async function confirmDelete() {
-  if (!deleteTarget.value) return
+  if (!deleteTarget.value || isDeletingTransaction.value) return
 
   deleteError.value = ''
+  isDeletingTransaction.value = true
 
   try {
     await removeTransaction(deleteTarget.value.id)
@@ -309,9 +318,13 @@ async function confirmDelete() {
   catch (error) {
     deleteError.value = resolveActionErrorMessage(error)
   }
+  finally {
+    isDeletingTransaction.value = false
+  }
 }
 
 function closeDeleteConfirm() {
+  if (isDeletingTransaction.value) return
   deleteConfirmOpen.value = false
   deleteTarget.value = null
   deleteError.value = ''
@@ -565,6 +578,7 @@ function closeDeleteConfirm() {
       v-model:open="deleteConfirmOpen"
       :title="transactionsCopy.deleteTitle"
       :description="selectedLanguage === 'lo' ? 'ການກະທຳນີ້ບໍ່ສາມາດຍົກເລີກໄດ້.' : 'This action cannot be undone.'"
+      :ui="centeredDeleteModalUi"
     >
       <template #body>
         <div v-if="deleteTarget" class="space-y-4">
@@ -600,6 +614,7 @@ function closeDeleteConfirm() {
             color="neutral"
             size="xl"
             class="h-12 rounded-2xl text-base font-bold justify-center text-center"
+            :disabled="isDeletingTransaction"
             @click="closeDeleteConfirm"
           >
             {{ selectedLanguage === 'lo' ? 'ຍົກເລີກ' : 'Cancel' }}
@@ -608,11 +623,13 @@ function closeDeleteConfirm() {
             type="button"
             color="rose"
             size="xl"
-            icon="i-lucide-trash-2"
-            class="h-12 rounded-2xl bg-rose-500 text-base font-extrabold text-white shadow-[0_16px_30px_-18px_rgba(244,63,94,0.65)] hover:bg-rose-600 justify-center text-center"
+            class="h-12 rounded-2xl bg-rose-500 text-base font-extrabold text-white shadow-[0_16px_30px_-18px_rgba(244,63,94,0.65)] hover:bg-rose-600 justify-center gap-2 text-center"
+            :disabled="isDeletingTransaction"
             @click="confirmDelete"
           >
-                {{ transactionsCopy.delete }}
+            <Loader v-if="isDeletingTransaction" class="size-4" />
+            <UIcon v-else name="i-lucide-trash-2" class="size-4" />
+            <span>{{ transactionsCopy.delete }}</span>
           </UButton>
         </div>
       </template>

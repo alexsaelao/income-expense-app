@@ -27,6 +27,8 @@ const sheetPointerId = ref<number | null>(null)
 const sheetHandleRef = ref<HTMLElement | null>(null)
 const formError = ref('')
 const categoryIsSubmitting = ref(false)
+const deleteCategoryBusy = ref(false)
+const deleteCategoryError = ref('')
 const selectedCategory = ref<any | null>(null)
 const dragState = reactive({
   type: null as CategoryType | null,
@@ -238,7 +240,15 @@ function openCategoryManager(item: any) {
 function closeCategoryManager() {
   manageCategoryOpen.value = false
   deleteCategoryOpen.value = false
+  deleteCategoryError.value = ''
   selectedCategory.value = null
+}
+
+function openDeleteCategory() {
+  if (!activeCategory.value || activeCategory.value.isDefault) return
+  deleteCategoryError.value = ''
+  manageCategoryOpen.value = false
+  deleteCategoryOpen.value = true
 }
 
 function openCategoryEditor(item: any) {
@@ -343,7 +353,19 @@ async function submitCategory() {
   if (categoryIsSubmitting.value) return
 
   const nextName = form.name.trim()
+  const nextType = editingCategoryId.value && selectedCategory.value ? selectedCategory.value.type : form.type
   if (!nextName) {
+    formError.value = categoriesCopy.value.nameExists
+    return
+  }
+
+  const matchesDefaultName = categoryEntriesFor(nextType).some(item => (
+    item.isDefault
+    && item.name.trim().toLowerCase() === nextName.toLowerCase()
+    && (!editingCategoryId.value || selectedCategory.value?.name.trim().toLowerCase() !== nextName.toLowerCase())
+  ))
+
+  if (matchesDefaultName) {
     formError.value = categoriesCopy.value.nameExists
     return
   }
@@ -385,7 +407,10 @@ async function submitCategory() {
 
 async function confirmDeleteCategory() {
   if (!canEditMoneyData.value) return
-  if (!selectedCategory.value || selectedCategory.value.isDefault) return
+  if (!selectedCategory.value || selectedCategory.value.isDefault || deleteCategoryBusy.value) return
+
+  deleteCategoryBusy.value = true
+  deleteCategoryError.value = ''
 
   try {
     await removeCategory(selectedCategory.value.id)
@@ -393,7 +418,10 @@ async function confirmDeleteCategory() {
     deleteCategoryOpen.value = false
   }
   catch (error) {
-    formError.value = resolveActionErrorMessage(error)
+    deleteCategoryError.value = resolveActionErrorMessage(error)
+  }
+  finally {
+    deleteCategoryBusy.value = false
   }
 }
 
@@ -638,7 +666,7 @@ function onSheetPointerCancel() {
                 variant="soft"
                 class="h-12 justify-center rounded-full font-bold"
                 icon="i-lucide-trash-2"
-                @click="manageCategoryOpen = false; deleteCategoryOpen = true"
+                @click="openDeleteCategory"
               >
                 {{ categoryManageCopy.delete }}
               </UButton>
@@ -677,6 +705,10 @@ function onSheetPointerCancel() {
     <UModal v-model="deleteCategoryOpen">
       <template #body>
         <div v-if="activeCategory" class="space-y-4">
+          <p v-if="deleteCategoryError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+            {{ deleteCategoryError }}
+          </p>
+
           <div class="flex items-start gap-3">
             <div class="flex size-11 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-200">
               <UIcon name="i-lucide-trash-2" class="size-5" />
@@ -697,6 +729,7 @@ function onSheetPointerCancel() {
             color="neutral"
             class="h-12 flex-1 justify-center rounded-full text-center font-bold"
             icon="i-lucide-x"
+            :disabled="deleteCategoryBusy"
             @click="deleteCategoryOpen = false"
           >
             {{ categoriesCopy.cancel }}
@@ -704,9 +737,11 @@ function onSheetPointerCancel() {
           <UButton
             color="error"
             class="h-12 flex-1 justify-center rounded-full text-center font-bold text-white"
-            icon="i-lucide-trash-2"
+            :disabled="deleteCategoryBusy"
             @click="confirmDeleteCategory"
           >
+            <Loader v-if="deleteCategoryBusy" class="size-4 shrink-0" />
+            <UIcon v-else name="i-lucide-trash-2" class="size-4" />
             {{ categoryManageCopy.confirmDelete }}
           </UButton>
         </div>
